@@ -42,7 +42,7 @@ class ActivityUpdate(ActivityBase):
     color: Optional[str] = Field(None, max_length=50)
 
 
-class Activity(ActivityBase):
+class ActivityResponse(ActivityBase):
     """Schema for Activity response"""
     id: int
 

@@ -5,11 +5,10 @@ from sqlalchemy.orm import Session
 
 from configs.Database import get_db_connection
 from schemas.pydantic.MomentSchema import (
-    Moment,
+    MomentResponse,
     MomentCreate,
     MomentUpdate,
-    MomentList,
-    MomentResponse
+    MomentList
 )
 from services.MomentService import MomentService
 
@@ -45,7 +44,7 @@ async def list_moments(
     - start_date: Filter moments after this time (UTC)
     - end_date: Filter moments before this time (UTC)
     """
-    return service.get_moments(page, size, activity_id, start_date, end_date)
+    return service.list_moments(page, size, activity_id, start_date, end_date)
 
 
 @router.get("/{moment_id}", response_model=MomentResponse)
@@ -67,13 +66,14 @@ async def update_moment(
     return service.update_moment(moment_id, moment)
 
 
-@router.delete("/{moment_id}")
+@router.delete("/{moment_id}", status_code=204)
 async def delete_moment(
     moment_id: int,
     service: MomentService = Depends()
 ):
     """Delete a moment"""
-    return service.delete_moment(moment_id)
+    service.delete_moment(moment_id)
+    return None
 
 
 @router.get("/activities/recent", response_model=List[dict])

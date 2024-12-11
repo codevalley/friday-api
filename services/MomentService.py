@@ -125,6 +125,8 @@ class MomentService:
             "activity": {
                 "id": moment.activity.id,
                 "name": moment.activity.name,
+                "description": moment.activity.description,
+                "activity_schema": moment.activity.activity_schema,
                 "icon": moment.activity.icon,
                 "color": moment.activity.color
             }

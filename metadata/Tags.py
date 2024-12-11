@@ -1,10 +1,10 @@
 Tags = [
     {
-        "name": "author",
-        "description": "Contains CRUD operation on Authors",
+        "name": "activities",
+        "description": "Create and manage activity types with custom JSON schemas",
     },
     {
-        "name": "book",
-        "description": "Contains CRUD operation on Books",
+        "name": "moments",
+        "description": "Log and track moments with structured data",
     },
 ]

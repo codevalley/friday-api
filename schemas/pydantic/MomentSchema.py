@@ -1,7 +1,7 @@
 from typing import Dict, Optional
 from datetime import datetime
 from pydantic import BaseModel, Field, validator
-from .ActivitySchema import Activity
+from .ActivitySchema import ActivityResponse
 
 
 class MomentBase(BaseModel):
@@ -27,10 +27,10 @@ class MomentUpdate(BaseModel):
     timestamp: Optional[datetime] = None
 
 
-class Moment(MomentBase):
+class MomentResponse(MomentBase):
     """Schema for Moment response"""
     id: int
-    activity: Activity
+    activity: ActivityResponse
 
     class Config:
         orm_mode = True
@@ -38,7 +38,7 @@ class Moment(MomentBase):
 
 class MomentList(BaseModel):
     """Schema for listing moments with pagination metadata"""
-    items: list[Moment]
+    items: list[MomentResponse]
     total: int
     page: int
     size: int

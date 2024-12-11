@@ -4,9 +4,9 @@ from sqlalchemy.orm import Session
 
 from configs.Database import get_db_connection
 from schemas.pydantic.ActivitySchema import (
+    ActivityResponse,
     ActivityCreate,
-    ActivityUpdate,
-    Activity
+    ActivityUpdate
 )
 from services.ActivityService import ActivityService
 
@@ -16,7 +16,7 @@ router = APIRouter(
 )
 
 
-@router.post("", response_model=Activity, status_code=201)
+@router.post("", response_model=ActivityResponse, status_code=201)
 async def create_activity(
     activity: ActivityCreate,
     service: ActivityService = Depends()
@@ -25,7 +25,7 @@ async def create_activity(
     return service.create_activity(activity)
 
 
-@router.get("", response_model=List[Activity])
+@router.get("", response_model=List[ActivityResponse])
 async def list_activities(
     skip: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=100),
@@ -35,7 +35,7 @@ async def list_activities(
     return service.list_activities(skip=skip, limit=limit)
 
 
-@router.get("/{activity_id}", response_model=Activity)
+@router.get("/{activity_id}", response_model=ActivityResponse)
 async def get_activity(
     activity_id: int,
     service: ActivityService = Depends()
@@ -44,7 +44,7 @@ async def get_activity(
     return service.get_activity(activity_id)
 
 
-@router.put("/{activity_id}", response_model=Activity)
+@router.put("/{activity_id}", response_model=ActivityResponse)
 async def update_activity(
     activity_id: int,
     activity: ActivityUpdate,
@@ -54,10 +54,11 @@ async def update_activity(
     return service.update_activity(activity_id, activity)
 
 
-@router.delete("/{activity_id}")
+@router.delete("/{activity_id}", status_code=204)
 async def delete_activity(
     activity_id: int,
     service: ActivityService = Depends()
 ):
     """Delete an activity"""
-    return service.delete_activity(activity_id)
+    service.delete_activity(activity_id)
+    return None

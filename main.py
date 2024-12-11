@@ -6,8 +6,8 @@ from configs.Environment import get_environment_variables
 from configs.GraphQL import get_graphql_context
 from metadata.Tags import Tags
 from models.BaseModel import init
-from routers.v1.AuthorRouter import AuthorRouter
-from routers.v1.BookRouter import BookRouter
+from routers.v1.ActivityRouter import router as ActivityRouter
+from routers.v1.MomentRouter import router as MomentRouter
 from schemas.graphql.Query import Query
 from schemas.graphql.Mutation import Mutation
 
@@ -16,14 +16,15 @@ env = get_environment_variables()
 
 # Core Application Instance
 app = FastAPI(
-    title=env.APP_NAME,
+    title="Friday API",
+    description="A powerful life logging API built with FastAPI and GraphQL. Track your daily activities and moments with rich, structured data.",
     version=env.API_VERSION,
     openapi_tags=Tags,
 )
 
 # Add Routers
-app.include_router(AuthorRouter)
-app.include_router(BookRouter)
+app.include_router(ActivityRouter)
+app.include_router(MomentRouter)
 
 # GraphQL Schema and Application Instance
 schema = Schema(query=Query, mutation=Mutation)
