@@ -1,4 +1,6 @@
-# fastapi-clean-example
+# Friday API
+
+A powerful life logging API built with FastAPI and GraphQL. Track your daily activities and moments with rich, structured data.
 
 [![Python](https://img.shields.io/badge/python-3670A0?style=for-the-badge&logo=python&logoColor=ffdd54)](https://docs.python.org/3/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-005571?style=for-the-badge&logo=fastapi)](https://fastapi.tiangolo.com/)
@@ -7,58 +9,127 @@
 [![GraphQL](https://img.shields.io/badge/-GraphQL-E10098?style=for-the-badge&logo=graphql&logoColor=white)](https://graphql.org/)
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg?style=for-the-badge)](https://black.readthedocs.io/en/stable/)
 [![Typed with: pydantic](https://img.shields.io/badge/typed%20with-pydantic-BA600F.svg?style=for-the-badge)](https://docs.pydantic.dev/)
-[![Open Issues](https://img.shields.io/github/issues-raw/0xTheProDev/fastapi-clean-example?style=for-the-badge)](https://github.com/0xTheProDev/fastapi-clean-example/issues)
-[![Closed Issues](https://img.shields.io/github/issues-closed-raw/0xTheProDev/fastapi-clean-example?style=for-the-badge)](https://github.com/0xTheProDev/fastapi-clean-example/issues?q=is%3Aissue+is%3Aclosed)
-[![Open Pulls](https://img.shields.io/github/issues-pr-raw/0xTheProDev/fastapi-clean-example?style=for-the-badge)](https://github.com/0xTheProDev/fastapi-clean-example/pulls)
-[![Closed Pulls](https://img.shields.io/github/issues-pr-closed-raw/0xTheProDev/fastapi-clean-example?style=for-the-badge)](https://github.com/0xTheProDev/fastapi-clean-example/pulls?q=is%3Apr+is%3Aclosed)
-[![Contributors](https://img.shields.io/github/contributors/0xTheProDev/fastapi-clean-example?style=for-the-badge)](https://github.com/0xTheProDev/fastapi-clean-example/graphs/contributors)
-[![Activity](https://img.shields.io/github/last-commit/0xTheProDev/fastapi-clean-example?style=for-the-badge&label=most%20recent%20activity)](https://github.com/0xTheProDev/fastapi-clean-example/pulse)
 
-## Description
+## Features
 
-_Example Application Interface using FastAPI framework in Python 3_
+- **Activity Management**: Create and manage activity types with custom JSON schemas
+- **Moment Logging**: Log moments with structured data based on activity schemas
+- **Flexible Querying**: Filter moments by time range and activity type
+- **Dual API Support**: Both REST and GraphQL interfaces
+- **Data Validation**: Automatic validation of moment data against activity schemas
+- **UTC Time Handling**: Proper timezone handling for global usage
 
-This example showcases Repository Pattern in Hexagonal Architecture _(also known as Clean Architecture)_. Here we have two Entities - Books and Authors, whose relationships have been exploited to create CRUD endpoint in REST under OpenAPI standard.
+## Getting Started
 
-## Installation
+### Prerequisites
 
-- Install all the project dependency using [Pipenv](https://pipenv.pypa.io):
+- Python 3.8+
+- MySQL 8.0+
+- [Pipenv](https://pipenv.pypa.io/en/latest/)
 
-  ```sh
-  $ pipenv install --dev
-  ```
+### Installation
 
-- Run the application from command prompt:
+1. Clone the repository:
+```bash
+git clone https://github.com/yourusername/friday-api.git
+cd friday-api
+```
 
-  ```sh
-  $ pipenv run uvicorn main:app --reload
-  ```
+2. Install dependencies:
+```bash
+pipenv install
+```
 
-- You can also open a shell inside virtual environment:
+3. Set up your environment variables in `.env`:
+```env
+APP_ENV=development
+APP_NAME=friday-api
+DATABASE_DIALECT=mysql
+DATABASE_HOSTNAME=localhost
+DATABASE_NAME=test_fridaystore
+DATABASE_PASSWORD=your_password
+DATABASE_PORT=3306
+DATABASE_USERNAME=your_username
+```
 
-  ```sh
-  $ pipenv shell
-  ```
+4. Initialize the database:
+```bash
+# Run the SQL script in scripts/init_database.sql
+```
 
-- Open `localhost:8000/docs` for API Documentation
+5. Start the server:
+```bash
+pipenv run uvicorn main:app --reload
+```
 
-- Open `localhost:8000/graphql` for GraphQL Documentation
+The API will be available at:
+- REST API: http://localhost:8000/v1
+- GraphQL Playground: http://localhost:8000/graphql
+- API Documentation: http://localhost:8000/docs
 
-_*Note:* In case you are not able to access `pipenv` from you `PATH` locations, replace all instances of `pipenv` with `python3 -m pipenv`._
+## API Documentation
 
-## Testing
+See [API Reference](docs/api-reference.md) for detailed endpoint documentation.
 
-For Testing, `unittest` module is used for Test Suite and Assertion, whereas `pytest` is being used for Test Runner and Coverage Reporter.
+### Quick Examples
 
-- Run the following command to initiate test:
-  ```sh
-  $ pipenv run pytest
-  ```
-- To include Coverage Reporting as well:
-  ```sh
-  $ pipenv run pytest --cov-report xml --cov .
-  ```
+#### Create an Activity
+```bash
+curl -X POST "http://localhost:8000/v1/activities" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Reading",
+    "description": "Track reading sessions",
+    "activity_schema": {
+      "type": "object",
+      "properties": {
+        "book": { "type": "string" },
+        "pages": { "type": "number" },
+        "notes": { "type": "string" }
+      }
+    },
+    "icon": "📚",
+    "color": "#4A90E2"
+  }'
+```
+
+#### Log a Moment
+```bash
+curl -X POST "http://localhost:8000/v1/moments" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "activity_id": 1,
+    "timestamp": "2024-12-11T05:30:00Z",
+    "data": {
+      "book": "The Pragmatic Programmer",
+      "pages": 50,
+      "notes": "Great chapter on code quality"
+    }
+  }'
+```
+
+## Development
+
+### Project Structure
+```
+friday-api/
+├── configs/            # Configuration modules
+├── models/            # SQLAlchemy models
+├── schemas/           # Pydantic & GraphQL schemas
+│   ├── pydantic/     # Data validation schemas
+│   └── graphql/      # GraphQL type definitions
+├── repositories/     # Database operations
+├── services/        # Business logic
+├── routers/         # API endpoints
+│   └── v1/         # API version 1
+└── docs/           # Documentation
+```
+
+### Running Tests
+```bash
+pipenv run pytest
+```
 
 ## License
 
-&copy; MIT License
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.

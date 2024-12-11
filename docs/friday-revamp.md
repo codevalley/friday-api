@@ -219,6 +219,50 @@ Below is a detailed, step-by-step plan to revamp the current codebase from the `
 
 ---
 
+## Progress Tracking
+
+### Phase 1: Preparatory Work 
+- [x] Environment setup
+- [x] Domain understanding
+- [x] Database planning
+
+### Phase 2: Data Model Migration 
+- [x] Created MomentModel
+- [x] Created ActivityModel
+- [x] Added relationships and constraints
+
+### Phase 3: Schemas & Validation 
+- [x] Created Pydantic schemas
+- [x] Created GraphQL schemas
+- [x] Implemented validation logic
+
+### Phase 4: Services & Business Logic 
+- [x] Created repositories
+- [x] Created services
+- [x] Implemented business rules
+
+### Phase 5: Routers & Endpoints 
+- [x] Created REST endpoints
+- [x] Created GraphQL endpoints
+- [x] Added filtering and pagination
+
+### Phase 6: Documentation 
+- [x] Update API documentation
+- [x] Update domain documentation
+- [ ] Add examples and usage guides
+
+### Phase 7: Testing
+- [ ] Unit tests
+- [ ] Integration tests
+- [ ] Performance tests
+
+### Phase 8: Cleanup
+- [ ] Remove old files
+- [ ] Final documentation review
+- [ ] Performance optimization
+
+---
+
 ## Cleanup Tracking
 
 The following files will be deleted once the new functionality is fully implemented and tested:
