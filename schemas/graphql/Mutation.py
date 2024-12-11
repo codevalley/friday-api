@@ -1,72 +1,68 @@
 import strawberry
 from strawberry.types import Info
 from configs.GraphQL import (
-    get_AuthorService,
-    get_BookService,
+    get_ActivityService,
+    get_MomentService,
 )
 
-from schemas.graphql.Author import (
-    AuthorMutationSchema,
-    AuthorSchema,
+from schemas.graphql.Activity import (
+    Activity,
+    ActivityInput,
+    ActivityUpdateInput
 )
-from schemas.graphql.Book import (
-    BookMutationSchema,
-    BookSchema,
+from schemas.graphql.Moment import (
+    Moment,
+    MomentInput,
+    MomentUpdateInput
 )
 
 
-@strawberry.type(description="Mutate all Entity")
+@strawberry.type(description="Mutate all entities")
 class Mutation:
-    @strawberry.field(description="Adds a new Author")
-    def add_author(
-        self, author: AuthorMutationSchema, info: Info
-    ) -> AuthorSchema:
-        authorService = get_AuthorService(info)
-        return authorService.create(author)
+    @strawberry.field(description="Create a new Activity")
+    def create_activity(
+        self, activity: ActivityInput, info: Info
+    ) -> Activity:
+        activity_service = get_ActivityService(info)
+        return activity_service.create_activity(activity)
 
-    @strawberry.field(
-        description="Delets an existing Author"
-    )
-    def delete_author(
-        self, author_id: int, info: Info
-    ) -> None:
-        authorService = get_AuthorService(info)
-        return authorService.delete(author_id)
-
-    @strawberry.field(
-        description="Updates an existing Author"
-    )
-    def update_author(
+    @strawberry.field(description="Update an existing Activity")
+    def update_activity(
         self,
-        author_id: int,
-        author: AuthorMutationSchema,
+        activity_id: int,
+        activity: ActivityUpdateInput,
         info: Info,
-    ) -> AuthorSchema:
-        authorService = get_AuthorService(info)
-        return authorService.update(author_id, author)
+    ) -> Activity:
+        activity_service = get_ActivityService(info)
+        return activity_service.update_activity(activity_id, activity)
 
-    @strawberry.field(description="Add a new Book")
-    def add_book(
-        self, book: BookMutationSchema, info: Info
-    ) -> BookSchema:
-        bookService = get_BookService(info)
-        return bookService.create(book)
+    @strawberry.field(description="Delete an Activity")
+    def delete_activity(
+        self, activity_id: int, info: Info
+    ) -> bool:
+        activity_service = get_ActivityService(info)
+        return activity_service.delete_activity(activity_id)
 
-    @strawberry.field(
-        description="Deletes an existing Book"
-    )
-    def delete_book(self, book_id: int, info: Info) -> None:
-        bookService = get_BookService(info)
-        return bookService.delete(book_id)
+    @strawberry.field(description="Create a new Moment")
+    def create_moment(
+        self, moment: MomentInput, info: Info
+    ) -> Moment:
+        moment_service = get_MomentService(info)
+        return moment_service.create_moment(moment)
 
-    @strawberry.field(
-        description="Deletes an existing Book"
-    )
-    def update_book(
+    @strawberry.field(description="Update an existing Moment")
+    def update_moment(
         self,
-        book_id: int,
-        book: BookMutationSchema,
+        moment_id: int,
+        moment: MomentUpdateInput,
         info: Info,
-    ) -> BookSchema:
-        bookService = get_BookService(info)
-        return bookService.update(book_id, book)
+    ) -> Moment:
+        moment_service = get_MomentService(info)
+        return moment_service.update_moment(moment_id, moment)
+
+    @strawberry.field(description="Delete a Moment")
+    def delete_moment(
+        self, moment_id: int, info: Info
+    ) -> bool:
+        moment_service = get_MomentService(info)
+        return moment_service.delete_moment(moment_id)

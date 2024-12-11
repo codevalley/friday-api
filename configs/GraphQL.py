@@ -1,26 +1,26 @@
 from fastapi import Depends
 from strawberry.types import Info
 
-from services.AuthorService import AuthorService
-from services.BookService import BookService
+from services.ActivityService import ActivityService
+from services.MomentService import MomentService
 
 
 # GraphQL Dependency Context
 async def get_graphql_context(
-    authorService: AuthorService = Depends(),
-    bookService: BookService = Depends(),
+    activity_service: ActivityService = Depends(),
+    moment_service: MomentService = Depends(),
 ):
     return {
-        "authorService": authorService,
-        "bookService": bookService,
+        "activity_service": activity_service,
+        "moment_service": moment_service,
     }
 
 
-# Extract AuthorService instance from GraphQL context
-def get_AuthorService(info: Info) -> AuthorService:
-    return info.context["authorService"]
+# Extract ActivityService instance from GraphQL context
+def get_ActivityService(info: Info) -> ActivityService:
+    return info.context["activity_service"]
 
 
-# Extract BookService instance from GraphQL context
-def get_BookService(info: Info) -> BookService:
-    return info.context["bookService"]
+# Extract MomentService instance from GraphQL context
+def get_MomentService(info: Info) -> MomentService:
+    return info.context["moment_service"]

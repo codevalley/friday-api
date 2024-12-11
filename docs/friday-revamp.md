@@ -17,29 +17,31 @@ Below is a detailed, step-by-step plan to revamp the current codebase from the `
 
 ## Detailed Phased Plan
 
-### Phase 1: Preparatory Work
+### Phase 1: Preparatory Work 
 
 **Goals**:  
 - Understand existing code thoroughly.
 - Identify dependencies between layers (models → services → routers → tests).
 
 **Actions**:  
-1. **Precheck**:  
-   - Ensure all tests pass before starting to confirm a stable baseline.
+1. **Precheck**: 
+   - Environment setup completed with required variables
+   - MySQL database configuration identified
+   - Initial codebase structure analyzed
 
-2. **Review Domain Docs**:  
-   - Confirm final structure of `Moment` and `Activity` from `domain-models.md`.
-   - Note required fields for `Moment`:
+2. **Review Domain Docs**: 
+   - Confirmed final structure of `Moment` and `Activity` from `domain-models.md`
+   - Required fields for `Moment` noted:
      - `id`, `timestamp` (UTC), `activity_id`, `data` (JSON)
-   - Note required fields for `Activity`:
-     - `id`, `name`, `description`, `activity_schema` (JSON), `icon`, `color`.
+   - Required fields for `Activity` noted:
+     - `id`, `name`, `description`, `activity_schema` (JSON), `icon`, `color`
 
-3. **Check Database Constraints**:
-   - Current DB tables: `books`, `authors`, `book_author_association`.
-   - Future DB tables: `moments`, `activities`.
-   - Since, there is no deployments yet don't bother about migrations.
+3. **Check Database Constraints**: 
+   - Current DB tables: `books`, `authors`, `book_author_association`
+   - Future DB tables: `moments`, `activities`
+   - No deployment concerns as this is a new project
 
-### Phase 2: Data Model Migration
+### Phase 2: Data Model Migration 
 
 **Goals**:  
 - Introduce `MomentModel.py` and `ActivityModel.py`.
@@ -47,123 +49,112 @@ Below is a detailed, step-by-step plan to revamp the current codebase from the `
 - Remove `BookAuthorAssociation.py`.
 
 **Actions**:
-1. **Models** (`models/` directory):
-   - Create `MomentModel.py`:
-     ```python
-     class Moment(EntityMeta):
-         __tablename__ = "moments"
-         id = Column(Integer, primary_key=True, index=True)
-         timestamp = Column(DateTime(timezone=True), index=True)
-         activity_id = Column(Integer, ForeignKey("activities.id"))
-         data = Column(JSON)
-         activity = relationship("Activity", back_populates="moments")
-     ```
+1. **Models** (`models/` directory): 
+   - Created `MomentModel.py`:
+     - Added `Moment` class with required fields
+     - Implemented UTC timestamp handling
+     - Added relationship with `Activity`
    
-   - Create `ActivityModel.py`:
-     ```python
-     class Activity(EntityMeta):
-         __tablename__ = "activities"
-         id = Column(Integer, primary_key=True, index=True)
-         name = Column(String, unique=True, index=True)
-         description = Column(String)
-         activity_schema = Column(JSON)
-         icon = Column(String)
-         color = Column(String)
-         moments = relationship("Moment", back_populates="activity")
-     ```
+   - Created `ActivityModel.py`:
+     - Added `Activity` class with required fields
+     - Implemented JSON schema validation field
+     - Added relationship with `Moment`
+   
+   - Legacy models to be removed in next phase:
+     - `BookModel.py`
+     - `AuthorModel.py`
+     - `BookAuthorAssociation.py`
 
-   - Remove or rename `AuthorModel.py` → `ActivityModel.py` and `BookModel.py` → `MomentModel.py`.
-   - Remove `BookAuthorAssociation.py` entirely (not needed).
-   - Update `BaseModel.py` if needed. Ensure `init()` creates new tables `moments`, `activities`.
+2. **Normalization Methods**: 
+   - Implemented `__repr__` methods in both models
+   - Added proper type hints and documentation
+   - Ensured consistent JSON representation for APIs
 
-
-3. **Normalization Methods**:
-   - Implement `normalize()` or equivalent serialization methods in `Moment` and `Activity` models to return consistent JSON representations for APIs.
-
-### Phase 3: Schemas & Validation
+### Phase 3: Schemas & Validation 
 
 **Goals**:  
 - Update Pydantic schemas to handle `Moment` and `Activity`.
 - Introduce validation logic for `Moment.data` using `Activity.activity_schema`.
 
 **Actions**:
-1. **Pydantic Schemas** (`schemas/pydantic`):
-   - Replace `AuthorSchema.py` with `ActivitySchema.py`.
-     - `ActivityPostRequestSchema`
-     - `ActivitySchema`
-   - Replace `BookSchema.py` with `MomentSchema.py`.
-     - `MomentCreateSchema`
-     - `MomentUpdateSchema`
-     - `MomentSchema` (response)
+1. **Pydantic Schemas** (`schemas/pydantic`): 
+   - Created `ActivitySchema.py`:
+     - Base, Create, Update, and Response schemas
+     - Color format validation
+     - JSON Schema validation for activity_schema
+   - Created `MomentSchema.py`:
+     - Base, Create, Update, and Response schemas
+     - Automatic UTC timestamp handling
+     - Pagination support for listing moments
    
-2. **GraphQL Schemas** (`schemas/graphql`):
-   - Replace `Author.py` with `Activity.py` (GraphQL type).
-   - Replace `Book.py` with `Moment.py` (GraphQL type).
-   - Update `Query.py` and `Mutation.py` to query and mutate `Moments` and `Activities`.
+2. **GraphQL Schemas** (`schemas/graphql`): 
+   - Created `Activity.py`:
+     - Activity type with all fields
+     - Input types for creation and updates
+   - Created `Moment.py`:
+     - Moment type with activity relationship
+     - Input types for creation and updates
+     - Connection type for pagination
 
-3. **Validation Logic**:
-   - Implement a utility function to validate `Moment.data` against `Activity.activity_schema` using JSON schema validation.
-   - Integrate validation checks in `MomentService` (on create/update of moments).
+3. **Validation Logic**: 
+   - Implemented color format validation
+   - Added JSON Schema validation for activity data
+   - Added timestamp validation and UTC conversion
+   - Added pagination support for moment listings
 
-### Phase 4: Services & Business Logic
+### Phase 4: Services & Business Logic 
 
 **Goals**:  
-- Rebuild the logic previously in `AuthorService` and `BookService` into `ActivityService` and `MomentService`.
-- Implement logic for listing moments, filtering by time range, verifying activities, and validating data.
+- Implement repositories and services for `Moment` and `Activity`
+- Implement business logic for data validation and relationships
 
 **Actions**:
-1. **Services** (`services/` directory):
-   - Create `ActivityService.py`:
-     - `create_activity`
-     - `get_activity`
-     - `list_activities`
-     - `update_activity`
-     - `delete_activity`
-     - Validate `activity_schema` and `color`.
-   
-   - Create `MomentService.py`:
-     - `create_moment`
-       - Validate referenced activity.
-       - Validate `data` against `activity_schema`.
-     - `get_moment`
-     - `list_moments` (with optional filters: `start_time`, `end_time`, `activity_id`, pagination)
-     - `update_moment` (re-validate data)
-     - `delete_moment`
+1. **Repositories**: 
+   - Created `ActivityRepository.py`:
+     - CRUD operations with error handling
+     - Unique name constraint handling
+     - Activity validation utilities
+   - Created `MomentRepository.py`:
+     - CRUD operations with timestamps
+     - Advanced filtering capabilities
+     - Activity relationship handling
+     - Recent activities tracking
 
-2. **Remove Old Services**:
-   - Remove `AuthorService.py`, `BookService.py` once new services are tested and stable.
+2. **Services**: 
+   - Created `ActivityService.py`:
+     - Activity management with schema validation
+     - JSON Schema validation for activity schemas
+     - Moment count tracking
+     - Safe deletion with dependency checks
+   - Created `MomentService.py`:
+     - Moment creation with data validation
+     - Advanced filtering and pagination
+     - Recent activities tracking
+     - Formatted responses with activity details
 
-### Phase 5: Repositories
+3. **Business Rules**:
+   - Implemented JSON Schema validation using jsonschema
+   - Added activity existence validation
+   - Added moment data validation against activity schemas
+   - Implemented pagination with proper metadata
+   - Added timestamp handling in UTC
 
-**Goals**:  
-- Update the repository layer to interact with `moments` and `activities`.
-- Replace `AuthorRepository`, `BookRepository` with `ActivityRepository`, `MomentRepository`.
-
-**Actions**:
-1. **Repositories** (`repositories/`):
-   - Create `ActivityRepository.py` similar to `AuthorRepository.py` but for `Activity`.
-   - Create `MomentRepository.py` similar to `BookRepository.py` but for `Moment`.
-   - Implement CRUD methods with filtering capabilities for `list_moments` based on time and activity filters.
-   
-2. **Remove Old Repositories**:
-   - Once new repositories are in place and tested, remove `AuthorRepository.py`, `BookRepository.py`.
-
-### Phase 6: Routers & Endpoints
+### Phase 5: Routers & Endpoints 
 
 **Goals**:  
-- Reflect the new domain in the REST endpoints.
-- Introduce endpoints for `moments` and `activities`.
+- Implement REST endpoints for `Moment` and `Activity`
+- Implement GraphQL queries and mutations
 
 **Actions**:
 1. **Routers** (`routers/v1`):
-   - Create `ActivityRouter.py` with:
+   - Created `ActivityRouter.py` with:
      - `GET /v1/activities` (list activities)
      - `GET /v1/activities/{id}` (get activity)
      - `POST /v1/activities` (create activity)
      - `PATCH /v1/activities/{id}` (update activity)
      - `DELETE /v1/activities/{id}` (delete activity)
 
-   - Create `MomentRouter.py` with:
+   - Created `MomentRouter.py` with:
      - `GET /v1/moments` (list with filters: `start_time`, `end_time`, `activity_id`)
      - `GET /v1/moments/{id}` (get moment)
      - `POST /v1/moments` (create moment)
@@ -177,7 +168,7 @@ Below is a detailed, step-by-step plan to revamp the current codebase from the `
 3. **Remove Old Routers**:
    - Remove `AuthorRouter.py` and `BookRouter.py`.
 
-### Phase 7: Testing
+### Phase 6: Testing 
 
 **Goals**:  
 - Update the test suite to reflect the new domain, endpoints, and logic.
@@ -202,7 +193,7 @@ Below is a detailed, step-by-step plan to revamp the current codebase from the `
    - Update CI config to run new tests.
    - Maintain coverage reports.
 
-### Phase 8: Documentation & Cleanup
+### Phase 7: Documentation & Cleanup
 
 **Goals**:  
 - Update all docs to reflect the new system.
@@ -225,6 +216,37 @@ Below is a detailed, step-by-step plan to revamp the current codebase from the `
    - Remove unused imports, files, and comments.
    - Run `black`, `isort` for formatting.
    - Use `flake8` or `pylint` to ensure code quality.
+
+---
+
+## Cleanup Tracking
+
+The following files will be deleted once the new functionality is fully implemented and tested:
+
+### Models
+- [ ] `models/BookModel.py` → Replaced by `models/MomentModel.py`
+- [ ] `models/AuthorModel.py` → Replaced by `models/ActivityModel.py`
+- [ ] `models/BookAuthorAssociation.py` → No longer needed
+
+### Schemas
+- [ ] `schemas/pydantic/BookSchema.py` → Replaced by `schemas/pydantic/MomentSchema.py`
+- [ ] `schemas/pydantic/AuthorSchema.py` → Replaced by `schemas/pydantic/ActivitySchema.py`
+- [ ] `schemas/graphql/Book.py` → Replaced by `schemas/graphql/Moment.py`
+- [ ] `schemas/graphql/Author.py` → Replaced by `schemas/graphql/Activity.py`
+
+### Repositories
+- [ ] `repositories/BookRepository.py` → Will be replaced by `repositories/MomentRepository.py`
+- [ ] `repositories/AuthorRepository.py` → Will be replaced by `repositories/ActivityRepository.py`
+
+### Services
+- [ ] `services/BookService.py` → Will be replaced by `services/MomentService.py`
+- [ ] `services/AuthorService.py` → Will be replaced by `services/ActivityService.py`
+
+### Tests
+- [ ] `__tests__/repositories/test_BookRepository.py`
+- [ ] `__tests__/repositories/test_AuthorRepository.py`
+- [ ] `__tests__/services/test_BookService.py`
+- [ ] `__tests__/services/test_AuthorService.py`
 
 ---
 
