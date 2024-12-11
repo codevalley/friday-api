@@ -16,7 +16,8 @@ class Activity:
             activity_schema=ensure_string(db_activity.activity_schema),
             icon=db_activity.icon,
             color=db_activity.color,
-            moments=[]  # Lazy load moments
+            moments=[],  # Lazy load moments
+            moment_count=getattr(db_activity, 'moment_count', 0)  # Get moment_count if set
         )
 
     id: int
@@ -27,11 +28,17 @@ class Activity:
     color: str
     # Note: moments will be added after Moment type is defined
     moments: List["Moment"] = strawberry.field(default_factory=list)
+    moment_count: int = strawberry.field(default=0)
 
     @strawberry.field
     def activitySchema(self) -> str:
         """Alias for activity_schema in GraphQL"""
         return self.activity_schema
+
+    @strawberry.field
+    def momentCount(self) -> int:
+        """Number of moments associated with this activity"""
+        return self.moment_count
 
 
 @strawberry.input

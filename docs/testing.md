@@ -6,7 +6,7 @@ The project implements a comprehensive testing strategy that covers all layers o
 
 ## Test Structure
 
-```
+```bash
 __tests__/
 ├── unit/
 │   ├── test_models/
@@ -24,36 +24,44 @@ __tests__/
 ### 1. Unit Tests
 
 ```python
-# __tests__/unit/test_services/test_book_service.py
-class TestBookService:
-    def test_create_book(self, mock_repository):
+# __tests__/unit/test_services/test_moment_service.py
+class TestMomentService:
+    def test_create_moment(self, mock_repository):
         # Arrange
-        service = BookService(mock_repository)
-        book_data = {"title": "Test Book"}
+        service = MomentService(mock_repository)
+        moment_data = {
+            "activity_id": 1,
+            "timestamp": "2024-01-01T12:00:00Z",
+            "data": {"duration": 30, "notes": "Test activity"}
+        }
         
         # Act
-        result = service.create_book(book_data)
+        result = service.create_moment(moment_data)
         
         # Assert
-        assert result.title == "Test Book"
-        mock_repository.create.assert_called_once_with(book_data)
+        assert result.activity_id == 1
+        mock_repository.create.assert_called_once_with(moment_data)
 ```
 
 ### 2. Integration Tests
 
 ```python
-# __tests__/integration/test_api/test_book_routes.py
-class TestBookRoutes:
-    async def test_create_book(self, client, db_session):
+# __tests__/integration/test_api/test_moment_routes.py
+class TestMomentRoutes:
+    async def test_create_moment(self, client, db_session):
         # Arrange
-        book_data = {"title": "New Book", "description": "Test"}
+        moment_data = {
+            "activity_id": 1,
+            "timestamp": "2024-01-01T12:00:00Z",
+            "data": {"duration": 30, "notes": "Test activity"}
+        }
         
         # Act
-        response = await client.post("/api/v1/books", json=book_data)
+        response = await client.post("/api/v1/moments", json=moment_data)
         
         # Assert
         assert response.status_code == 200
-        assert response.json()["title"] == "New Book"
+        assert response.json()["activity_id"] == 1
 ```
 
 ## Test Configuration
@@ -80,7 +88,7 @@ def mock_repository():
 
 ### 2. Environment Setup
 
-```python
+```bash
 # .env.test
 DATABASE_URL=sqlite:///./test.db
 DEBUG_MODE=false
@@ -92,32 +100,40 @@ TESTING=true
 ### 1. Domain Layer Tests
 
 ```python
-# __tests__/unit/test_models/test_book_model.py
-def test_book_model_creation():
-    book = BookModel(title="Test Book")
-    assert book.title == "Test Book"
-    assert book.authors == []
+# __tests__/unit/test_models/test_moment_model.py
+def test_moment_model_creation():
+    moment = MomentModel(
+        activity_id=1,
+        timestamp="2024-01-01T12:00:00Z",
+        data={"duration": 30, "notes": "Test activity"}
+    )
+    assert moment.activity_id == 1
+    assert moment.data["duration"] == 30
 ```
 
 ### 2. Service Layer Tests
 
 ```python
-# __tests__/unit/test_services/test_author_service.py
-async def test_get_author_not_found(service, mock_repository):
+# __tests__/unit/test_services/test_activity_service.py
+async def test_get_activity_not_found(service, mock_repository):
     mock_repository.get_by_id.return_value = None
     with pytest.raises(NotFoundException):
-        await service.get_author(999)
+        await service.get_activity(999)
 ```
 
 ### 3. Repository Layer Tests
 
 ```python
-# __tests__/unit/test_repositories/test_book_repository.py
-async def test_create_book(db_session):
-    repository = BookRepository(db_session)
-    book = await repository.create({"title": "Test"})
-    assert book.id is not None
-    assert book.title == "Test"
+# __tests__/unit/test_repositories/test_moment_repository.py
+async def test_create_moment(db_session):
+    repository = MomentRepository(db_session)
+    moment = await repository.create({
+        "activity_id": 1,
+        "timestamp": "2024-01-01T12:00:00Z",
+        "data": {"duration": 30, "notes": "Test activity"}
+    })
+    assert moment.id is not None
+    assert moment.activity_id == 1
 ```
 
 ## Test Coverage
@@ -165,7 +181,7 @@ pytest
 pytest --cov-report xml --cov .
 
 # Run specific test file
-pytest __tests__/unit/test_services/test_book_service.py
+pytest __tests__/unit/test_services/test_moment_service.py
 
 # Run tests with specific marker
 pytest -m "integration"
@@ -192,4 +208,3 @@ jobs:
       - name: Run tests
         run: |
           pipenv run pytest --cov-report xml --cov .
-``` 
