@@ -8,6 +8,7 @@ from configs.Database import get_db_connection
 from repositories.ActivityRepository import ActivityRepository
 from repositories.MomentRepository import MomentRepository
 from schemas.pydantic.ActivitySchema import ActivityCreate, ActivityUpdate
+from schemas.graphql.Activity import Activity as ActivityType
 
 
 class ActivityService:
@@ -16,7 +17,7 @@ class ActivityService:
         self.activity_repository = ActivityRepository(db)
         self.moment_repository = MomentRepository(db)
 
-    def create_activity(self, activity_data: ActivityCreate) -> Dict:
+    def create_activity(self, activity_data: ActivityCreate) -> ActivityType:
         """Create a new activity with schema validation"""
         try:
             # Validate that the activity_schema is a valid JSON Schema
@@ -35,50 +36,24 @@ class ActivityService:
             color=activity_data.color
         )
 
-        return {
-            "id": activity.id,
-            "name": activity.name,
-            "description": activity.description,
-            "activity_schema": activity.activity_schema,
-            "icon": activity.icon,
-            "color": activity.color
-        }
+        return ActivityType.from_db(activity)
 
-    def get_activity(self, activity_id: int) -> Optional[Dict]:
+    def get_activity(self, activity_id: int) -> Optional[ActivityType]:
         """Get an activity by ID"""
         activity = self.activity_repository.validate_existence(activity_id)
         moment_count = self.moment_repository.get_activity_moments_count(activity_id)
+        activity.moment_count = moment_count
+        return ActivityType.from_db(activity) if activity else None
 
-        return {
-            "id": activity.id,
-            "name": activity.name,
-            "description": activity.description,
-            "activity_schema": activity.activity_schema,
-            "icon": activity.icon,
-            "color": activity.color,
-            "moment_count": moment_count
-        }
-
-    def list_activities(self, skip: int = 0, limit: int = 100) -> List[Dict]:
+    def list_activities(self, skip: int = 0, limit: int = 100) -> List[ActivityType]:
         """List all activities with their moment counts"""
         activities = self.activity_repository.list_all(skip=skip, limit=limit)
-        
-        result = []
         for activity in activities:
             moment_count = self.moment_repository.get_activity_moments_count(activity.id)
-            result.append({
-                "id": activity.id,
-                "name": activity.name,
-                "description": activity.description,
-                "activity_schema": activity.activity_schema,
-                "icon": activity.icon,
-                "color": activity.color,
-                "moment_count": moment_count
-            })
-        
-        return result
+            activity.moment_count = moment_count
+        return [ActivityType.from_db(activity) for activity in activities]
 
-    def update_activity(self, activity_id: int, activity_data: ActivityUpdate) -> Dict:
+    def update_activity(self, activity_id: int, activity_data: ActivityUpdate) -> Optional[ActivityType]:
         """Update an activity"""
         # Validate existence
         self.activity_repository.validate_existence(activity_id)
@@ -97,14 +72,7 @@ class ActivityService:
         update_data = activity_data.dict(exclude_unset=True)
         activity = self.activity_repository.update(activity_id, **update_data)
 
-        return {
-            "id": activity.id,
-            "name": activity.name,
-            "description": activity.description,
-            "activity_schema": activity.activity_schema,
-            "icon": activity.icon,
-            "color": activity.color
-        }
+        return ActivityType.from_db(activity) if activity else None
 
     def delete_activity(self, activity_id: int) -> bool:
         """Delete an activity and all its moments"""

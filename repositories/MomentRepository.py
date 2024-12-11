@@ -2,9 +2,11 @@ from typing import List, Optional, Tuple
 from datetime import datetime
 from sqlalchemy.orm import Session
 from sqlalchemy import desc
+from fastapi import HTTPException
 
 from models.MomentModel import Moment
 from models.ActivityModel import Activity
+from schemas.pydantic.MomentSchema import MomentList
 
 
 class MomentRepository:
@@ -27,17 +29,24 @@ class MomentRepository:
         """Get a moment by ID"""
         return self.db.query(Moment).filter(Moment.id == moment_id).first()
 
+    def validate_existence(self, moment_id: int) -> Moment:
+        """Validate that a moment exists and return it"""
+        moment = self.get_by_id(moment_id)
+        if not moment:
+            raise HTTPException(status_code=404, detail="Moment not found")
+        return moment
+
     def list_moments(
         self,
-        skip: int = 0,
-        limit: int = 50,
+        page: int = 1,
+        size: int = 50,
         activity_id: Optional[int] = None,
         start_time: Optional[datetime] = None,
         end_time: Optional[datetime] = None,
-    ) -> Tuple[List[Moment], int]:
+    ) -> MomentList:
         """
         List moments with filtering and pagination
-        Returns a tuple of (moments, total_count)
+        Returns a MomentList with pagination metadata
         """
         query = self.db.query(Moment)
 
@@ -49,13 +58,23 @@ class MomentRepository:
         if end_time is not None:
             query = query.filter(Moment.timestamp <= end_time)
 
-        # Get total count before pagination
+        # Get total count
         total = query.count()
 
-        # Apply pagination and ordering
-        moments = query.order_by(desc(Moment.timestamp)).offset(skip).limit(limit).all()
+        # Calculate pagination
+        pages = (total + size - 1) // size
+        skip = (page - 1) * size
 
-        return moments, total
+        # Get paginated results
+        moments = query.order_by(desc(Moment.timestamp)).offset(skip).limit(size).all()
+
+        return MomentList(
+            items=moments,
+            total=total,
+            page=page,
+            size=size,
+            pages=pages
+        )
 
     def update(self, moment_id: int, **kwargs) -> Optional[Moment]:
         """Update a moment"""
