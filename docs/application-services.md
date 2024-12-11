@@ -1,229 +1,159 @@
-# Application Services Layer
+# Application Services
 
 ## Overview
 
-The application services layer implements the core business logic for the life moments logging system. It orchestrates the flow of data between the API layer and the domain layer, ensuring that all business rules are properly enforced.
+The application services layer implements the business logic of the application. It acts as a mediator between the domain models and the external interfaces (GraphQL API). Services handle data validation, business rules, and coordinate operations between repositories.
 
-## Service Components
+## Service Implementation
 
-### MomentService
-
-The `MomentService` handles all operations related to moments.
+### Activity Service
 
 ```python
-class MomentService:
-    def __init__(
-        self,
-        moment_repository: MomentRepository,
-        activity_service: ActivityService
-    ):
-        self._repository = moment_repository
-        self._activity_service = activity_service
-
-    async def create_moment(self, data: MomentCreate) -> MomentModel:
-        """Create a new moment."""
-        # Validate activity exists
-        activity = await self._activity_service.get_activity(data.activity_id)
-        if not activity:
-            raise ActivityNotFoundError(data.activity_id)
-
-        # Validate moment data against activity schema
-        self._validate_moment_data(data.data, activity.activity_schema)
-
-        # Create moment
-        moment = MomentModel(
-            timestamp=data.timestamp,
-            activity_id=activity.id,
-            data=data.data
-        )
-        return await self._repository.create(moment)
-
-    async def get_moment(self, moment_id: int) -> Optional[MomentModel]:
-        """Retrieve a specific moment."""
-        return await self._repository.get(moment_id)
-
-    async def list_moments(
-        self,
-        start_time: Optional[datetime] = None,
-        end_time: Optional[datetime] = None,
-        activity_id: Optional[int] = None,
-        limit: int = 50,
-        offset: int = 0
-    ) -> Tuple[List[MomentModel], int]:
-        """List moments with optional filtering."""
-        return await self._repository.list_moments(
-            start_time=start_time,
-            end_time=end_time,
-            activity_id=activity_id,
-            limit=limit,
-            offset=offset
-        )
-
-    async def update_moment(
-        self,
-        moment_id: int,
-        data: MomentUpdate
-    ) -> Optional[MomentModel]:
-        """Update an existing moment."""
-        moment = await self.get_moment(moment_id)
-        if not moment:
-            raise MomentNotFoundError(moment_id)
-
-        # Validate updated data against activity schema
-        activity = await self._activity_service.get_activity(moment.activity_id)
-        self._validate_moment_data(data.data, activity.activity_schema)
-
-        return await self._repository.update(
-            moment_id,
-            {"data": data.data}
-        )
-
-    async def delete_moment(self, moment_id: int) -> bool:
-        """Delete a moment."""
-        return await self._repository.delete(moment_id)
-
-    def _validate_moment_data(self, data: dict, schema: dict) -> None:
-        """Validate moment data against activity schema."""
-        try:
-            jsonschema.validate(data, schema)
-        except jsonschema.exceptions.ValidationError as e:
-            raise InvalidMomentDataError(str(e))
-```
-
-### ActivityService
-
-The `ActivityService` manages activity types and their schemas.
-
-```python
+# services/ActivityService.py
 class ActivityService:
-    def __init__(self, activity_repository: ActivityRepository):
-        self._repository = activity_repository
+    def __init__(self, db: Session = Depends(get_db_connection)):
+        self.db = db
+        self.activity_repository = ActivityRepository(db)
 
-    async def create_activity(self, data: ActivityCreate) -> ActivityModel:
-        """Create a new activity type."""
-        # Validate schema structure
-        self._validate_activity_schema(data.activity_schema)
-        
-        # Validate color format
-        self._validate_color(data.color)
-        
-        activity = ActivityModel(
-            name=data.name,
-            description=data.description,
-            activity_schema=data.activity_schema,
-            icon=data.icon,
-            color=data.color
+    def create_activity(self, activity_data: ActivityCreate) -> ActivityType:
+        """Create a new activity with schema validation"""
+        activity = self.activity_repository.create(
+            name=activity_data.name,
+            description=activity_data.description,
+            activity_schema=activity_data.activity_schema,
+            icon=activity_data.icon,
+            color=activity_data.color
         )
-        return await self._repository.create(activity)
+        return ActivityType.from_db(activity)
 
-    async def get_activity(self, activity_id: int) -> Optional[ActivityModel]:
-        """Retrieve a specific activity."""
-        return await self._repository.get(activity_id)
-
-    async def list_activities(
-        self,
-        limit: int = 50,
-        offset: int = 0
-    ) -> Tuple[List[ActivityModel], int]:
-        """List all activities."""
-        return await self._repository.list_activities(limit=limit, offset=offset)
-
-    async def update_activity(
-        self,
-        activity_id: int,
-        data: ActivityUpdate
-    ) -> Optional[ActivityModel]:
-        """Update an existing activity."""
-        activity = await self.get_activity(activity_id)
-        if not activity:
-            raise ActivityNotFoundError(activity_id)
-
-        if data.activity_schema:
-            self._validate_activity_schema(data.activity_schema)
-        
-        if data.color:
-            self._validate_color(data.color)
-
-        return await self._repository.update(activity_id, data.dict(exclude_unset=True))
-
-    async def delete_activity(self, activity_id: int) -> bool:
-        """Delete an activity and all associated moments."""
-        return await self._repository.delete(activity_id)
-
-    def _validate_activity_schema(self, schema: dict) -> None:
-        """Validate that the activity schema is valid JSON Schema."""
-        try:
-            # Validate schema is valid JSON Schema
-            jsonschema.Draft7Validator.check_schema(schema)
-        except jsonschema.exceptions.SchemaError as e:
-            raise InvalidActivitySchemaError(str(e))
-
-    def _validate_color(self, color: str) -> None:
-        """Validate color format (hex or named color)."""
-        if not re.match(r'^#(?:[0-9a-fA-F]{3}){1,2}$', color) and \
-           color not in VALID_COLOR_NAMES:
-            raise InvalidColorError(f"Invalid color format: {color}")
+    def get_activity(self, activity_id: int) -> Optional[ActivityType]:
+        """Get an activity by ID"""
+        activity = self.activity_repository.validate_existence(activity_id)
+        return ActivityType.from_db(activity)
 ```
 
-## Service Layer Features
+### Moment Service
+
+```python
+# services/MomentService.py
+class MomentService:
+    def __init__(self, db: Session = Depends(get_db_connection)):
+        self.db = db
+        self.moment_repository = MomentRepository(db)
+        self.activity_repository = ActivityRepository(db)
+
+    def create_moment(self, moment_data: MomentCreate) -> MomentType:
+        """Create a new moment with data validation"""
+        # Get activity to validate data against schema
+        activity = self.activity_repository.validate_existence(moment_data.activity_id)
+
+        try:
+            # Validate moment data against activity schema
+            jsonschema.validate(instance=moment_data.data, schema=activity.activity_schema)
+        except ValidationError as e:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid moment data: {str(e)}"
+            )
+
+        moment = self.moment_repository.create(
+            activity_id=moment_data.activity_id,
+            data=moment_data.data,
+            timestamp=moment_data.timestamp
+        )
+
+        return MomentType.from_db(moment)
+
+    def list_moments(
+        self,
+        page: int = 1,
+        size: int = 50,
+        activity_id: Optional[int] = None,
+        start_time: Optional[str] = None,
+        end_time: Optional[str] = None
+    ) -> MomentConnection:
+        """List moments with filtering and pagination"""
+        moments_list = self.moment_repository.list_moments(
+            page=page,
+            size=size,
+            activity_id=activity_id,
+            start_time=start_time,
+            end_time=end_time
+        )
+
+        return MomentConnection(
+            items=[MomentType.from_db(moment) for moment in moments_list.items],
+            total=moments_list.total,
+            page=moments_list.page,
+            size=moments_list.size,
+            pages=moments_list.pages
+        )
+```
+
+## Key Features
 
 1. **Data Validation**
-   - JSON Schema validation for moment data
-   - Activity schema validation
-   - Color format validation
-   - Timestamp validation
+   - Input validation using Pydantic models
+   - JSON Schema validation for activity-specific data
+   - Error handling with meaningful messages
+
+2. **Business Logic**
+   - Coordinates operations between repositories
+   - Implements business rules and validations
+   - Handles data transformations
+
+3. **Type Safety**
+   - Strong typing with Pydantic models
+   - GraphQL type conversion
+   - Runtime type checking
+
+## Service Layer Responsibilities
+
+1. **Input Processing**
+   - Validates incoming data
+   - Converts between DTOs and domain models
+   - Handles data type conversions
 
 2. **Business Rules**
-   - Moments must have valid activities
-   - Activity schemas must be valid JSON Schema
-   - Colors must be valid formats
-   - Proper UTC timestamp handling
+   - Enforces domain constraints
+   - Validates relationships
+   - Ensures data consistency
 
 3. **Error Handling**
-   - Custom exception types for different error cases
-   - Detailed error messages
-   - Proper error propagation
+   - Provides meaningful error messages
+   - Handles business rule violations
+   - Manages transaction boundaries
 
-4. **Transaction Management**
-   - Atomic operations where needed
-   - Proper cleanup on failures
-   - Consistent state maintenance
+## Best Practices
 
-## Dependencies
+1. **Dependency Injection**
+   - Services receive dependencies through constructor
+   - Facilitates testing and mocking
+   - Loose coupling between components
 
-The service layer depends on:
-- Repository interfaces (not implementations)
-- Domain models
-- Pydantic schemas for data validation
-- JSON Schema for dynamic schema validation
+2. **Single Responsibility**
+   - Each service handles one domain concept
+   - Clear separation of concerns
+   - Focused business logic
 
-## Error Types
+3. **Error Management**
+   - Consistent error handling
+   - Proper exception hierarchy
+   - Informative error messages
 
-```python
-class MomentError(Exception):
-    """Base class for moment-related errors."""
-    pass
+## GraphQL Integration
 
-class ActivityError(Exception):
-    """Base class for activity-related errors."""
-    pass
+1. **Type Conversion**
+   - Converts between database models and GraphQL types
+   - Handles nested relationships
+   - Manages field resolution
 
-class MomentNotFoundError(MomentError):
-    """Raised when a moment is not found."""
-    pass
+2. **Query Resolution**
+   - Efficient data loading
+   - Proper pagination
+   - Field-level permissions
 
-class ActivityNotFoundError(ActivityError):
-    """Raised when an activity is not found."""
-    pass
-
-class InvalidMomentDataError(MomentError):
-    """Raised when moment data doesn't match activity schema."""
-    pass
-
-class InvalidActivitySchemaError(ActivityError):
-    """Raised when activity schema is invalid."""
-    pass
-
-class InvalidColorError(ActivityError):
-    """Raised when color format is invalid."""
-    pass
+3. **Mutation Handling**
+   - Input validation
+   - Transaction management
+   - Response formatting

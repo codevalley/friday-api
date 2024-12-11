@@ -18,13 +18,13 @@ Returns a list of all activities.
   "items": [
     {
       "id": 1,
-      "name": "Reading",
-      "description": "Track reading sessions",
+      "name": "Learning",
+      "description": "Track learning sessions",
       "activity_schema": {
         "type": "object",
         "properties": {
-          "book": { "type": "string" },
-          "pages": { "type": "number" },
+          "category": { "type": "string" },
+          "duration": { "type": "number" },
           "notes": { "type": "string" }
         }
       },
@@ -111,13 +111,13 @@ Returns a paginated list of moments with optional filtering.
       "activity_id": 1,
       "timestamp": "2024-12-11T05:30:00Z",
       "data": {
-        "book": "The Pragmatic Programmer",
-        "pages": 50,
-        "notes": "Great chapter on code quality"
+        "category": "Learning",
+        "duration": 50,
+        "notes": "Made good progress on the new topic"
       },
       "activity": {
         "id": 1,
-        "name": "Reading",
+        "name": "Learning",
         "icon": "📚",
         "color": "#4A90E2"
       }
@@ -151,9 +151,9 @@ Creates a new moment.
   "activity_id": 1,
   "timestamp": "2024-12-11T05:30:00Z",
   "data": {
-    "book": "The Pragmatic Programmer",
-    "pages": 50,
-    "notes": "Great chapter on code quality"
+    "category": "Learning",
+    "duration": 50,
+    "notes": "Made good progress on the new topic"
   }
 }
 ```

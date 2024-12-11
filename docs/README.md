@@ -1,21 +1,21 @@
-# FastAPI Clean Architecture Example Documentation
+# Friday API Documentation
 
 ## Overview
 
-This project demonstrates a clean architecture (hexagonal architecture) implementation using FastAPI. The application showcases a book management system with authors and books as the main entities, implementing both REST and GraphQL APIs.
+This project implements a clean architecture using FastAPI and GraphQL for a life logging system. The application allows users to track various activities and moments in their life, with flexible data schemas and validation.
 
 ## Project Structure
 
 ```
-fastapi-clean-example/
-├── models/              # Domain entities and business objects
+friday-api/
+├── models/              # Domain entities (Activity, Moment)
 ├── services/           # Application business logic layer
 ├── repositories/       # Data access layer
-├── routers/           # API endpoints and route handlers
 ├── schemas/           # Data transfer objects and validation schemas
+│   ├── pydantic/     # Pydantic models
+│   └── graphql/      # GraphQL type definitions
 ├── configs/           # Application configuration
-├── metadata/          # Metadata definitions
-└── __tests__/         # Test suites
+└── docs/             # Documentation
 ```
 
 ## Architecture Layers
@@ -23,7 +23,7 @@ fastapi-clean-example/
 The project follows the Clean Architecture pattern with the following layers:
 
 1. **Domain Layer** (`models/`)
-   - Contains the core business entities
+   - Contains the core business entities (Activity, Moment)
    - Independent of external frameworks and tools
    - Defines the core business rules
 
@@ -35,18 +35,18 @@ The project follows the Clean Architecture pattern with the following layers:
 
 3. **Infrastructure Layer**
    - `repositories/`: Data access implementation
-   - `routers/`: HTTP/API handlers
+   - `schemas/`: Data transfer objects
    - `configs/`: External configurations
 
 4. **Interface Layer**
-   - REST API endpoints
-   - GraphQL API
-   - Data transfer objects (DTOs)
+   - GraphQL API with both queries and mutations
+   - Data validation with Pydantic and JSON Schema
+   - Type-safe operations
 
 ## Key Features
 
 - Clean Architecture implementation
-- Dual API support (REST and GraphQL)
+- GraphQL API with proper type definitions
 - Domain-Driven Design principles
 - Dependency injection
 - Repository pattern
@@ -64,4 +64,4 @@ The project follows the Clean Architecture pattern with the following layers:
 
 ## Getting Started
 
-Please refer to the main project README.md for setup and installation instructions. 
+Please refer to the main project README.md for setup and installation instructions.

@@ -17,54 +17,85 @@ T = TypeVar('T')
 class RepositoryMeta(Generic[T]):
     """Base repository with common CRUD operations"""
     
-    async def create(self, data: dict) -> T:
+    def create(self, **data) -> T:
         """Create a new entity"""
         pass
 
-    async def get_by_id(self, id: int) -> Optional[T]:
+    def get_by_id(self, id: int) -> Optional[T]:
         """Get entity by ID"""
         pass
 
-    async def get_all(self) -> List[T]:
+    def get_all(self) -> List[T]:
         """Get all entities"""
         pass
 
-    async def update(self, id: int, data: dict) -> Optional[T]:
+    def update(self, id: int, **data) -> Optional[T]:
         """Update an entity"""
         pass
 
-    async def delete(self, id: int) -> bool:
+    def delete(self, id: int) -> bool:
         """Delete an entity"""
         pass
 ```
 
 ### Concrete Repositories
 
-1. **Book Repository**
+1. **Activity Repository**
 ```python
-# repositories/BookRepository.py
-class BookRepository(RepositoryMeta[BookModel]):
-    def __init__(self, session: AsyncSession):
-        self._session = session
+# repositories/ActivityRepository.py
+class ActivityRepository:
+    def __init__(self, db: Session):
+        self.db = db
 
-    async def create(self, data: dict) -> BookModel:
-        book = BookModel(**data)
-        self._session.add(book)
-        await self._session.commit()
-        return book
+    def get_by_id(self, activity_id: int) -> Optional[Activity]:
+        return self.db.query(Activity).filter(Activity.id == activity_id).first()
+
+    def validate_existence(self, activity_id: int) -> Activity:
+        activity = self.get_by_id(activity_id)
+        if not activity:
+            raise HTTPException(status_code=404, detail="Activity not found")
+        return activity
 ```
 
-2. **Author Repository**
+2. **Moment Repository**
 ```python
-# repositories/AuthorRepository.py
-class AuthorRepository(RepositoryMeta[AuthorModel]):
-    def __init__(self, session: AsyncSession):
-        self._session = session
+# repositories/MomentRepository.py
+class MomentRepository:
+    def __init__(self, db: Session):
+        self.db = db
 
-    async def get_by_id(self, id: int) -> Optional[AuthorModel]:
-        query = select(AuthorModel).where(AuthorModel.id == id)
-        result = await self._session.execute(query)
-        return result.scalar_one_or_none()
+    def list_moments(
+        self,
+        page: int = 1,
+        size: int = 50,
+        activity_id: Optional[int] = None,
+        start_time: Optional[datetime] = None,
+        end_time: Optional[datetime] = None,
+    ) -> MomentList:
+        query = self.db.query(Moment)
+
+        # Apply filters
+        if activity_id is not None:
+            query = query.filter(Moment.activity_id == activity_id)
+        if start_time is not None:
+            query = query.filter(Moment.timestamp >= start_time)
+        if end_time is not None:
+            query = query.filter(Moment.timestamp <= end_time)
+
+        # Get total count and paginate
+        total = query.count()
+        pages = (total + size - 1) // size
+        skip = (page - 1) * size
+
+        moments = query.order_by(desc(Moment.timestamp)).offset(skip).limit(size).all()
+
+        return MomentList(
+            items=moments,
+            total=total,
+            page=page,
+            size=size,
+            pages=pages
+        )
 ```
 
 ## Key Features
@@ -74,10 +105,10 @@ class AuthorRepository(RepositoryMeta[AuthorModel]):
    - Reusable CRUD operations
    - Consistent interface across entities
 
-2. **Async Database Operations**
-   - Asynchronous database access
-   - Efficient resource utilization
-   - Better scalability
+2. **Database Operations**
+   - Efficient query building
+   - Proper transaction handling
+   - Connection management via SQLAlchemy
 
 3. **Session Management**
    - Proper transaction handling
@@ -88,39 +119,40 @@ class AuthorRepository(RepositoryMeta[AuthorModel]):
 
 ### 1. Create Operations
 ```python
-async def create(self, data: dict) -> T:
+def create(self, **data) -> T:
     entity = self._model(**data)
-    self._session.add(entity)
-    await self._session.commit()
+    self.db.add(entity)
+    self.db.commit()
+    self.db.refresh(entity)
     return entity
 ```
 
 ### 2. Read Operations
 ```python
-async def get_all(self) -> List[T]:
-    query = select(self._model)
-    result = await self._session.execute(query)
-    return result.scalars().all()
+def get_all(self) -> List[T]:
+    return self.db.query(self._model).all()
 ```
 
 ### 3. Update Operations
 ```python
-async def update(self, id: int, data: dict) -> Optional[T]:
-    entity = await self.get_by_id(id)
+def update(self, id: int, **data) -> Optional[T]:
+    entity = self.get_by_id(id)
     if entity:
         for key, value in data.items():
-            setattr(entity, key, value)
-        await self._session.commit()
+            if value is not None:
+                setattr(entity, key, value)
+        self.db.commit()
+        self.db.refresh(entity)
     return entity
 ```
 
 ### 4. Delete Operations
 ```python
-async def delete(self, id: int) -> bool:
-    entity = await self.get_by_id(id)
+def delete(self, id: int) -> bool:
+    entity = self.get_by_id(id)
     if entity:
-        await self._session.delete(entity)
-        await self._session.commit()
+        self.db.delete(entity)
+        self.db.commit()
         return True
     return False
 ```
@@ -150,12 +182,11 @@ async def delete(self, id: int) -> bool:
    - Transaction rollback on errors
 
 2. **Performance Optimization**
-   - Efficient queries
-   - Connection pooling
+   - Efficient queries with proper filtering
+   - Pagination support
    - Proper indexing
 
 3. **Testing**
    - Repository mocking
    - Integration tests
    - Database fixtures
-``` 
