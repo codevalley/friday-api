@@ -215,3 +215,6 @@ Below is a detailed, step-by-step plan to revamp the current codebase from the `
    - [ ] Performance optimization
    - [ ] Add monitoring
    - [ ] Plan future features
+
+python-jose
+pathlib

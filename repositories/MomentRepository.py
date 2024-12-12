@@ -13,12 +13,17 @@ class MomentRepository:
     def __init__(self, db: Session):
         self.db = db
 
-    def create(self, activity_id: int, data: dict, timestamp: Optional[datetime] = None) -> Moment:
+    def create(
+        self,
+        activity_id: int,
+        data: dict,
+        timestamp: Optional[datetime] = None,
+    ) -> Moment:
         """Create a new moment"""
         moment = Moment(
             activity_id=activity_id,
             data=data,
-            timestamp=timestamp or datetime.utcnow()
+            timestamp=timestamp or datetime.utcnow(),
         )
         self.db.add(moment)
         self.db.commit()
@@ -27,13 +32,19 @@ class MomentRepository:
 
     def get_by_id(self, moment_id: int) -> Optional[Moment]:
         """Get a moment by ID"""
-        return self.db.query(Moment).filter(Moment.id == moment_id).first()
+        return (
+            self.db.query(Moment)
+            .filter(Moment.id == moment_id)
+            .first()
+        )
 
     def validate_existence(self, moment_id: int) -> Moment:
         """Validate that a moment exists and return it"""
         moment = self.get_by_id(moment_id)
         if not moment:
-            raise HTTPException(status_code=404, detail="Moment not found")
+            raise HTTPException(
+                status_code=404, detail="Moment not found"
+            )
         return moment
 
     def list_moments(
@@ -52,11 +63,17 @@ class MomentRepository:
 
         # Apply filters
         if activity_id is not None:
-            query = query.filter(Moment.activity_id == activity_id)
+            query = query.filter(
+                Moment.activity_id == activity_id
+            )
         if start_time is not None:
-            query = query.filter(Moment.timestamp >= start_time)
+            query = query.filter(
+                Moment.timestamp >= start_time
+            )
         if end_time is not None:
-            query = query.filter(Moment.timestamp <= end_time)
+            query = query.filter(
+                Moment.timestamp <= end_time
+            )
 
         # Get total count
         total = query.count()
@@ -66,17 +83,24 @@ class MomentRepository:
         skip = (page - 1) * size
 
         # Get paginated results
-        moments = query.order_by(desc(Moment.timestamp)).offset(skip).limit(size).all()
+        moments = (
+            query.order_by(desc(Moment.timestamp))
+            .offset(skip)
+            .limit(size)
+            .all()
+        )
 
         return MomentList(
             items=moments,
             total=total,
             page=page,
             size=size,
-            pages=pages
+            pages=pages,
         )
 
-    def update(self, moment_id: int, **kwargs) -> Optional[Moment]:
+    def update(
+        self, moment_id: int, **kwargs
+    ) -> Optional[Moment]:
         """Update a moment"""
         moment = self.get_by_id(moment_id)
         if not moment:
@@ -100,11 +124,19 @@ class MomentRepository:
         self.db.commit()
         return True
 
-    def get_activity_moments_count(self, activity_id: int) -> int:
+    def get_activity_moments_count(
+        self, activity_id: int
+    ) -> int:
         """Get the count of moments for a specific activity"""
-        return self.db.query(Moment).filter(Moment.activity_id == activity_id).count()
+        return (
+            self.db.query(Moment)
+            .filter(Moment.activity_id == activity_id)
+            .count()
+        )
 
-    def get_recent_activities(self, limit: int = 5) -> List[Activity]:
+    def get_recent_activities(
+        self, limit: int = 5
+    ) -> List[Activity]:
         """Get recently used activities based on moment timestamps"""
         return (
             self.db.query(Activity)

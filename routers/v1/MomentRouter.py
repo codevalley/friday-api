@@ -8,20 +8,18 @@ from schemas.pydantic.MomentSchema import (
     MomentResponse,
     MomentCreate,
     MomentUpdate,
-    MomentList
+    MomentList,
 )
 from services.MomentService import MomentService
 
-router = APIRouter(
-    prefix="/v1/moments",
-    tags=["moments"]
+router = APIRouter(prefix="/v1/moments", tags=["moments"])
+
+
+@router.post(
+    "", response_model=MomentResponse, status_code=201
 )
-
-
-@router.post("", response_model=MomentResponse, status_code=201)
 async def create_moment(
-    moment: MomentCreate,
-    service: MomentService = Depends()
+    moment: MomentCreate, service: MomentService = Depends()
 ):
     """Create a new moment"""
     return service.create_moment(moment)
@@ -34,7 +32,7 @@ async def list_moments(
     activity_id: Optional[int] = None,
     start_date: Optional[datetime] = None,
     end_date: Optional[datetime] = None,
-    service: MomentService = Depends()
+    service: MomentService = Depends(),
 ):
     """
     List moments with filtering and pagination
@@ -44,13 +42,14 @@ async def list_moments(
     - start_date: Filter moments after this time (UTC)
     - end_date: Filter moments before this time (UTC)
     """
-    return service.list_moments(page, size, activity_id, start_date, end_date)
+    return service.list_moments(
+        page, size, activity_id, start_date, end_date
+    )
 
 
 @router.get("/{moment_id}", response_model=MomentResponse)
 async def get_moment(
-    moment_id: int,
-    service: MomentService = Depends()
+    moment_id: int, service: MomentService = Depends()
 ):
     """Get a moment by ID"""
     return service.get_moment(moment_id)
@@ -60,7 +59,7 @@ async def get_moment(
 async def update_moment(
     moment_id: int,
     moment: MomentUpdate,
-    service: MomentService = Depends()
+    service: MomentService = Depends(),
 ):
     """Update a moment"""
     return service.update_moment(moment_id, moment)
@@ -68,8 +67,7 @@ async def update_moment(
 
 @router.delete("/{moment_id}", status_code=204)
 async def delete_moment(
-    moment_id: int,
-    service: MomentService = Depends()
+    moment_id: int, service: MomentService = Depends()
 ):
     """Delete a moment"""
     service.delete_moment(moment_id)
@@ -79,7 +77,7 @@ async def delete_moment(
 @router.get("/activities/recent", response_model=List[dict])
 async def get_recent_activities(
     limit: int = Query(5, ge=1, le=20),
-    db: Session = Depends(get_db_connection)
+    db: Session = Depends(get_db_connection),
 ):
     """Get recently used activities"""
     service = MomentService(db)

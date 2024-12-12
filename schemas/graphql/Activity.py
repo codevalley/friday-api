@@ -13,11 +13,15 @@ class Activity:
             id=db_activity.id,
             name=db_activity.name,
             description=db_activity.description,
-            activity_schema=ensure_string(db_activity.activity_schema),
+            activity_schema=ensure_string(
+                db_activity.activity_schema
+            ),
             icon=db_activity.icon,
             color=db_activity.color,
             moments=[],  # Lazy load moments
-            moment_count=getattr(db_activity, 'moment_count', 0)  # Get moment_count if set
+            moment_count=getattr(
+                db_activity, "moment_count", 0
+            ),  # Get moment_count if set
         )
 
     id: int
@@ -27,7 +31,9 @@ class Activity:
     icon: str
     color: str
     # Note: moments will be added after Moment type is defined
-    moments: List["Moment"] = strawberry.field(default_factory=list)
+    moments: List["Moment"] = strawberry.field(
+        default_factory=list
+    )
     moment_count: int = strawberry.field(default=0)
 
     @strawberry.field
@@ -54,9 +60,11 @@ class ActivityInput:
         return {
             "name": self.name,
             "description": self.description,
-            "activity_schema": ensure_dict(self.activitySchema),
+            "activity_schema": ensure_dict(
+                self.activitySchema
+            ),
             "icon": self.icon,
-            "color": self.color
+            "color": self.color,
         }
 
 
@@ -76,7 +84,9 @@ class ActivityUpdateInput:
         if self.description is not None:
             update_dict["description"] = self.description
         if self.activitySchema is not None:
-            update_dict["activity_schema"] = ensure_dict(self.activitySchema)
+            update_dict["activity_schema"] = ensure_dict(
+                self.activitySchema
+            )
         if self.icon is not None:
             update_dict["icon"] = self.icon
         if self.color is not None:

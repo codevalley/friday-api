@@ -23,13 +23,12 @@ class Query:
 
     @strawberry.field(description="List all Activities")
     def getActivities(
-        self,
-        info: Info,
-        skip: int = 0,
-        limit: int = 100
+        self, info: Info, skip: int = 0, limit: int = 100
     ) -> List[Activity]:
         activity_service = get_ActivityService(info)
-        return activity_service.list_activities(skip=skip, limit=limit)
+        return activity_service.list_activities(
+            skip=skip, limit=limit
+        )
 
     @strawberry.field(description="Get a Moment by ID")
     def getMoment(
@@ -38,7 +37,9 @@ class Query:
         moment_service = get_MomentService(info)
         return moment_service.get_moment(id)
 
-    @strawberry.field(description="List Moments with filtering and pagination")
+    @strawberry.field(
+        description="List Moments with filtering and pagination"
+    )
     def getMoments(
         self,
         info: Info,
@@ -46,7 +47,7 @@ class Query:
         size: int = 50,
         activityId: Optional[int] = None,
         startTime: Optional[datetime] = None,
-        endTime: Optional[datetime] = None
+        endTime: Optional[datetime] = None,
     ) -> MomentConnection:
         moment_service = get_MomentService(info)
         return moment_service.list_moments(
@@ -54,14 +55,14 @@ class Query:
             size=size,
             activity_id=activityId,
             start_time=startTime,
-            end_time=endTime
+            end_time=endTime,
         )
 
-    @strawberry.field(description="Get recently used activities")
+    @strawberry.field(
+        description="Get recently used activities"
+    )
     def getRecentActivities(
-        self,
-        info: Info,
-        limit: int = 5
+        self, info: Info, limit: int = 5
     ) -> List[Activity]:
         moment_service = get_MomentService(info)
         return moment_service.get_recent_activities(limit)

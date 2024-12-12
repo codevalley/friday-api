@@ -10,7 +10,14 @@ class ActivityRepository:
     def __init__(self, db: Session):
         self.db = db
 
-    def create(self, name: str, description: str, activity_schema: dict, icon: str, color: str) -> Activity:
+    def create(
+        self,
+        name: str,
+        description: str,
+        activity_schema: dict,
+        icon: str,
+        color: str,
+    ) -> Activity:
         """Create a new activity"""
         try:
             activity = Activity(
@@ -18,7 +25,7 @@ class ActivityRepository:
                 description=description,
                 activity_schema=activity_schema,
                 icon=icon,
-                color=color
+                color=color,
             )
             self.db.add(activity)
             self.db.commit()
@@ -26,21 +33,43 @@ class ActivityRepository:
             return activity
         except IntegrityError:
             self.db.rollback()
-            raise HTTPException(status_code=400, detail="Activity with this name already exists")
+            raise HTTPException(
+                status_code=400,
+                detail="Activity with this name already exists",
+            )
 
-    def get_by_id(self, activity_id: int) -> Optional[Activity]:
+    def get_by_id(
+        self, activity_id: int
+    ) -> Optional[Activity]:
         """Get an activity by ID"""
-        return self.db.query(Activity).filter(Activity.id == activity_id).first()
+        return (
+            self.db.query(Activity)
+            .filter(Activity.id == activity_id)
+            .first()
+        )
 
     def get_by_name(self, name: str) -> Optional[Activity]:
         """Get an activity by name"""
-        return self.db.query(Activity).filter(Activity.name == name).first()
+        return (
+            self.db.query(Activity)
+            .filter(Activity.name == name)
+            .first()
+        )
 
-    def list_all(self, skip: int = 0, limit: int = 100) -> List[Activity]:
+    def list_all(
+        self, skip: int = 0, limit: int = 100
+    ) -> List[Activity]:
         """List all activities with pagination"""
-        return self.db.query(Activity).offset(skip).limit(limit).all()
+        return (
+            self.db.query(Activity)
+            .offset(skip)
+            .limit(limit)
+            .all()
+        )
 
-    def update(self, activity_id: int, **kwargs) -> Optional[Activity]:
+    def update(
+        self, activity_id: int, **kwargs
+    ) -> Optional[Activity]:
         """Update an activity"""
         activity = self.get_by_id(activity_id)
         if not activity:
@@ -56,7 +85,10 @@ class ActivityRepository:
             return activity
         except IntegrityError:
             self.db.rollback()
-            raise HTTPException(status_code=400, detail="Activity with this name already exists")
+            raise HTTPException(
+                status_code=400,
+                detail="Activity with this name already exists",
+            )
 
     def delete(self, activity_id: int) -> bool:
         """Delete an activity"""
@@ -68,9 +100,13 @@ class ActivityRepository:
         self.db.commit()
         return True
 
-    def validate_existence(self, activity_id: int) -> Activity:
+    def validate_existence(
+        self, activity_id: int
+    ) -> Activity:
         """Validate activity exists and return it"""
         activity = self.get_by_id(activity_id)
         if not activity:
-            raise HTTPException(status_code=404, detail="Activity not found")
+            raise HTTPException(
+                status_code=404, detail="Activity not found"
+            )
         return activity

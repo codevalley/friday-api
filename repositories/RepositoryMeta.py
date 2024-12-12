@@ -7,6 +7,7 @@ M = TypeVar("M")
 # Type definition for Unique Id
 K = TypeVar("K")
 
+
 #################################
 # Abstract Class for Repository #
 #################################

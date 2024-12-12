@@ -14,7 +14,11 @@ class Moment:
             timestamp=db_moment.timestamp,
             activity_id=db_moment.activity_id,
             data=ensure_string(db_moment.data),
-            activity=Activity.from_db(db_moment.activity) if db_moment.activity else None
+            activity=(
+                Activity.from_db(db_moment.activity)
+                if db_moment.activity
+                else None
+            ),
         )
 
     id: int
@@ -41,7 +45,7 @@ class MomentInput:
         return {
             "activity_id": self.activityId,
             "data": ensure_dict(self.data),
-            "timestamp": self.timestamp
+            "timestamp": self.timestamp,
         }
 
 
@@ -63,6 +67,7 @@ class MomentUpdateInput:
 @strawberry.type
 class MomentConnection:
     """Type for paginated moment lists"""
+
     items: list[Moment]
     total: int
     page: int

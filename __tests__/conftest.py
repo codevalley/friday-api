@@ -10,6 +10,7 @@ from models.BaseModel import EntityMeta
 # Test database URL should be configured in .env.test
 from configs.Environment import get_environment_variables
 
+
 @pytest.fixture(scope="session")
 def engine():
     """Create engine for test database"""
@@ -18,12 +19,15 @@ def engine():
         f"{env.DATABASE_DIALECT}://{env.DATABASE_USERNAME}:{env.DATABASE_PASSWORD}@"
         f"{env.DATABASE_HOSTNAME}:{env.DATABASE_PORT}/{env.DATABASE_NAME}"
     )
-    
+
     # Create all tables
-    EntityMeta.metadata.drop_all(bind=test_engine)  # Clean slate
+    EntityMeta.metadata.drop_all(
+        bind=test_engine
+    )  # Clean slate
     EntityMeta.metadata.create_all(bind=test_engine)
-    
+
     return test_engine
+
 
 @pytest.fixture(scope="function")
 def db_session(engine):
@@ -39,16 +43,21 @@ def db_session(engine):
     transaction.rollback()
     connection.close()
 
+
 @pytest.fixture
 def sample_activity():
     """Create a sample activity for testing"""
     return {
         "name": "test_activity",
         "description": "Test activity description",
-        "activity_schema": {"type": "object", "properties": {"notes": {"type": "string"}}},
+        "activity_schema": {
+            "type": "object",
+            "properties": {"notes": {"type": "string"}},
+        },
         "icon": "📝",
-        "color": "#000000"
+        "color": "#000000",
     }
+
 
 @pytest.fixture
 def sample_moment(sample_activity):
@@ -56,5 +65,5 @@ def sample_moment(sample_activity):
     return {
         "timestamp": datetime.now(timezone.utc),
         "data": {"notes": "Test moment"},
-        "activity_data": sample_activity
+        "activity_data": sample_activity,
     }

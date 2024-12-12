@@ -16,7 +16,9 @@ def from_json_string(data: Optional[str]) -> Optional[Dict]:
     return json.loads(data)
 
 
-def ensure_dict(data: Union[str, Dict, None]) -> Optional[Dict]:
+def ensure_dict(
+    data: Union[str, Dict, None]
+) -> Optional[Dict]:
     """Ensure data is a dictionary, converting from string if necessary"""
     if data is None:
         return None
@@ -25,7 +27,9 @@ def ensure_dict(data: Union[str, Dict, None]) -> Optional[Dict]:
     return data
 
 
-def ensure_string(data: Union[str, Dict, None]) -> Optional[str]:
+def ensure_string(
+    data: Union[str, Dict, None]
+) -> Optional[str]:
     """Ensure data is a JSON string, converting from dict if necessary"""
     if data is None:
         return None

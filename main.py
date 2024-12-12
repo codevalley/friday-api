@@ -6,7 +6,9 @@ from configs.Environment import get_environment_variables
 from configs.GraphQL import get_graphql_context
 from metadata.Tags import Tags
 from models.BaseModel import init
-from routers.v1.ActivityRouter import router as ActivityRouter
+from routers.v1.ActivityRouter import (
+    router as ActivityRouter,
+)
 from routers.v1.MomentRouter import router as MomentRouter
 from schemas.graphql.Query import Query
 from schemas.graphql.Mutation import Mutation
