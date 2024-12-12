@@ -22,7 +22,9 @@ def override_get_db():
 
 
 # Override the database dependency
-app.dependency_overrides[get_db_connection] = override_get_db
+app.dependency_overrides[get_db_connection] = (
+    override_get_db
+)
 
 client = TestClient(app)
 

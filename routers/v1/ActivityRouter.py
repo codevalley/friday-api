@@ -26,6 +26,8 @@ async def create_activity(
     current_user: User = Depends(get_current_user),
 ):
     """Create a new activity"""
+    # Add user_id to activity data
+    activity.user_id = current_user.id
     return service.create_activity(activity)
 
 
@@ -49,7 +51,12 @@ async def get_activity(
     current_user: User = Depends(get_current_user),
 ):
     """Get an activity by ID"""
-    return service.get_activity(activity_id)
+    activity = service.get_activity(activity_id)
+    if not activity:
+        raise HTTPException(
+            status_code=404, detail="Activity not found"
+        )
+    return activity
 
 
 @router.put(
@@ -62,15 +69,24 @@ async def update_activity(
     current_user: User = Depends(get_current_user),
 ):
     """Update an activity"""
-    return service.update_activity(activity_id, activity)
+    updated = service.update_activity(activity_id, activity)
+    if not updated:
+        raise HTTPException(
+            status_code=404, detail="Activity not found"
+        )
+    return updated
 
 
-@router.delete("/{activity_id}", status_code=204)
+@router.delete("/{activity_id}")
 async def delete_activity(
     activity_id: int,
     service: ActivityService = Depends(),
     current_user: User = Depends(get_current_user),
 ):
     """Delete an activity"""
-    service.delete_activity(activity_id)
-    return None
+    deleted = service.delete_activity(activity_id)
+    if not deleted:
+        raise HTTPException(
+            status_code=404, detail="Activity not found"
+        )
+    return {"message": "Activity deleted successfully"}

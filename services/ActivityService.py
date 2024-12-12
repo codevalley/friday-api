@@ -12,6 +12,7 @@ from repositories.MomentRepository import MomentRepository
 from schemas.pydantic.ActivitySchema import (
     ActivityCreate,
     ActivityUpdate,
+    ActivityResponse,
 )
 from schemas.graphql.Activity import (
     Activity as ActivityType,
@@ -28,7 +29,7 @@ class ActivityService:
 
     def create_activity(
         self, activity_data: ActivityCreate
-    ) -> ActivityType:
+    ) -> ActivityResponse:
         """Create a new activity with schema validation"""
         try:
             # Validate that the activity_schema is a valid JSON Schema
@@ -49,117 +50,100 @@ class ActivityService:
             color=activity_data.color,
             user_id=activity_data.user_id,
         )
-
-        return ActivityType.from_db(activity)
+        return ActivityResponse.from_orm(activity)
 
     def get_activity(
         self, activity_id: int
-    ) -> Optional[ActivityType]:
+    ) -> Optional[ActivityResponse]:
         """Get an activity by ID"""
-        activity = (
-            self.activity_repository.validate_existence(
-                activity_id
-            )
-        )
-        moment_count = self.moment_repository.get_activity_moments_count(
+        activity = self.activity_repository.get_by_id(
             activity_id
         )
-        activity.moment_count = moment_count
-        return (
-            ActivityType.from_db(activity)
-            if activity
-            else None
-        )
+        if not activity:
+            return None
+        return ActivityResponse.from_orm(activity)
 
     def list_activities(
         self, skip: int = 0, limit: int = 100
-    ) -> List[ActivityType]:
-        """List all activities with their moment counts"""
-        activities = self.activity_repository.list_all(
-            skip=skip, limit=limit
-        )
-        for activity in activities:
-            moment_count = self.moment_repository.get_activity_moments_count(
-                activity.id
+    ) -> List[ActivityResponse]:
+        """List all activities with pagination"""
+        activities = (
+            self.activity_repository.list_activities(
+                skip=skip, limit=limit
             )
-            activity.moment_count = moment_count
+        )
         return [
-            ActivityType.from_db(activity)
-            for activity in activities
+            ActivityResponse.from_orm(a) for a in activities
         ]
 
     def update_activity(
         self,
         activity_id: int,
         activity_data: ActivityUpdate,
-    ) -> Optional[ActivityType]:
+    ) -> Optional[ActivityResponse]:
         """Update an activity"""
-        # Validate existence
-        self.activity_repository.validate_existence(
+        # Get existing activity
+        activity = self.activity_repository.get_by_id(
             activity_id
         )
+        if not activity:
+            return None
 
-        # If activity_schema is being updated, validate it
-        if activity_data.activity_schema:
+        # Update fields
+        update_data = activity_data.dict(exclude_unset=True)
+        if "activity_schema" in update_data:
             try:
                 jsonschema.Draft7Validator.check_schema(
-                    activity_data.activity_schema
+                    update_data["activity_schema"]
                 )
             except ValidationError as e:
                 raise HTTPException(
                     status_code=400,
-                    detail=f"Invalid JSON Schema in activity_schema: {str(e)}",
+                    detail=f"Invalid JSON Schema: {str(e)}",
                 )
 
-        # Update only provided fields
-        update_data = activity_data.dict(exclude_unset=True)
-        activity = self.activity_repository.update(
-            activity_id, **update_data
+        updated = self.activity_repository.update(
+            activity_id, update_data
         )
-
-        return (
-            ActivityType.from_db(activity)
-            if activity
-            else None
-        )
+        return ActivityResponse.from_orm(updated)
 
     def delete_activity(self, activity_id: int) -> bool:
-        """Delete an activity and all its moments"""
-        # Check if activity exists and has moments
-        activity = (
-            self.activity_repository.validate_existence(
-                activity_id
-            )
-        )
-        moment_count = self.moment_repository.get_activity_moments_count(
-            activity_id
-        )
-
-        if moment_count > 0:
-            raise HTTPException(
-                status_code=400,
-                detail=f"Cannot delete activity with {moment_count} moments. Delete moments first.",
-            )
-
+        """Delete an activity"""
         return self.activity_repository.delete(activity_id)
 
-    def validate_moment_data(
-        self, activity_id: int, data: Dict
-    ) -> None:
-        """Validate moment data against activity schema"""
-        activity = (
-            self.activity_repository.validate_existence(
-                activity_id
+    # GraphQL specific methods
+    def create_activity_graphql(
+        self, activity_data: ActivityCreate
+    ) -> ActivityType:
+        """Create activity for GraphQL"""
+        activity = self.activity_repository.create(
+            name=activity_data.name,
+            description=activity_data.description,
+            activity_schema=activity_data.activity_schema,
+            icon=activity_data.icon,
+            color=activity_data.color,
+            user_id=activity_data.user_id,
+        )
+        return ActivityType.from_db(activity)
+
+    def get_activity_graphql(
+        self, activity_id: int
+    ) -> Optional[ActivityType]:
+        """Get activity for GraphQL"""
+        activity = self.activity_repository.get_by_id(
+            activity_id
+        )
+        if not activity:
+            return None
+        return ActivityType.from_db(activity)
+
+    def list_activities_graphql(
+        self, skip: int = 0, limit: int = 100
+    ) -> List[ActivityType]:
+        """List activities for GraphQL"""
+        activities = (
+            self.activity_repository.list_activities(
+                skip=skip, limit=limit
             )
         )
-
-        try:
-            jsonschema.validate(
-                instance=data,
-                schema=activity.activity_schema,
-            )
-        except ValidationError as e:
-            raise HTTPException(
-                status_code=400,
-                detail=f"Invalid moment data: {str(e)}",
-            )
+        return [ActivityType.from_db(a) for a in activities]

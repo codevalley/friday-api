@@ -8,7 +8,9 @@ from models.UserModel import User
 
 
 class UserService:
-    def __init__(self, db: Session = Depends(get_db_connection)):
+    def __init__(
+        self, db: Session = Depends(get_db_connection)
+    ):
         self.user_repository = UserRepository(db)
 
     async def register_user(

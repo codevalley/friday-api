@@ -10,6 +10,7 @@ from sqlalchemy import (
 from sqlalchemy.orm import relationship
 from datetime import datetime, timezone
 from jsonschema import validate as validate_json_schema
+import json
 
 from models.BaseModel import EntityMeta
 from models.UserModel import User
@@ -69,6 +70,13 @@ class Moment(EntityMeta):
 
     def __repr__(self):
         return f"<Moment(id={self.id}, activity_id={self.activity_id}, timestamp='{self.timestamp}')>"
+
+    @property
+    def data_dict(self) -> dict:
+        """Return data as a dictionary"""
+        if isinstance(self.data, str):
+            return json.loads(self.data)
+        return self.data
 
     def validate_data(self):
         """Validate that the moment data matches the activity's schema"""

@@ -19,14 +19,14 @@ class Query:
         self, id: int, info: Info
     ) -> Optional[Activity]:
         activity_service = get_ActivityService(info)
-        return activity_service.get_activity(id)
+        return activity_service.get_activity_graphql(id)
 
     @strawberry.field(description="List all Activities")
     def getActivities(
         self, info: Info, skip: int = 0, limit: int = 100
     ) -> List[Activity]:
         activity_service = get_ActivityService(info)
-        return activity_service.list_activities(
+        return activity_service.list_activities_graphql(
             skip=skip, limit=limit
         )
 

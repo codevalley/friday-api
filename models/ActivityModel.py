@@ -8,6 +8,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import relationship
 from jsonschema import validate as validate_json_schema
+import json
 
 from models.BaseModel import EntityMeta
 from models.UserModel import User
@@ -67,6 +68,13 @@ class Activity(EntityMeta):
         return (
             f"<Activity(id={self.id}, name='{self.name}')>"
         )
+
+    @property
+    def activity_schema_dict(self) -> dict:
+        """Return activity_schema as a dictionary"""
+        if isinstance(self.activity_schema, str):
+            return json.loads(self.activity_schema)
+        return self.activity_schema
 
     def validate_schema(self):
         """Validate that the activity_schema is a valid JSON Schema"""

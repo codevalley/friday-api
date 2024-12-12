@@ -1,6 +1,6 @@
 from typing import Dict, Optional, List
 from datetime import datetime
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field, field_validator
 from .ActivitySchema import ActivityResponse
 
 
@@ -16,8 +16,11 @@ class MomentBase(BaseModel):
         None, description="UTC timestamp of the moment"
     )
 
-    @validator("timestamp", pre=True)
-    def default_timestamp(cls, v):
+    @field_validator("timestamp")
+    @classmethod
+    def default_timestamp(
+        cls, v: Optional[datetime]
+    ) -> datetime:
         """Set default timestamp to current UTC time if not provided"""
         return v or datetime.utcnow()
 
@@ -45,7 +48,18 @@ class MomentResponse(MomentBase):
     activity: ActivityResponse
 
     class Config:
-        from_attributes = True  # Enable ORM mode
+        from_attributes = True
+        json_encoders = {
+            dict: lambda v: v  # Preserve dictionaries as-is
+        }
+
+    @field_validator("data")
+    @classmethod
+    def ensure_dict_data(cls, v):
+        """Ensure data is a dictionary"""
+        if hasattr(v, "data_dict"):
+            return v.data_dict
+        return v
 
 
 class MomentList(BaseModel):
@@ -55,7 +69,6 @@ class MomentList(BaseModel):
     total: int
     page: int
     size: int
-    pages: int
 
     class Config:
         from_attributes = True

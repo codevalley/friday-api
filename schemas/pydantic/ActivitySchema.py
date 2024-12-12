@@ -12,38 +12,31 @@ class ActivityBase(BaseModel):
     )
     activity_schema: Dict = Field(
         ...,
-        description="JSON Schema for validating moment data",
+        description="JSON Schema that defines the structure of moment data",
     )
     icon: str = Field(..., min_length=1, max_length=255)
     color: str = Field(..., min_length=1, max_length=50)
 
     @validator("color")
     def validate_color(cls, v):
-        """Validate color format (hex, rgb, or named color)"""
-        color_pattern = r"^(#[0-9a-fA-F]{6}|rgb\(\d{1,3},\s*\d{1,3},\s*\d{1,3}\)|[a-zA-Z]+)$"
-        if not re.match(color_pattern, v):
+        """Validate that color is a valid hex color code"""
+        if not re.match(r"^#[0-9A-Fa-f]{6}$", v):
             raise ValueError(
-                "Invalid color format. Use hex (#RRGGBB), rgb(r,g,b), or color name"
-            )
-        return v
-
-    @validator("activity_schema")
-    def validate_schema(cls, v):
-        """Validate that activity_schema is a valid JSON Schema"""
-        required_fields = ["type", "properties"]
-        if not all(field in v for field in required_fields):
-            raise ValueError(
-                'activity_schema must be a valid JSON Schema with "type" and "properties" fields'
+                "Color must be a valid hex color code (e.g., #4A90E2)"
             )
         return v
 
 
 class ActivityCreate(ActivityBase):
     """Schema for creating a new Activity"""
-    user_id: str = Field(..., description="ID of the user creating the activity")
+
+    user_id: Optional[str] = Field(
+        None,
+        description="ID of the user creating the activity",
+    )
 
 
-class ActivityUpdate(ActivityBase):
+class ActivityUpdate(BaseModel):
     """Schema for updating an existing Activity"""
 
     name: Optional[str] = Field(
@@ -53,8 +46,12 @@ class ActivityUpdate(ActivityBase):
         None, min_length=1, max_length=1000
     )
     activity_schema: Optional[Dict] = None
-    icon: Optional[str] = Field(None, min_length=1, max_length=255)
-    color: Optional[str] = Field(None, min_length=1, max_length=50)
+    icon: Optional[str] = Field(
+        None, min_length=1, max_length=255
+    )
+    color: Optional[str] = Field(
+        None, min_length=1, max_length=50
+    )
 
 
 class ActivityResponse(ActivityBase):
@@ -62,9 +59,13 @@ class ActivityResponse(ActivityBase):
 
     id: int
     user_id: str
+    moment_count: int = 0
 
     class Config:
-        from_attributes = True  # Enable ORM mode
+        from_attributes = True
+        json_encoders = {
+            dict: lambda v: v  # Preserve dictionaries as-is
+        }
 
 
 class ActivityList(BaseModel):

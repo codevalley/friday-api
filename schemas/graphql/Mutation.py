@@ -3,7 +3,7 @@ from strawberry.types import Info
 from configs.GraphQL import (
     get_ActivityService,
     get_MomentService,
-    get_user_from_context
+    get_user_from_context,
 )
 
 from schemas.graphql.Activity import (
@@ -23,13 +23,21 @@ from schemas.pydantic.MomentSchema import (
     MomentCreate,
     MomentUpdate,
 )
-from schemas.graphql.mutations.UserMutation import UserMutation
-from schemas.graphql.mutations.ActivityMutation import ActivityMutation
-from schemas.graphql.mutations.MomentMutation import MomentMutation
+from schemas.graphql.mutations.UserMutation import (
+    UserMutation,
+)
+from schemas.graphql.mutations.ActivityMutation import (
+    ActivityMutation,
+)
+from schemas.graphql.mutations.MomentMutation import (
+    MomentMutation,
+)
 
 
 @strawberry.type(description="Mutate all entities")
-class Mutation(UserMutation, ActivityMutation, MomentMutation):
+class Mutation(
+    UserMutation, ActivityMutation, MomentMutation
+):
     @strawberry.field(description="Create a new Activity")
     def create_activity(
         self, activity: ActivityInput, info: Info
@@ -39,7 +47,7 @@ class Mutation(UserMutation, ActivityMutation, MomentMutation):
         activity_dict = activity.to_dict()
         activity_dict["user_id"] = current_user.id
         activity_create = ActivityCreate(**activity_dict)
-        return activity_service.create_activity(
+        return activity_service.create_activity_graphql(
             activity_create
         )
 

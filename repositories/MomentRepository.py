@@ -58,6 +58,7 @@ class MomentRepository:
         activity_id: Optional[int] = None,
         start_time: Optional[datetime] = None,
         end_time: Optional[datetime] = None,
+        user_id: Optional[str] = None,
     ) -> MomentList:
         """
         List moments with filtering and pagination
@@ -77,6 +78,10 @@ class MomentRepository:
         if end_time is not None:
             query = query.filter(
                 Moment.timestamp <= end_time
+            )
+        if user_id is not None:
+            query = query.filter(
+                Activity.user_id == user_id
             )
 
         # Get total count

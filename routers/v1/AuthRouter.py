@@ -39,7 +39,9 @@ async def login_for_access_token(
 ):
     """Login to get an access token"""
     service = UserService(db)
-    user = await service.authenticate_user(request.user_secret)
+    user = await service.authenticate_user(
+        request.user_secret
+    )
 
     if not user:
         raise HTTPException(

@@ -26,7 +26,7 @@ async def create_moment(
     current_user: User = Depends(get_current_user),
 ):
     """Create a new moment"""
-    return service.create_moment(moment)
+    return service.create_moment(moment, current_user.id)
 
 
 @router.get("", response_model=MomentList)
@@ -48,7 +48,12 @@ async def list_moments(
     - end_date: Filter moments before this time (UTC)
     """
     return service.list_moments(
-        page, size, activity_id, start_date, end_date
+        page,
+        size,
+        activity_id,
+        start_date,
+        end_date,
+        current_user.id,
     )
 
 
@@ -59,7 +64,7 @@ async def get_moment(
     current_user: User = Depends(get_current_user),
 ):
     """Get a moment by ID"""
-    return service.get_moment(moment_id)
+    return service.get_moment(moment_id, current_user.id)
 
 
 @router.put("/{moment_id}", response_model=MomentResponse)
@@ -70,7 +75,9 @@ async def update_moment(
     current_user: User = Depends(get_current_user),
 ):
     """Update a moment"""
-    return service.update_moment(moment_id, moment)
+    return service.update_moment(
+        moment_id, moment, current_user.id
+    )
 
 
 @router.delete("/{moment_id}", status_code=204)
@@ -80,7 +87,7 @@ async def delete_moment(
     current_user: User = Depends(get_current_user),
 ):
     """Delete a moment"""
-    service.delete_moment(moment_id)
+    service.delete_moment(moment_id, current_user.id)
     return None
 
 

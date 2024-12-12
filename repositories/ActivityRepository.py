@@ -58,12 +58,13 @@ class ActivityRepository:
             .first()
         )
 
-    def list_all(
+    def list_activities(
         self, skip: int = 0, limit: int = 100
     ) -> List[Activity]:
         """List all activities with pagination"""
         return (
             self.db.query(Activity)
+            .order_by(Activity.name)
             .offset(skip)
             .limit(limit)
             .all()

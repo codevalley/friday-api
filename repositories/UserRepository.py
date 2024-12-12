@@ -24,9 +24,15 @@ class UserRepository:
 
     def get_by_id(self, user_id: str) -> Optional[User]:
         """Get a user by their ID"""
-        return self.db.query(User).filter(User.id == user_id).first()
+        return (
+            self.db.query(User)
+            .filter(User.id == user_id)
+            .first()
+        )
 
-    def get_by_username(self, username: str) -> Optional[User]:
+    def get_by_username(
+        self, username: str
+    ) -> Optional[User]:
         """Get a user by their username"""
         return (
             self.db.query(User)
@@ -34,7 +40,9 @@ class UserRepository:
             .first()
         )
 
-    def get_by_user_secret(self, user_secret: str) -> Optional[User]:
+    def get_by_user_secret(
+        self, user_secret: str
+    ) -> Optional[User]:
         """Get a user by their user_secret"""
         return (
             self.db.query(User)
