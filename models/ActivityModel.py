@@ -4,11 +4,13 @@ from sqlalchemy import (
     String,
     JSON,
     CheckConstraint,
+    ForeignKey,
 )
 from sqlalchemy.orm import relationship
 from jsonschema import validate as validate_json_schema
 
 from models.BaseModel import EntityMeta
+from models.UserModel import User
 
 
 class Activity(EntityMeta):
@@ -20,21 +22,21 @@ class Activity(EntityMeta):
     __tablename__ = "activities"
 
     id = Column(Integer, primary_key=True, index=True)
-    name = Column(
-        String(255), unique=True, index=True, nullable=False
+    user_id = Column(
+        String(36),
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
     )
+    name = Column(String(255), nullable=False)
     description = Column(String(1000))
     activity_schema = Column(
         JSON, nullable=False
     )  # JSON Schema for validating moment data
-    icon = Column(
-        String(255), nullable=False
-    )  # Icon identifier or URL
-    color = Column(
-        String(50), nullable=False
-    )  # Color code for UI representation
+    icon = Column(String(255), nullable=False)
+    color = Column(String(7), nullable=False)
 
     # Relationships
+    user = relationship("User", back_populates="activities")
     moments = relationship(
         "Moment",
         back_populates="activity",

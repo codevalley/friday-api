@@ -20,21 +20,30 @@ async def get_current_user(
     db: Session = Depends(get_db_connection),
 ) -> UserModel:
     """Dependency to get the current authenticated user"""
-    credentials_exception = HTTPException(
-        status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="Could not validate credentials",
-        headers={"WWW-Authenticate": "Bearer"},
-    )
+    try:
+        token = credentials.credentials
+        user_id = verify_token(token)
+        if user_id is None:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Could not validate credentials",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
 
-    # Verify the JWT token
-    user_id = verify_token(credentials.credentials)
-    if user_id is None:
-        raise credentials_exception
+        # Get the user from database
+        user_repository = UserRepository(db)
+        user = user_repository.get_by_id(user_id)
+        if user is None:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Could not validate credentials",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
 
-    # Get the user from database
-    user_repository = UserRepository(db)
-    user = user_repository.get_by_id(user_id)
-    if user is None:
-        raise credentials_exception
-
-    return user
+        return user
+    except Exception:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Could not validate credentials",
+            headers={"WWW-Authenticate": "Bearer"},
+        )

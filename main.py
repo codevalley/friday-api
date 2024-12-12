@@ -1,4 +1,5 @@
 from fastapi import Depends, FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from strawberry import Schema
 from strawberry.fastapi import GraphQLRouter
 
@@ -10,6 +11,7 @@ from routers.v1.ActivityRouter import (
     router as ActivityRouter,
 )
 from routers.v1.MomentRouter import router as MomentRouter
+from routers.v1.AuthRouter import router as AuthRouter
 from schemas.graphql.Query import Query
 from schemas.graphql.Mutation import Mutation
 
@@ -24,24 +26,41 @@ app = FastAPI(
     openapi_tags=Tags,
 )
 
+# Configure CORS
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# Configure security scheme for OpenAPI
+app.openapi_components = {
+    "securitySchemes": {
+        "Bearer": {
+            "type": "apiKey",
+            "in": "header",
+            "name": "Authorization",
+            "description": "Enter your bearer token in the format: Bearer <token>",
+        }
+    }
+}
+app.openapi_security = [{"Bearer": []}]
+
 # Add Routers
 app.include_router(ActivityRouter)
 app.include_router(MomentRouter)
+app.include_router(AuthRouter)
 
-# GraphQL Schema and Application Instance
+# GraphQL Configuration
 schema = Schema(query=Query, mutation=Mutation)
 graphql = GraphQLRouter(
     schema,
-    graphiql=env.DEBUG_MODE,
     context_getter=get_graphql_context,
+    graphiql=True,
 )
+app.include_router(graphql, prefix="/graphql")
 
-# Integrate GraphQL Application to the Core one
-app.include_router(
-    graphql,
-    prefix="/graphql",
-    include_in_schema=False,
-)
-
-# Initialise Data Model Attributes
+# Initialize Database
 init()

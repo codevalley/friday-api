@@ -19,7 +19,9 @@ router = APIRouter(prefix="/v1/auth", tags=["auth"])
 
 
 @router.post(
-    "/register", response_model=UserRegisterResponse
+    "/register",
+    response_model=UserRegisterResponse,
+    status_code=status.HTTP_200_OK,
 )
 async def register_user(
     request: UserCreate,
@@ -27,17 +29,7 @@ async def register_user(
 ):
     """Register a new user"""
     service = UserService(db)
-    user, user_secret = service.register_user(
-        request.username
-    )
-    response = UserRegisterResponse(
-        id=user.id,
-        username=user.username,
-        user_secret=user_secret,
-        created_at=user.created_at,
-        updated_at=user.updated_at,
-    )
-    return response
+    return await service.register_user(request)
 
 
 @router.post("/token", response_model=Token)
@@ -47,10 +39,21 @@ async def login_for_access_token(
 ):
     """Login to get an access token"""
     service = UserService(db)
-    user = service.authenticate_user(request.user_secret)
+    user = await service.authenticate_user(
+        request.username, request.user_secret
+    )
 
-    # Create access token
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect username or password",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
     access_token = create_access_token(
         data={"sub": user.id}
     )
-    return Token(access_token=access_token)
+    return {
+        "access_token": access_token,
+        "token_type": "bearer",
+    }

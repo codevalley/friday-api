@@ -9,6 +9,8 @@ from schemas.pydantic.ActivitySchema import (
     ActivityUpdate,
 )
 from services.ActivityService import ActivityService
+from dependencies import get_current_user
+from models.UserModel import UserModel
 
 router = APIRouter(
     prefix="/v1/activities", tags=["activities"]
@@ -21,6 +23,7 @@ router = APIRouter(
 async def create_activity(
     activity: ActivityCreate,
     service: ActivityService = Depends(),
+    current_user: UserModel = Depends(get_current_user),
 ):
     """Create a new activity"""
     return service.create_activity(activity)
@@ -31,6 +34,7 @@ async def list_activities(
     skip: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=100),
     service: ActivityService = Depends(),
+    current_user: UserModel = Depends(get_current_user),
 ):
     """List all activities with pagination"""
     return service.list_activities(skip=skip, limit=limit)
@@ -40,7 +44,9 @@ async def list_activities(
     "/{activity_id}", response_model=ActivityResponse
 )
 async def get_activity(
-    activity_id: int, service: ActivityService = Depends()
+    activity_id: int,
+    service: ActivityService = Depends(),
+    current_user: UserModel = Depends(get_current_user),
 ):
     """Get an activity by ID"""
     return service.get_activity(activity_id)
@@ -53,6 +59,7 @@ async def update_activity(
     activity_id: int,
     activity: ActivityUpdate,
     service: ActivityService = Depends(),
+    current_user: UserModel = Depends(get_current_user),
 ):
     """Update an activity"""
     return service.update_activity(activity_id, activity)
@@ -60,7 +67,9 @@ async def update_activity(
 
 @router.delete("/{activity_id}", status_code=204)
 async def delete_activity(
-    activity_id: int, service: ActivityService = Depends()
+    activity_id: int,
+    service: ActivityService = Depends(),
+    current_user: UserModel = Depends(get_current_user),
 ):
     """Delete an activity"""
     service.delete_activity(activity_id)

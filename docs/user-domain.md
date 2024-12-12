@@ -7,10 +7,10 @@
 - [x] 5. Authentication Utilities (`utils/security.py`)
 - [x] 6. Dependencies (`dependencies.py`)
 - [x] 7. Routers (`routers/v1/AuthRouter.py`)
-- [ ] 8. Secure Other Endpoints
-- [ ] 9. JWT Configuration
-- [ ] 10. Database Migrations
-- [ ] 11. Testing
+- [x] 8. Secure Other Endpoints
+- [x] 9. JWT Configuration
+- [x] 10. Database Migrations
+- [x] 11. Testing
 
 Below is a step-by-step plan for integrating a user registration and authentication flow similar to the project’s approach into our clean architecture codebase. This plan will guide in implementing this feature without breaking the established structure of our clean architecture.
 

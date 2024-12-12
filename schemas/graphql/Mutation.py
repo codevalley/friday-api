@@ -23,10 +23,13 @@ from schemas.pydantic.MomentSchema import (
     MomentCreate,
     MomentUpdate,
 )
+from schemas.graphql.mutations.UserMutation import (
+    UserMutation,
+)
 
 
 @strawberry.type(description="Mutate all entities")
-class Mutation:
+class Mutation(UserMutation):
     @strawberry.field(description="Create a new Activity")
     def create_activity(
         self, activity: ActivityInput, info: Info

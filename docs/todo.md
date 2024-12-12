@@ -216,5 +216,12 @@ Below is a detailed, step-by-step plan to revamp the current codebase from the `
    - [ ] Add monitoring
    - [ ] Plan future features
 
-python-jose
-pathlib
+### General Todo
+- Add these libs to our pipenv file.
+   - python-jose
+   - pathlib
+   - httpx
+
+- Add user association to Activities and Moments (so each user sees only their data)?
+- Add some sample activities and moments to test with?
+- Add the endpoint recentMoments

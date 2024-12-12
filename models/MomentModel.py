@@ -4,6 +4,7 @@ from sqlalchemy import (
     DateTime,
     JSON,
     ForeignKey,
+    String,
     CheckConstraint,
 )
 from sqlalchemy.orm import relationship
@@ -11,6 +12,7 @@ from datetime import datetime, timezone
 from jsonschema import validate as validate_json_schema
 
 from models.BaseModel import EntityMeta
+from models.UserModel import User
 
 
 class Moment(EntityMeta):
@@ -22,20 +24,26 @@ class Moment(EntityMeta):
     __tablename__ = "moments"
 
     id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(
+        String(36),
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    activity_id = Column(
+        Integer,
+        ForeignKey("activities.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    data = Column(JSON, nullable=False)
     timestamp = Column(
         DateTime(timezone=True),
         index=True,
         nullable=False,
         default=lambda: datetime.now(timezone.utc),
     )
-    activity_id = Column(
-        Integer, ForeignKey("activities.id"), nullable=False
-    )
-    data = Column(
-        JSON, nullable=False
-    )  # Flexible schema based on activity type
 
     # Relationships
+    user = relationship("User", back_populates="moments")
     activity = relationship(
         "Activity", back_populates="moments"
     )
@@ -52,6 +60,10 @@ class Moment(EntityMeta):
         ),
         CheckConstraint(
             "data IS NOT NULL", name="check_data_not_null"
+        ),
+        CheckConstraint(
+            "user_id IS NOT NULL",
+            name="check_user_id_not_null",
         ),
     )
 
