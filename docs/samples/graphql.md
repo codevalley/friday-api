@@ -1,78 +1,10 @@
 # GraphQL Query Examples
 
-## Moments
-
-### Get a Single Moment by ID
-```graphql
-query GetMoment {
-  getMoment(id: 1) {
-    id
-    data
-    timestamp
-    activityId
-    activity {
-      id
-      name
-      description
-    }
-  }
-}
-```
-
-### List Moments with Filtering and Pagination
-```graphql
-query GetMoments {
-  getMoments(
-    page: 1
-    size: 10
-    activityId: 1
-    startTime: "2024-01-01T00:00:00Z"
-    endTime: "2024-12-31T23:59:59Z"
-  ) {
-    items {
-      id
-      data
-      timestamp
-      activityId
-      activity {
-        id
-        name
-        description
-      }
-    }
-    total
-    page
-    size
-    pages
-  }
-}
-```
-
-### Create a New Moment
-```graphql
-mutation CreateMoment {
-  createMoment(
-    moment: {
-      activityId: 1
-      data: "{\"key\": \"value\"}"
-      timestamp: "2024-01-01T12:00:00Z"
-    }
-  ) {
-    id
-    data
-    timestamp
-    activityId
-    activity {
-      id
-      name
-    }
-  }
-}
-```
-
 ## Activities
 
-### Get a Single Activity
+### Queries
+
+#### Get Activity by ID
 ```graphql
 query GetActivity {
   getActivity(id: 1) {
@@ -92,9 +24,9 @@ query GetActivity {
 }
 ```
 
-### List All Activities
+#### List Activities
 ```graphql
-query GetActivities {
+query ListActivities {
   getActivities(skip: 0, limit: 10) {
     id
     name
@@ -107,16 +39,18 @@ query GetActivities {
 }
 ```
 
-### Create a New Activity
+### Mutations
+
+#### Create Activity
 ```graphql
 mutation CreateActivity {
   createActivity(
     activity: {
-      name: "Daily Journal"
-      description: "Track your daily thoughts and experiences"
-      activitySchema: "{\"type\": \"object\", \"properties\": {\"entry\": {\"type\": \"string\"}}}"
-      icon: "📝"
-      color: "#4A90E2"
+      name: "New Activity",
+      description: "Activity description",
+      activitySchema: "{\"type\":\"object\",\"properties\":{\"value\":{\"type\":\"string\"}}}",
+      icon: "activity-icon",
+      color: "#00FF00"
     }
   ) {
     id
@@ -129,14 +63,17 @@ mutation CreateActivity {
 }
 ```
 
-### Update an Activity
+#### Update Activity
 ```graphql
 mutation UpdateActivity {
   updateActivity(
-    activityId: 1
+    activityId: 1,
     activity: {
-      name: "Updated Journal"
-      description: "Updated description"
+      name: "Updated Activity",
+      description: "Updated description",
+      activitySchema: "{\"type\":\"object\",\"properties\":{\"value\":{\"type\":\"string\"}}}",
+      icon: "new-icon",
+      color: "#FF0000"
     }
   ) {
     id
@@ -148,3 +85,94 @@ mutation UpdateActivity {
   }
 }
 ```
+
+## Moments
+
+### Queries
+
+#### Get Moment by ID
+```graphql
+query GetMoment {
+  getMoment(id: 1) {
+    id
+    timestamp
+    data
+    activity {
+      id
+      name
+      description
+    }
+  }
+}
+```
+
+#### List Moments
+```graphql
+query ListMoments {
+  getMoments(
+    page: 1,
+    size: 10,
+    activityId: 1,
+    startTime: "2024-01-01T00:00:00Z",
+    endTime: "2024-12-31T23:59:59Z"
+  ) {
+    items {
+      id
+      timestamp
+      data
+      activity {
+        id
+        name
+      }
+    }
+    total
+    page
+    size
+    pages
+  }
+}
+```
+
+### Mutations
+
+#### Create Moment
+```graphql
+mutation CreateMoment {
+  createMoment(
+    moment: {
+      activityId: 1,
+      data: "{\"value\":\"Sample value\"}",
+      timestamp: "2024-12-12T16:30:00Z"
+    }
+  ) {
+    id
+    timestamp
+    data
+    activity {
+      id
+      name
+    }
+  }
+}
+```
+
+#### Update Moment
+```graphql
+mutation UpdateMoment {
+  updateMoment(
+    momentId: 1,
+    moment: {
+      activityId: 1,
+      data: "{\"value\":\"Updated value\"}",
+      timestamp: "2024-12-12T16:30:00Z"
+    }
+  ) {
+    id
+    timestamp
+    data
+    activity {
+      id
+      name
+    }
+  }
+}

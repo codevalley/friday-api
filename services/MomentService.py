@@ -13,6 +13,7 @@ from schemas.pydantic.MomentSchema import (
     MomentCreate,
     MomentUpdate,
     MomentList,
+    MomentResponse,
 )
 from schemas.graphql.Moment import Moment as MomentType
 from schemas.graphql.Moment import MomentConnection
@@ -29,7 +30,7 @@ class MomentService:
 
     def create_moment(
         self, moment_data: MomentCreate, user_id: str
-    ) -> MomentType:
+    ) -> MomentResponse:
         """Create a new moment with data validation"""
         # Get activity to validate data against schema
         activity = (
@@ -65,18 +66,14 @@ class MomentService:
             timestamp=moment_data.timestamp,
         )
 
-        return moment
+        return MomentResponse.from_orm(moment)
 
-    def get_moment(
-        self, moment_id: int, user_id: str
-    ) -> Optional[MomentType]:
-        """Get a moment by ID"""
-        moment = self.moment_repository.get_by_id(moment_id)
-        if not moment or moment.activity.user_id != user_id:
-            raise HTTPException(
-                status_code=404, detail="Moment not found"
-            )
-        return moment
+    def create_moment_graphql(
+        self, moment_data: MomentCreate, user_id: str
+    ) -> MomentType:
+        """Create a moment for GraphQL"""
+        moment = self.create_moment(moment_data, user_id)
+        return MomentType.from_db(moment)
 
     def list_moments(
         self,
@@ -87,33 +84,62 @@ class MomentService:
         end_date: Optional[datetime] = None,
         user_id: Optional[str] = None,
     ) -> MomentList:
-        """List moments with filtering and pagination"""
+        """List moments with filtering and pagination for REST"""
         moments = self.moment_repository.list_moments(
             page=page,
             size=size,
             activity_id=activity_id,
             start_time=start_date,
             end_time=end_date,
+            user_id=user_id,
         )
-
-        # Filter by user_id if provided
-        if user_id:
-            moments.items = [
-                m
-                for m in moments.items
-                if m.activity.user_id == user_id
-            ]
-            moments.total = len(moments.items)
-
         return moments
+
+    def list_moments_graphql(
+        self,
+        page: int = 1,
+        size: int = 50,
+        activity_id: Optional[int] = None,
+        start_time: Optional[datetime] = None,
+        end_time: Optional[datetime] = None,
+        user_id: Optional[str] = None,
+    ) -> MomentConnection:
+        """List moments with filtering and pagination for GraphQL"""
+        moments = self.moment_repository.list_moments(
+            page=page,
+            size=size,
+            activity_id=activity_id,
+            start_time=start_time,
+            end_time=end_time,
+            user_id=user_id,
+        )
+        return MomentConnection.from_pydantic(moments)
+
+    def get_moment(
+        self, moment_id: int, user_id: str
+    ) -> MomentResponse:
+        """Get a moment by ID for REST"""
+        moment = self.moment_repository.get_by_id(moment_id)
+        if not moment or moment.activity.user_id != user_id:
+            raise HTTPException(
+                status_code=404, detail="Moment not found"
+            )
+        return MomentResponse.from_orm(moment)
+
+    def get_moment_graphql(
+        self, moment_id: int, user_id: str
+    ) -> MomentType:
+        """Get a moment by ID for GraphQL"""
+        moment = self.get_moment(moment_id, user_id)
+        return MomentType.from_db(moment)
 
     def update_moment(
         self,
         moment_id: int,
         moment_data: MomentUpdate,
         user_id: str,
-    ) -> MomentType:
-        """Update a moment"""
+    ) -> MomentResponse:
+        """Update a moment for REST"""
         moment = self.moment_repository.get_by_id(moment_id)
         if not moment or moment.activity.user_id != user_id:
             raise HTTPException(
@@ -133,9 +159,23 @@ class MomentService:
                     detail=f"Invalid moment data: {str(e)}",
                 )
 
-        return self.moment_repository.update(
-            moment_id, moment_data
+        updated = self.moment_repository.update(
+            moment_id=moment_id,
+            **moment_data.dict(exclude_unset=True)
         )
+        return MomentResponse.from_orm(updated)
+
+    def update_moment_graphql(
+        self,
+        moment_id: int,
+        moment_data: MomentUpdate,
+        user_id: str,
+    ) -> MomentType:
+        """Update a moment for GraphQL"""
+        moment = self.update_moment(
+            moment_id, moment_data, user_id
+        )
+        return MomentType.from_db(moment)
 
     def delete_moment(self, moment_id: int, user_id: str):
         """Delete a moment"""

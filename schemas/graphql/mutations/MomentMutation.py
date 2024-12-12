@@ -30,3 +30,21 @@ class MomentMutation:
             moment_data=moment_data, user_id=current_user.id
         )
         return Moment.from_db(db_moment)
+
+    @strawberry.mutation
+    async def update_moment(
+        self, info: strawberry.Info, moment_id: int, moment: MomentInput
+    ) -> Moment:
+        """Update a moment"""
+        current_user = get_user_from_context(info)
+        service = get_MomentService(info)
+
+        moment_dict = moment.to_dict()
+        moment_data = MomentCreate(**moment_dict)
+
+        db_moment = service.update_moment(
+            moment_id=moment_id,
+            moment_data=moment_data,
+            user_id=current_user.id
+        )
+        return Moment.from_db(db_moment)

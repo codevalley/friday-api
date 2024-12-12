@@ -3,6 +3,7 @@ from fastapi import HTTPException, Depends
 from sqlalchemy.orm import Session
 import jsonschema
 from jsonschema import ValidationError
+import json
 
 from configs.Database import get_db_connection
 from repositories.ActivityRepository import (
@@ -103,7 +104,8 @@ class ActivityService:
                 )
 
         updated = self.activity_repository.update(
-            activity_id, update_data
+            activity_id=activity_id,
+            **update_data
         )
         return ActivityResponse.from_orm(updated)
 
@@ -147,3 +149,16 @@ class ActivityService:
             )
         )
         return [ActivityType.from_db(a) for a in activities]
+
+    def update_activity_graphql(
+        self,
+        activity_id: int,
+        activity_data: ActivityUpdate,
+    ) -> ActivityType:
+        """Update activity for GraphQL"""
+        # Convert activity_schema to dict if it's a string
+        if activity_data.activity_schema and isinstance(activity_data.activity_schema, str):
+            activity_data.activity_schema = json.loads(activity_data.activity_schema)
+            
+        activity = self.update_activity(activity_id, activity_data)
+        return ActivityType.from_db(activity)

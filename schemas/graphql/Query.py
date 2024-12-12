@@ -6,6 +6,7 @@ from strawberry.types import Info
 from configs.GraphQL import (
     get_ActivityService,
     get_MomentService,
+    get_user_from_context,
 )
 
 from schemas.graphql.Activity import Activity
@@ -30,32 +31,31 @@ class Query:
             skip=skip, limit=limit
         )
 
-    @strawberry.field(description="Get a Moment by ID")
-    def getMoment(
-        self, id: int, info: Info
-    ) -> Optional[Moment]:
+    @strawberry.field(description="Get a moment by ID")
+    def getMoment(self, id: int, info: Info) -> Optional[Moment]:
         moment_service = get_MomentService(info)
-        return moment_service.get_moment(id)
+        current_user = get_user_from_context(info)
+        return moment_service.get_moment_graphql(id, current_user.id)
 
-    @strawberry.field(
-        description="List Moments with filtering and pagination"
-    )
+    @strawberry.field(description="Get moments with pagination")
     def getMoments(
         self,
         info: Info,
         page: int = 1,
         size: int = 50,
-        activityId: Optional[int] = None,
-        startTime: Optional[datetime] = None,
-        endTime: Optional[datetime] = None,
+        activity_id: Optional[int] = None,
+        start_time: Optional[datetime] = None,
+        end_time: Optional[datetime] = None,
     ) -> MomentConnection:
         moment_service = get_MomentService(info)
-        return moment_service.list_moments(
+        current_user = get_user_from_context(info)
+        return moment_service.list_moments_graphql(
             page=page,
             size=size,
-            activity_id=activityId,
-            start_time=startTime,
-            end_time=endTime,
+            activity_id=activity_id,
+            start_time=start_time,
+            end_time=end_time,
+            user_id=current_user.id,
         )
 
     @strawberry.field(

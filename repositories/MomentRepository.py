@@ -99,13 +99,12 @@ class MomentRepository:
             .all()
         )
 
-        # Convert to MomentList using from_attributes
         return MomentList(
-            items=moments,  # Pydantic will handle the conversion
+            items=moments,
             total=total,
             page=page,
             size=size,
-            pages=pages,
+            pages=pages
         )
 
     def update(

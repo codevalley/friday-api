@@ -2,6 +2,7 @@ import strawberry
 from typing import List, Optional
 from datetime import datetime
 from utils.json_utils import ensure_string, ensure_dict
+import json
 
 
 @strawberry.type
@@ -39,6 +40,8 @@ class Activity:
     @strawberry.field
     def activitySchema(self) -> str:
         """Alias for activity_schema in GraphQL"""
+        if isinstance(self.activity_schema, dict):
+            return json.dumps(self.activity_schema)
         return self.activity_schema
 
     @strawberry.field

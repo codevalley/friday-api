@@ -69,6 +69,16 @@ class MomentList(BaseModel):
     total: int
     page: int
     size: int
+    pages: int = Field(0, description="Total number of pages")
+
+    @field_validator("pages", mode="before")
+    @classmethod
+    def calculate_pages(cls, v: int, info) -> int:
+        """Calculate total pages based on total items and page size"""
+        data = info.data
+        if "total" in data and "size" in data:
+            return (data["total"] + data["size"] - 1) // data["size"]
+        return v
 
     class Config:
         from_attributes = True
