@@ -1,50 +1,43 @@
-from typing import Optional
+from typing import Optional, Tuple
 from sqlalchemy.orm import Session
-from models.UserModel import UserModel
+from models.UserModel import User
+from utils.security import generate_user_secret
 
 
 class UserRepository:
     def __init__(self, db: Session):
         self.db = db
 
-    def create_user(
-        self, username: str, user_secret: str
-    ) -> UserModel:
-        """Create a new user with the given username and user_secret"""
-        user = UserModel(
-            username=username, user_secret=user_secret
+    def create(self, username: str) -> Tuple[User, str]:
+        """Create a new user with a generated user_secret"""
+        user_secret = generate_user_secret()
+
+        user = User(
+            username=username,
+            user_secret=user_secret,
         )
         self.db.add(user)
         self.db.commit()
         self.db.refresh(user)
-        return user
 
-    def get_by_user_secret(
-        self, user_secret: str
-    ) -> Optional[UserModel]:
-        """Get a user by their user_secret"""
-        return (
-            self.db.query(UserModel)
-            .filter(UserModel.user_secret == user_secret)
-            .first()
-        )
+        return user, user_secret
 
-    def get_by_id(
-        self, user_id: str
-    ) -> Optional[UserModel]:
+    def get_by_id(self, user_id: str) -> Optional[User]:
         """Get a user by their ID"""
-        return (
-            self.db.query(UserModel)
-            .filter(UserModel.id == user_id)
-            .first()
-        )
+        return self.db.query(User).filter(User.id == user_id).first()
 
-    def get_by_username(
-        self, username: str
-    ) -> Optional[UserModel]:
+    def get_by_username(self, username: str) -> Optional[User]:
         """Get a user by their username"""
         return (
-            self.db.query(UserModel)
-            .filter(UserModel.username == username)
+            self.db.query(User)
+            .filter(User.username == username)
+            .first()
+        )
+
+    def get_by_user_secret(self, user_secret: str) -> Optional[User]:
+        """Get a user by their user_secret"""
+        return (
+            self.db.query(User)
+            .filter(User.user_secret == user_secret)
             .first()
         )

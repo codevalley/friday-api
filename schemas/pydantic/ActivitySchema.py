@@ -1,4 +1,4 @@
-from typing import Dict, Optional
+from typing import Dict, Optional, List
 from pydantic import BaseModel, Field, validator
 import re
 
@@ -7,15 +7,15 @@ class ActivityBase(BaseModel):
     """Base schema for Activity with common attributes"""
 
     name: str = Field(..., min_length=1, max_length=255)
-    description: str = Field(
-        ..., min_length=1, max_length=1000
+    description: Optional[str] = Field(
+        None, min_length=1, max_length=1000
     )
     activity_schema: Dict = Field(
         ...,
         description="JSON Schema for validating moment data",
     )
-    icon: str = Field(..., max_length=255)
-    color: str = Field(..., max_length=50)
+    icon: str = Field(..., min_length=1, max_length=255)
+    color: str = Field(..., min_length=1, max_length=50)
 
     @validator("color")
     def validate_color(cls, v):
@@ -40,8 +40,7 @@ class ActivityBase(BaseModel):
 
 class ActivityCreate(ActivityBase):
     """Schema for creating a new Activity"""
-
-    pass
+    user_id: str = Field(..., description="ID of the user creating the activity")
 
 
 class ActivityUpdate(ActivityBase):
@@ -54,14 +53,27 @@ class ActivityUpdate(ActivityBase):
         None, min_length=1, max_length=1000
     )
     activity_schema: Optional[Dict] = None
-    icon: Optional[str] = Field(None, max_length=255)
-    color: Optional[str] = Field(None, max_length=50)
+    icon: Optional[str] = Field(None, min_length=1, max_length=255)
+    color: Optional[str] = Field(None, min_length=1, max_length=50)
 
 
 class ActivityResponse(ActivityBase):
     """Schema for Activity response"""
 
     id: int
+    user_id: str
 
     class Config:
-        orm_mode = True
+        from_attributes = True  # Enable ORM mode
+
+
+class ActivityList(BaseModel):
+    """Schema for listing activities with pagination metadata"""
+
+    items: List[ActivityResponse]
+    total: int
+    skip: int
+    limit: int
+
+    class Config:
+        from_attributes = True

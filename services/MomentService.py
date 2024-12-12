@@ -16,7 +16,7 @@ from schemas.pydantic.MomentSchema import (
 )
 from schemas.graphql.Moment import Moment as MomentType
 from schemas.graphql.Moment import MomentConnection
-
+from datetime import datetime
 
 class MomentService:
     def __init__(
@@ -27,7 +27,7 @@ class MomentService:
         self.activity_repository = ActivityRepository(db)
 
     def create_moment(
-        self, moment_data: MomentCreate
+        self, moment_data: MomentCreate, user_id: str
     ) -> MomentType:
         """Create a new moment with data validation"""
         # Get activity to validate data against schema
@@ -52,6 +52,7 @@ class MomentService:
         moment = self.moment_repository.create(
             activity_id=moment_data.activity_id,
             data=moment_data.data,
+            user_id=user_id,
             timestamp=moment_data.timestamp,
         )
 
@@ -73,28 +74,21 @@ class MomentService:
         page: int = 1,
         size: int = 50,
         activity_id: Optional[int] = None,
-        start_time: Optional[str] = None,
-        end_time: Optional[str] = None,
+        start_time: Optional[datetime] = None,
+        end_time: Optional[datetime] = None,
     ) -> MomentConnection:
-        """List moments with filtering and pagination"""
-        moments_list = self.moment_repository.list_moments(
+        """List moments with pagination and filtering"""
+        # Get moments from repository
+        moments = self.moment_repository.list_moments(
             page=page,
             size=size,
             activity_id=activity_id,
             start_time=start_time,
             end_time=end_time,
         )
-
-        return MomentConnection(
-            items=[
-                MomentType.from_db(moment)
-                for moment in moments_list.items
-            ],
-            total=moments_list.total,
-            page=moments_list.page,
-            size=moments_list.size,
-            pages=moments_list.pages,
-        )
+        
+        # Convert to GraphQL type using from_pydantic
+        return MomentConnection.from_pydantic(moments)
 
     def update_moment(
         self, moment_id: int, moment_data: MomentUpdate

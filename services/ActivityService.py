@@ -47,6 +47,7 @@ class ActivityService:
             activity_schema=activity_data.activity_schema,
             icon=activity_data.icon,
             color=activity_data.color,
+            user_id=activity_data.user_id,
         )
 
         return ActivityType.from_db(activity)

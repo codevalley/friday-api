@@ -3,7 +3,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
 from main import app
-from models.UserModel import UserModel
+from models.UserModel import User
 from services.UserService import UserService
 from configs.Database import (
     get_db_connection,
@@ -22,9 +22,7 @@ def override_get_db():
 
 
 # Override the database dependency
-app.dependency_overrides[get_db_connection] = (
-    override_get_db
-)
+app.dependency_overrides[get_db_connection] = override_get_db
 
 client = TestClient(app)
 
@@ -32,13 +30,13 @@ client = TestClient(app)
 @pytest.fixture(autouse=True)
 def setup_database():
     # Set up - create tables
-    UserModel.__table__.create(bind=Engine, checkfirst=True)
+    User.__table__.create(bind=Engine, checkfirst=True)
 
     # Run the test
     yield
 
     # Tear down - drop tables
-    UserModel.__table__.drop(bind=Engine, checkfirst=True)
+    User.__table__.drop(bind=Engine, checkfirst=True)
 
 
 def test_register_user():
@@ -79,7 +77,7 @@ def test_login_with_valid_secret():
     )
     user_secret = register_response.json()["user_secret"]
 
-    # Try to login
+    # Then try to login
     login_response = client.post(
         "/v1/auth/token", json={"user_secret": user_secret}
     )
@@ -114,7 +112,7 @@ def test_protected_endpoint_with_valid_token():
     )
     token = login_response.json()["access_token"]
 
-    # Try to access a protected endpoint
+    # Then try to access protected endpoint
     response = client.get(
         "/v1/activities",
         headers={"Authorization": f"Bearer {token}"},

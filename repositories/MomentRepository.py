@@ -7,6 +7,8 @@ from fastapi import HTTPException
 from models.MomentModel import Moment
 from models.ActivityModel import Activity
 from schemas.pydantic.MomentSchema import MomentList
+from schemas.pydantic.ActivitySchema import ActivityResponse
+from schemas.pydantic.MomentSchema import MomentResponse
 
 
 class MomentRepository:
@@ -17,12 +19,14 @@ class MomentRepository:
         self,
         activity_id: int,
         data: dict,
+        user_id: str,
         timestamp: Optional[datetime] = None,
     ) -> Moment:
         """Create a new moment"""
         moment = Moment(
             activity_id=activity_id,
             data=data,
+            user_id=user_id,
             timestamp=timestamp or datetime.utcnow(),
         )
         self.db.add(moment)
@@ -59,7 +63,7 @@ class MomentRepository:
         List moments with filtering and pagination
         Returns a MomentList with pagination metadata
         """
-        query = self.db.query(Moment)
+        query = self.db.query(Moment).join(Activity)
 
         # Apply filters
         if activity_id is not None:
@@ -82,7 +86,7 @@ class MomentRepository:
         pages = (total + size - 1) // size
         skip = (page - 1) * size
 
-        # Get paginated results
+        # Get paginated results with activities eager loaded
         moments = (
             query.order_by(desc(Moment.timestamp))
             .offset(skip)
@@ -90,8 +94,9 @@ class MomentRepository:
             .all()
         )
 
+        # Convert to MomentList using from_attributes
         return MomentList(
-            items=moments,
+            items=moments,  # Pydantic will handle the conversion
             total=total,
             page=page,
             size=size,

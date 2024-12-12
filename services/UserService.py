@@ -1,18 +1,20 @@
-from fastapi import HTTPException, status
+from typing import Optional, Tuple
+from fastapi import Depends, HTTPException, status
 from sqlalchemy.orm import Session
+
+from configs.Database import get_db_connection
 from repositories.UserRepository import UserRepository
-from models.UserModel import UserModel
-from utils.security import generate_user_secret
+from models.UserModel import User
 
 
 class UserService:
-    def __init__(self, db: Session):
+    def __init__(self, db: Session = Depends(get_db_connection)):
         self.user_repository = UserRepository(db)
 
-    def register_user(
+    async def register_user(
         self, username: str
-    ) -> tuple[UserModel, str]:
-        """Register a new user and return the user model along with their secret"""
+    ) -> Tuple[User, str]:
+        """Register a new user and return the user along with their secret"""
         # Check if username already exists
         if self.user_repository.get_by_username(username):
             raise HTTPException(
@@ -30,10 +32,10 @@ class UserService:
 
         return user, user_secret
 
-    def authenticate_user(
+    async def authenticate_user(
         self, user_secret: str
-    ) -> UserModel:
-        """Authenticate a user by their secret and return the user model"""
+    ) -> User:
+        """Authenticate a user by their secret and return the user"""
         user = self.user_repository.get_by_user_secret(
             user_secret
         )

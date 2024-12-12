@@ -12,7 +12,7 @@ from schemas.pydantic.MomentSchema import (
 )
 from services.MomentService import MomentService
 from dependencies import get_current_user
-from models.UserModel import UserModel
+from models.UserModel import User
 
 router = APIRouter(prefix="/v1/moments", tags=["moments"])
 
@@ -23,7 +23,7 @@ router = APIRouter(prefix="/v1/moments", tags=["moments"])
 async def create_moment(
     moment: MomentCreate,
     service: MomentService = Depends(),
-    current_user: UserModel = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ):
     """Create a new moment"""
     return service.create_moment(moment)
@@ -37,7 +37,7 @@ async def list_moments(
     start_date: Optional[datetime] = None,
     end_date: Optional[datetime] = None,
     service: MomentService = Depends(),
-    current_user: UserModel = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ):
     """
     List moments with filtering and pagination
@@ -56,7 +56,7 @@ async def list_moments(
 async def get_moment(
     moment_id: int,
     service: MomentService = Depends(),
-    current_user: UserModel = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ):
     """Get a moment by ID"""
     return service.get_moment(moment_id)
@@ -67,7 +67,7 @@ async def update_moment(
     moment_id: int,
     moment: MomentUpdate,
     service: MomentService = Depends(),
-    current_user: UserModel = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ):
     """Update a moment"""
     return service.update_moment(moment_id, moment)
@@ -77,7 +77,7 @@ async def update_moment(
 async def delete_moment(
     moment_id: int,
     service: MomentService = Depends(),
-    current_user: UserModel = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
 ):
     """Delete a moment"""
     service.delete_moment(moment_id)

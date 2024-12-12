@@ -3,6 +3,7 @@ from strawberry.types import Info
 from configs.GraphQL import (
     get_ActivityService,
     get_MomentService,
+    get_user_from_context
 )
 
 from schemas.graphql.Activity import (
@@ -13,7 +14,6 @@ from schemas.graphql.Activity import (
 from schemas.graphql.Moment import (
     Moment,
     MomentInput,
-    MomentUpdateInput,
 )
 from schemas.pydantic.ActivitySchema import (
     ActivityCreate,
@@ -23,19 +23,21 @@ from schemas.pydantic.MomentSchema import (
     MomentCreate,
     MomentUpdate,
 )
-from schemas.graphql.mutations.UserMutation import (
-    UserMutation,
-)
+from schemas.graphql.mutations.UserMutation import UserMutation
+from schemas.graphql.mutations.ActivityMutation import ActivityMutation
+from schemas.graphql.mutations.MomentMutation import MomentMutation
 
 
 @strawberry.type(description="Mutate all entities")
-class Mutation(UserMutation):
+class Mutation(UserMutation, ActivityMutation, MomentMutation):
     @strawberry.field(description="Create a new Activity")
     def create_activity(
         self, activity: ActivityInput, info: Info
     ) -> Activity:
         activity_service = get_ActivityService(info)
+        current_user = get_user_from_context(info)
         activity_dict = activity.to_dict()
+        activity_dict["user_id"] = current_user.id
         activity_create = ActivityCreate(**activity_dict)
         return activity_service.create_activity(
             activity_create
@@ -63,35 +65,3 @@ class Mutation(UserMutation):
     ) -> bool:
         activity_service = get_ActivityService(info)
         return activity_service.delete_activity(activity_id)
-
-    @strawberry.field(description="Create a new Moment")
-    def create_moment(
-        self, moment: MomentInput, info: Info
-    ) -> Moment:
-        moment_service = get_MomentService(info)
-        moment_dict = moment.to_dict()
-        moment_create = MomentCreate(**moment_dict)
-        return moment_service.create_moment(moment_create)
-
-    @strawberry.field(
-        description="Update an existing Moment"
-    )
-    def update_moment(
-        self,
-        moment_id: int,
-        moment: MomentUpdateInput,
-        info: Info,
-    ) -> Moment:
-        moment_service = get_MomentService(info)
-        moment_dict = moment.to_dict()
-        moment_update = MomentUpdate(**moment_dict)
-        return moment_service.update_moment(
-            moment_id, moment_update
-        )
-
-    @strawberry.field(description="Delete a Moment")
-    def delete_moment(
-        self, moment_id: int, info: Info
-    ) -> bool:
-        moment_service = get_MomentService(info)
-        return moment_service.delete_moment(moment_id)

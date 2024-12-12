@@ -17,6 +17,7 @@ class ActivityRepository:
         activity_schema: dict,
         icon: str,
         color: str,
+        user_id: str,
     ) -> Activity:
         """Create a new activity"""
         try:
@@ -26,6 +27,7 @@ class ActivityRepository:
                 activity_schema=activity_schema,
                 icon=icon,
                 color=color,
+                user_id=user_id,
             )
             self.db.add(activity)
             self.db.commit()

@@ -4,21 +4,20 @@ from fastapi.security import (
     HTTPAuthorizationCredentials,
 )
 from sqlalchemy.orm import Session
+
 from configs.Database import get_db_connection
 from repositories.UserRepository import UserRepository
 from utils.security import verify_token
-from models.UserModel import UserModel
+from models.UserModel import User
 
 # OAuth2 bearer token scheme
 security = HTTPBearer()
 
 
 async def get_current_user(
-    credentials: HTTPAuthorizationCredentials = Depends(
-        security
-    ),
+    credentials: HTTPAuthorizationCredentials = Depends(security),
     db: Session = Depends(get_db_connection),
-) -> UserModel:
+) -> User:
     """Dependency to get the current authenticated user"""
     try:
         token = credentials.credentials

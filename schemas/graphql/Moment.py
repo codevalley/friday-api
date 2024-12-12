@@ -1,5 +1,5 @@
 import strawberry
-from typing import Optional
+from typing import Optional, List
 from datetime import datetime
 from utils.json_utils import ensure_string, ensure_dict
 
@@ -68,7 +68,18 @@ class MomentUpdateInput:
 class MomentConnection:
     """Type for paginated moment lists"""
 
-    items: list[Moment]
+    @classmethod
+    def from_pydantic(cls, moment_list):
+        """Convert pydantic MomentList to GraphQL MomentConnection"""
+        return cls(
+            items=[Moment.from_db(item) for item in moment_list.items],
+            total=moment_list.total,
+            page=moment_list.page,
+            size=moment_list.size,
+            pages=moment_list.pages,
+        )
+
+    items: List[Moment]
     total: int
     page: int
     size: int
