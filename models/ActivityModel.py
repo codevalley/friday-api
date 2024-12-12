@@ -19,7 +19,6 @@ class Activity(EntityMeta):
     Activity Model represents different types of activities that can be logged as moments.
     Each activity defines its own schema for validating moment data.
     """
-
     __tablename__ = "activities"
 
     id = Column(Integer, primary_key=True, index=True)
@@ -103,3 +102,18 @@ class Activity(EntityMeta):
             )
 
         return True
+
+    def validate_moment_data(self, moment_data: dict) -> bool:
+        """
+        Validate moment data against the activity's schema
+        Returns True if valid, raises ValidationError if invalid
+        """
+        try:
+            validate_json_schema(
+                moment_data, self.activity_schema
+            )
+            return True
+        except Exception as e:
+            raise ValueError(
+                f"Invalid moment data: {str(e)}"
+            )

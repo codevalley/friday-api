@@ -1,20 +1,18 @@
 from typing import List
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from configs.Database import get_db_connection
+from services.ActivityService import ActivityService
 from schemas.pydantic.ActivitySchema import (
-    ActivityResponse,
     ActivityCreate,
     ActivityUpdate,
+    ActivityResponse,
 )
-from services.ActivityService import ActivityService
 from dependencies import get_current_user
 from models.UserModel import User
 
-router = APIRouter(
-    prefix="/v1/activities", tags=["activities"]
-)
+router = APIRouter(prefix="/v1/activities", tags=["activities"])
 
 
 @router.post(
@@ -26,20 +24,29 @@ async def create_activity(
     current_user: User = Depends(get_current_user),
 ):
     """Create a new activity"""
-    # Add user_id to activity data
-    activity.user_id = current_user.id
-    return service.create_activity(activity)
+    try:
+        return service.create_activity(
+            activity, current_user.id
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=400, detail=str(e)
+        )
 
 
 @router.get("", response_model=List[ActivityResponse])
 async def list_activities(
-    skip: int = Query(0, ge=0),
-    limit: int = Query(100, ge=1, le=100),
+    skip: int = 0,
+    limit: int = 100,
     service: ActivityService = Depends(),
     current_user: User = Depends(get_current_user),
 ):
     """List all activities with pagination"""
-    return service.list_activities(skip=skip, limit=limit)
+    return service.list_activities(
+        user_id=current_user.id,
+        skip=skip,
+        limit=limit,
+    )
 
 
 @router.get(
@@ -51,10 +58,13 @@ async def get_activity(
     current_user: User = Depends(get_current_user),
 ):
     """Get an activity by ID"""
-    activity = service.get_activity(activity_id)
+    activity = service.get_activity(
+        activity_id, current_user.id
+    )
     if not activity:
         raise HTTPException(
-            status_code=404, detail="Activity not found"
+            status_code=404,
+            detail="Activity not found",
         )
     return activity
 
@@ -69,10 +79,15 @@ async def update_activity(
     current_user: User = Depends(get_current_user),
 ):
     """Update an activity"""
-    updated = service.update_activity(activity_id, activity)
+    updated = service.update_activity(
+        activity_id,
+        activity,
+        current_user.id,
+    )
     if not updated:
         raise HTTPException(
-            status_code=404, detail="Activity not found"
+            status_code=404,
+            detail="Activity not found",
         )
     return updated
 
@@ -84,9 +99,11 @@ async def delete_activity(
     current_user: User = Depends(get_current_user),
 ):
     """Delete an activity"""
-    deleted = service.delete_activity(activity_id)
-    if not deleted:
+    if not service.delete_activity(
+        activity_id, current_user.id
+    ):
         raise HTTPException(
-            status_code=404, detail="Activity not found"
+            status_code=404,
+            detail="Activity not found",
         )
     return {"message": "Activity deleted successfully"}

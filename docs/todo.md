@@ -222,6 +222,50 @@ Below is a detailed, step-by-step plan to revamp the current codebase from the `
    - pathlib
    - httpx
 
-- Add user association to Activities and Moments (so each user sees only their data)?
-- Add some sample activities and moments to test with?
-- Add the endpoint recentMoments
+## Security Issues
+
+1. **Missing Rate Limiting**:
+   - No rate limiting on authentication attempts
+   - Fix: Implement rate limiting on auth endpoints
+
+## Performance Issues
+
+1. **Inefficient Database Queries**:
+   - Each get_by_* method performs a separate query
+   - Fix: Consider caching frequently accessed user data
+   
+2. **Recent Activity Tracking**:
+   - No tracking of recent activities
+   - Fix: Implement recent activity tracking
+
+## Maintenance Issues
+
+1. **Inconsistent Async/Sync Methods**:
+   - Service methods are async but repository methods are sync
+   - Fix: Make all database operations consistently async
+
+## Enhancement Suggestions
+
+1. **Audit Trail**:
+   - No tracking of failed login attempts
+   - Add logging for security events
+
+2. **Password Recovery**:
+   - No mechanism for user secret recovery
+   - Consider implementing a secure recovery process
+
+## Next Steps
+
+1. Implement rate limiting using FastAPI's dependencies and Redis/Memcached
+2. Add caching layer for frequently accessed user data
+3. Make database operations consistently async
+4. Add audit logging for security events
+5. Design and implement a secure user secret recovery process
+
+## Recent Fixes
+
+1. Fixed bcrypt version detection issue by:
+   - Removed passlib dependency for password hashing
+   - Implemented direct bcrypt usage for password hashing and verification
+   - Updated user secret generation to use secrets.token_urlsafe
+   - Fixed token generation in auth router

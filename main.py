@@ -6,10 +6,7 @@ from strawberry.fastapi import GraphQLRouter
 from configs.Environment import get_environment_variables
 from configs.GraphQL import get_graphql_context
 from metadata.Tags import Tags
-from models.BaseModel import init
-from routers.v1.ActivityRouter import (
-    router as ActivityRouter,
-)
+from routers.v1.ActivityRouter import router as ActivityRouter
 from routers.v1.MomentRouter import router as MomentRouter
 from routers.v1.AuthRouter import router as AuthRouter
 from schemas.graphql.Query import Query
@@ -18,15 +15,14 @@ from schemas.graphql.Mutation import Mutation
 # Application Environment Configuration
 env = get_environment_variables()
 
-# Core Application Instance
+# FastAPI Configuration
 app = FastAPI(
-    title="Friday API",
-    description="A powerful life logging API built with FastAPI and GraphQL. Track your daily activities and moments with rich, structured data.",
+    title=env.APP_NAME,
     version=env.API_VERSION,
     openapi_tags=Tags,
 )
 
-# Configure CORS
+# CORS Configuration
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -35,20 +31,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Configure security scheme for OpenAPI
-app.openapi_components = {
-    "securitySchemes": {
-        "Bearer": {
-            "type": "apiKey",
-            "in": "header",
-            "name": "Authorization",
-            "description": "Enter your bearer token in the format: Bearer <token>",
-        }
-    }
-}
-app.openapi_security = [{"Bearer": []}]
-
-# Add Routers
+# REST API Configuration
 app.include_router(ActivityRouter)
 app.include_router(MomentRouter)
 app.include_router(AuthRouter)
@@ -61,6 +44,3 @@ graphql = GraphQLRouter(
     graphiql=True,
 )
 app.include_router(graphql, prefix="/graphql")
-
-# Initialize Database
-init()

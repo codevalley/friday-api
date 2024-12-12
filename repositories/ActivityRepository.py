@@ -41,40 +41,54 @@ class ActivityRepository:
             )
 
     def get_by_id(
-        self, activity_id: int
+        self, activity_id: int, user_id: str
     ) -> Optional[Activity]:
-        """Get an activity by ID"""
-        return (
+        """Get an activity by ID and user_id"""
+        activity = (
             self.db.query(Activity)
-            .filter(Activity.id == activity_id)
+            .filter(
+                Activity.id == activity_id,
+                Activity.user_id == user_id,
+            )
             .first()
         )
+        if not activity:
+            raise HTTPException(
+                status_code=404,
+                detail="Activity not found or access denied",
+            )
+        return activity
 
-    def get_by_name(self, name: str) -> Optional[Activity]:
-        """Get an activity by name"""
+    def get_by_name(
+        self, name: str, user_id: str
+    ) -> Optional[Activity]:
+        """Get an activity by name and verify ownership"""
         return (
             self.db.query(Activity)
-            .filter(Activity.name == name)
+            .filter(
+                Activity.name == name,
+                Activity.user_id == user_id,
+            )
             .first()
         )
 
     def list_activities(
-        self, skip: int = 0, limit: int = 100
+        self, user_id: str, skip: int = 0, limit: int = 100
     ) -> List[Activity]:
-        """List all activities with pagination"""
+        """List all activities for a user"""
         return (
             self.db.query(Activity)
-            .order_by(Activity.name)
+            .filter(Activity.user_id == user_id)
             .offset(skip)
             .limit(limit)
             .all()
         )
 
     def update(
-        self, activity_id: int, **kwargs
+        self, activity_id: int, user_id: str, **kwargs
     ) -> Optional[Activity]:
         """Update an activity"""
-        activity = self.get_by_id(activity_id)
+        activity = self.get_by_id(activity_id, user_id)
         if not activity:
             return None
 
@@ -93,9 +107,9 @@ class ActivityRepository:
                 detail="Activity with this name already exists",
             )
 
-    def delete(self, activity_id: int) -> bool:
+    def delete(self, activity_id: int, user_id: str) -> bool:
         """Delete an activity"""
-        activity = self.get_by_id(activity_id)
+        activity = self.get_by_id(activity_id, user_id)
         if not activity:
             return False
 
@@ -104,12 +118,13 @@ class ActivityRepository:
         return True
 
     def validate_existence(
-        self, activity_id: int
+        self, activity_id: int, user_id: str
     ) -> Activity:
-        """Validate activity exists and return it"""
-        activity = self.get_by_id(activity_id)
+        """Validate activity exists and user owns it"""
+        activity = self.get_by_id(activity_id, user_id)
         if not activity:
             raise HTTPException(
-                status_code=404, detail="Activity not found"
+                status_code=404,
+                detail="Activity not found or access denied",
             )
         return activity

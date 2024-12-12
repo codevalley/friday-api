@@ -20,24 +20,32 @@ class Query:
         self, id: int, info: Info
     ) -> Optional[Activity]:
         activity_service = get_ActivityService(info)
-        return activity_service.get_activity_graphql(id)
+        user = get_user_from_context(info)
+        return activity_service.get_activity_graphql(id, user.id)
 
     @strawberry.field(description="List all Activities")
     def getActivities(
         self, info: Info, skip: int = 0, limit: int = 100
     ) -> List[Activity]:
         activity_service = get_ActivityService(info)
+        user = get_user_from_context(info)
         return activity_service.list_activities_graphql(
-            skip=skip, limit=limit
+            user_id=user.id, skip=skip, limit=limit
         )
 
     @strawberry.field(description="Get a moment by ID")
-    def getMoment(self, id: int, info: Info) -> Optional[Moment]:
+    def getMoment(
+        self, id: int, info: Info
+    ) -> Optional[Moment]:
         moment_service = get_MomentService(info)
-        current_user = get_user_from_context(info)
-        return moment_service.get_moment_graphql(id, current_user.id)
+        user = get_user_from_context(info)
+        return moment_service.get_moment_graphql(
+            id, user.id
+        )
 
-    @strawberry.field(description="Get moments with pagination")
+    @strawberry.field(
+        description="Get moments with pagination"
+    )
     def getMoments(
         self,
         info: Info,
@@ -48,14 +56,14 @@ class Query:
         end_time: Optional[datetime] = None,
     ) -> MomentConnection:
         moment_service = get_MomentService(info)
-        current_user = get_user_from_context(info)
+        user = get_user_from_context(info)
         return moment_service.list_moments_graphql(
             page=page,
             size=size,
             activity_id=activity_id,
             start_time=start_time,
             end_time=end_time,
-            user_id=current_user.id,
+            user_id=user.id,
         )
 
     @strawberry.field(
@@ -65,4 +73,5 @@ class Query:
         self, info: Info, limit: int = 5
     ) -> List[Activity]:
         moment_service = get_MomentService(info)
-        return moment_service.get_recent_activities(limit)
+        user = get_user_from_context(info)
+        return moment_service.get_recent_activities(user.id, limit)

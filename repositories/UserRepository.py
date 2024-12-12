@@ -1,26 +1,41 @@
-from typing import Optional, Tuple
+from typing import Optional, List, Tuple
 from sqlalchemy.orm import Session
 from models.UserModel import User
 from utils.security import generate_user_secret
+from sqlalchemy.exc import IntegrityError
+from fastapi import HTTPException, status
 
 
 class UserRepository:
     def __init__(self, db: Session):
         self.db = db
 
-    def create(self, username: str) -> Tuple[User, str]:
-        """Create a new user with a generated user_secret"""
-        user_secret = generate_user_secret()
-
+    def create_user(self, username: str, user_secret: str) -> User:
+        """Create a new user with the provided username and user_secret"""
         user = User(
             username=username,
             user_secret=user_secret,
         )
         self.db.add(user)
-        self.db.commit()
-        self.db.refresh(user)
+        try:
+            self.db.commit()
+            self.db.refresh(user)
+        except IntegrityError as e:
+            self.db.rollback()
+            if "username" in str(e.orig):
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Username already exists",
+                )
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Database error occurred",
+            )
+        return user
 
-        return user, user_secret
+    def get_all_users(self) -> List[User]:
+        """Get all users - temporary method for debugging"""
+        return self.db.query(User).all()
 
     def get_by_id(self, user_id: str) -> Optional[User]:
         """Get a user by their ID"""

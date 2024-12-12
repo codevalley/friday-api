@@ -161,7 +161,7 @@ class MomentService:
 
         updated = self.moment_repository.update(
             moment_id=moment_id,
-            **moment_data.dict(exclude_unset=True)
+            **moment_data.dict(exclude_unset=True),
         )
         return MomentResponse.from_orm(updated)
 

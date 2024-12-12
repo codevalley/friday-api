@@ -104,7 +104,7 @@ class MomentRepository:
             total=total,
             page=page,
             size=size,
-            pages=pages
+            pages=pages,
         )
 
     def update(

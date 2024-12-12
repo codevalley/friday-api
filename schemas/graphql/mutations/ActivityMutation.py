@@ -3,8 +3,15 @@ from typing import Optional
 from datetime import datetime
 
 from services.ActivityService import ActivityService
-from schemas.pydantic.ActivitySchema import ActivityCreate, ActivityUpdate
-from schemas.graphql.Activity import Activity, ActivityInput, ActivityUpdateInput
+from schemas.pydantic.ActivitySchema import (
+    ActivityCreate,
+    ActivityUpdate,
+)
+from schemas.graphql.Activity import (
+    Activity,
+    ActivityInput,
+    ActivityUpdateInput,
+)
 from configs.GraphQL import (
     get_ActivityService,
     get_user_from_context,
@@ -31,7 +38,10 @@ class ActivityMutation:
 
     @strawberry.mutation
     async def update_activity(
-        self, info: strawberry.Info, activity_id: int, activity: ActivityUpdateInput
+        self,
+        info: strawberry.Info,
+        activity_id: int,
+        activity: ActivityUpdateInput,
     ) -> Activity:
         """Update an activity"""
         current_user = get_user_from_context(info)
@@ -40,5 +50,7 @@ class ActivityMutation:
         activity_dict = activity.to_dict()
         activity_data = ActivityUpdate(**activity_dict)
 
-        db_activity = service.update_activity_graphql(activity_id, activity_data)
+        db_activity = service.update_activity_graphql(
+            activity_id, activity_data
+        )
         return Activity.from_db(db_activity)
