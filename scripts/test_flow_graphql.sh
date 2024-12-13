@@ -95,7 +95,9 @@ echo -e "\n${BLUE}2. Creating activities for guser1...${NC}"
 ACTIVITY1_RESPONSE=$(curl -s -X POST "$BASE_URL/graphql" \
     -H "Authorization: Bearer $TOKEN1" \
     -H "Content-Type: application/json" \
-    -d "{\"query\":\"mutation { createActivity(activity: { name: \\\"Reading\\\", description: \\\"Track reading sessions\\\", activitySchema: \\\"$READING_SCHEMA\\\", icon: \\\"📚\\\", color: \\\"#4A90E2\\\" }) { id name description activitySchema icon color } }\"}")
+    -d "{
+        \"query\": \"mutation { createActivity(activity: { name: \\\"Reading\\\", description: \\\"Track reading sessions\\\", activitySchema: \\\"${READING_SCHEMA}\\\", icon: \\\"📚\\\", color: \\\"#4A90E2\\\" }) { id name description activitySchema icon color } }\"
+    }")
 ACTIVITY1_ID=$(extract_graphql_value "$ACTIVITY1_RESPONSE" "createActivity")
 echo "Activity1 Response: $ACTIVITY1_RESPONSE"
 echo "Activity1 ID: $ACTIVITY1_ID"
@@ -105,7 +107,9 @@ check_api_response "$ACTIVITY1_RESPONSE" "Creating reading activity"
 ACTIVITY2_RESPONSE=$(curl -s -X POST "$BASE_URL/graphql" \
     -H "Authorization: Bearer $TOKEN1" \
     -H "Content-Type: application/json" \
-    -d "{\"query\":\"mutation { createActivity(activity: { name: \\\"Exercise\\\", description: \\\"Track workouts\\\", activitySchema: \\\"$EXERCISE_SCHEMA\\\", icon: \\\"💪\\\", color: \\\"#FF5733\\\" }) { id name description activitySchema icon color } }\"}")
+    -d "{
+        \"query\": \"mutation { createActivity(activity: { name: \\\"Exercise\\\", description: \\\"Track workouts\\\", activitySchema: \\\"${EXERCISE_SCHEMA}\\\", icon: \\\"💪\\\", color: \\\"#FF5733\\\" }) { id name description activitySchema icon color } }\"
+    }")
 ACTIVITY2_ID=$(extract_graphql_value "$ACTIVITY2_RESPONSE" "createActivity")
 echo "Activity2 Response: $ACTIVITY2_RESPONSE"
 echo "Activity2 ID: $ACTIVITY2_ID"
@@ -120,7 +124,9 @@ for i in {1..2}; do
     MOMENT_RESPONSE=$(curl -s -X POST "$BASE_URL/graphql" \
         -H "Authorization: Bearer $TOKEN1" \
         -H "Content-Type: application/json" \
-        -d "{\"query\":\"mutation { createMoment(moment: { activityId: $ACTIVITY1_ID, data: \\\"$MOMENT_DATA\\\", timestamp: \\\"2024-12-12T$((12 + i)):30:00Z\\\" }) { id timestamp data activity { id name } } }\"}")
+        -d "{
+            \"query\": \"mutation { createMoment(moment: { activityId: $ACTIVITY1_ID, data: \\\"${MOMENT_DATA}\\\", timestamp: \\\"2024-12-12T$((12 + i)):30:00Z\\\" }) { id timestamp data activity { id name } } }\"
+        }")
     echo "Reading Moment $i Response: $MOMENT_RESPONSE"
     check_api_response "$MOMENT_RESPONSE" "Creating reading moment $i"
 done
@@ -132,7 +138,9 @@ for i in {1..2}; do
     MOMENT_RESPONSE=$(curl -s -X POST "$BASE_URL/graphql" \
         -H "Authorization: Bearer $TOKEN1" \
         -H "Content-Type: application/json" \
-        -d "{\"query\":\"mutation { createMoment(moment: { activityId: $ACTIVITY2_ID, data: \\\"$MOMENT_DATA\\\", timestamp: \\\"2024-12-12T$((14 + i)):30:00Z\\\" }) { id timestamp data activity { id name } } }\"}")
+        -d "{
+            \"query\": \"mutation { createMoment(moment: { activityId: $ACTIVITY2_ID, data: \\\"${MOMENT_DATA}\\\", timestamp: \\\"2024-12-12T$((14 + i)):30:00Z\\\" }) { id timestamp data activity { id name } } }\"
+        }")
     echo "Exercise Moment $i Response: $MOMENT_RESPONSE"
     check_api_response "$MOMENT_RESPONSE" "Creating exercise moment $i"
 done
@@ -166,7 +174,9 @@ echo -e "\n${BLUE}5. Creating activity for guser2...${NC}"
 ACTIVITY3_RESPONSE=$(curl -s -X POST "$BASE_URL/graphql" \
     -H "Authorization: Bearer $TOKEN2" \
     -H "Content-Type: application/json" \
-    -d "{\"query\":\"mutation { createActivity(activity: { name: \\\"Coding\\\", description: \\\"Track coding sessions\\\", activitySchema: \\\"$CODING_SCHEMA\\\", icon: \\\"💻\\\", color: \\\"#2ECC71\\\" }) { id name description activitySchema icon color } }\"}")
+    -d "{
+        \"query\": \"mutation { createActivity(activity: { name: \\\"Coding\\\", description: \\\"Track coding sessions\\\", activitySchema: \\\"${CODING_SCHEMA}\\\", icon: \\\"💻\\\", color: \\\"#2ECC71\\\" }) { id name description activitySchema icon color } }\"
+    }")
 ACTIVITY3_ID=$(extract_graphql_value "$ACTIVITY3_RESPONSE" "createActivity")
 echo "Activity3 Response: $ACTIVITY3_RESPONSE"
 echo "Activity3 ID: $ACTIVITY3_ID"
@@ -180,7 +190,9 @@ for i in {1..3}; do
     MOMENT_RESPONSE=$(curl -s -X POST "$BASE_URL/graphql" \
         -H "Authorization: Bearer $TOKEN2" \
         -H "Content-Type: application/json" \
-        -d "{\"query\":\"mutation { createMoment(moment: { activityId: $ACTIVITY3_ID, data: \\\"$MOMENT_DATA\\\", timestamp: \\\"2024-12-12T$((16 + i)):30:00Z\\\" }) { id timestamp data activity { id name } } }\"}")
+        -d "{
+            \"query\": \"mutation { createMoment(moment: { activityId: $ACTIVITY3_ID, data: \\\"${MOMENT_DATA}\\\", timestamp: \\\"2024-12-12T$((16 + i)):30:00Z\\\" }) { id timestamp data activity { id name } } }\"
+        }")
     echo "Coding Moment $i Response: $MOMENT_RESPONSE"
     check_api_response "$MOMENT_RESPONSE" "Creating coding moment $i"
 done
@@ -190,7 +202,9 @@ echo -e "\n${BLUE}7. Listing activities for guser2...${NC}"
 ACTIVITIES_RESPONSE=$(curl -s -X POST "$BASE_URL/graphql" \
     -H "Authorization: Bearer $TOKEN2" \
     -H "Content-Type: application/json" \
-    -d "{\"query\":\"query { getActivities(skip: 0, limit: 100) { id name description activitySchema icon color momentCount } }\"}")
+    -d "{
+        \"query\": \"query { getActivities(skip: 0, limit: 100) { id name description activitySchema icon color momentCount } }\"
+    }")
 echo "Activities Response: $ACTIVITIES_RESPONSE"
 check_api_response "$ACTIVITIES_RESPONSE" "Listing activities"
 
@@ -199,7 +213,9 @@ echo -e "\n${BLUE}8. Listing moments for guser2...${NC}"
 MOMENTS_RESPONSE=$(curl -s -X POST "$BASE_URL/graphql" \
     -H "Authorization: Bearer $TOKEN2" \
     -H "Content-Type: application/json" \
-    -d "{\"query\":\"query { getMoments(page: 1, size: 50) { items { id timestamp data activity { id name } } total page size pages } }\"}")
+    -d "{
+        \"query\": \"query { getMoments(page: 1, size: 50) { items { id timestamp data activity { id name } } total page size pages } }\"
+    }")
 echo "Moments Response: $MOMENTS_RESPONSE"
 check_api_response "$MOMENTS_RESPONSE" "Listing moments"
 
@@ -208,7 +224,9 @@ echo -e "\n${BLUE}9. Getting specific activity for guser1...${NC}"
 ACTIVITY_RESPONSE=$(curl -s -X POST "$BASE_URL/graphql" \
     -H "Authorization: Bearer $TOKEN1" \
     -H "Content-Type: application/json" \
-    -d "{\"query\":\"query { getActivity(id: $ACTIVITY1_ID) { id name description activitySchema icon color momentCount } }\"}")
+    -d "{
+        \"query\": \"query { getActivity(id: $ACTIVITY1_ID) { id name description activitySchema icon color momentCount } }\"
+    }")
 echo "Activity Response: $ACTIVITY_RESPONSE"
 check_api_response "$ACTIVITY_RESPONSE" "Getting specific activity"
 
@@ -217,7 +235,9 @@ echo -e "\n${BLUE}10. Getting specific moment for guser1...${NC}"
 MOMENT_RESPONSE=$(curl -s -X POST "$BASE_URL/graphql" \
     -H "Authorization: Bearer $TOKEN1" \
     -H "Content-Type: application/json" \
-    -d "{\"query\":\"query { getMoment(id: 1) { id timestamp data activity { id name } } }\"}")
+    -d "{
+        \"query\": \"query { getMoment(id: 1) { id timestamp data activity { id name } } }\"
+    }")
 echo "Moment Response: $MOMENT_RESPONSE"
 check_api_response "$MOMENT_RESPONSE" "Getting specific moment"
 
