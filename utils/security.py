@@ -1,12 +1,14 @@
 from datetime import datetime, timedelta
-from typing import Optional, Dict
+from typing import Optional, Dict, Tuple
 from jose import JWTError, jwt
 import bcrypt
-from fastapi import Depends, HTTPException, status, FastAPI
+from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 import os
 import secrets
 from dotenv import load_dotenv
+import hashlib
+from uuid import uuid4
 
 # Load environment variables
 load_dotenv()
@@ -22,11 +24,6 @@ ACCESS_TOKEN_EXPIRE_MINUTES = 30
 oauth2_scheme = OAuth2PasswordBearer(
     tokenUrl="v1/auth/token"
 )
-
-# JWT settings
-JWT_SECRET = os.getenv("JWT_SECRET", "your-secret-key")
-JWT_ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 30
 
 
 def create_access_token(
@@ -93,9 +90,8 @@ def verify_user_secret(
 
 
 def hash_secret(secret: str) -> str:
-    """Hash a secret using bcrypt"""
-    salt = bcrypt.gensalt()
-    return bcrypt.hashpw(secret.encode(), salt).decode()
+    """Hash a secret using a secure hashing algorithm"""
+    return hashlib.sha256(secret.encode()).hexdigest()
 
 
 def verify_secret(
@@ -120,7 +116,7 @@ def create_access_token_jwt(
         )
     to_encode.update({"exp": expire})
     encoded_jwt = jwt.encode(
-        to_encode, JWT_SECRET, algorithm=JWT_ALGORITHM
+        to_encode, SECRET_KEY, algorithm=ALGORITHM
     )
     return encoded_jwt
 
@@ -129,7 +125,7 @@ def decode_token(token: str) -> Dict:
     """Decode a JWT token"""
     try:
         payload = jwt.decode(
-            token, JWT_SECRET, algorithms=[JWT_ALGORITHM]
+            token, SECRET_KEY, algorithms=[ALGORITHM]
         )
         return payload
     except jwt.ExpiredSignatureError:
@@ -158,9 +154,39 @@ async def get_current_user(
 
     try:
         payload = decode_token(token)
-        user_id = payload.get("user_id")
+        user_id = payload.get("sub")
         if user_id is None:
             raise credentials_exception
         return {"user_id": user_id}
     except jwt.JWTError:
         raise credentials_exception
+
+
+def generate_api_key() -> Tuple[str, str, str]:
+    """
+    Generate an API key pair (key_id, secret, full_key)
+    Returns:
+        Tuple containing (key_id, secret, full_key)
+        full_key is in format: {key_id}.{secret}
+    """
+    key_id = str(uuid4())
+    secret = secrets.token_urlsafe(32)
+    full_key = f"{key_id}.{secret}"
+    return key_id, secret, full_key
+
+
+def parse_api_key(api_key: str) -> Tuple[str, str]:
+    """
+    Parse an API key into its components
+    Args:
+        api_key: The full API key in format {key_id}.{secret}
+    Returns:
+        Tuple of (key_id, secret)
+    Raises:
+        ValueError if the API key format is invalid
+    """
+    try:
+        key_id, secret = api_key.split(".", 1)
+        return key_id, secret
+    except ValueError:
+        raise ValueError("Invalid API key format")

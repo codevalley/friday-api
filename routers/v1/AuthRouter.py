@@ -24,14 +24,14 @@ router = APIRouter(prefix="/v1/auth", tags=["auth"])
     response_model=UserRegisterResponse,
     status_code=status.HTTP_201_CREATED,
 )
-async def register_user(
+def register_user(
     request: UserCreate,
     db: Session = Depends(get_db_connection),
 ):
     """Register a new user"""
     service = UserService(db)
     try:
-        user, user_secret = await service.register_user(
+        user, user_secret = service.register_user(
             username=request.username
         )
         return {
@@ -54,7 +54,7 @@ async def login_for_access_token(
     """Login to get an access token"""
     service = UserService(db)
     try:
-        user = await service.authenticate_user(
+        user = service.authenticate_user(
             request.user_secret
         )
 

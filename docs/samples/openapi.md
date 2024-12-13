@@ -3,6 +3,7 @@
 ## Activities
 
 ### Create Activity (POST /v1/activities)
+
 ```json
 {
   "name": "New Activity",
@@ -21,6 +22,7 @@
 ```
 
 ### Update Activity (PUT /v1/activities/{id})
+
 ```json
 {
   "name": "Updated Activity",
@@ -41,6 +43,7 @@
 ## Moments
 
 ### Create Moment (POST /v1/moments)
+
 ```json
 {
   "activity_id": 1,
@@ -52,6 +55,7 @@
 ```
 
 ### Update Moment (PUT /v1/moments/{id})
+
 ```json
 {
   "data": {
@@ -64,10 +68,12 @@
 ## Query Parameters
 
 ### List Activities (GET /v1/activities)
+
 - `skip` (optional): Number of records to skip (default: 0)
 - `limit` (optional): Maximum number of records to return (default: 100)
 
 ### List Moments (GET /v1/moments)
+
 - `page` (optional): Page number (default: 1)
 - `size` (optional): Page size (default: 50)
 - `activity_id` (optional): Filter by activity ID

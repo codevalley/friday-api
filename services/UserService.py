@@ -7,8 +7,9 @@ from configs.Database import get_db_connection
 from repositories.UserRepository import UserRepository
 from models.UserModel import User
 from utils.security import (
-    generate_user_secret,
-    hash_user_secret,
+    generate_api_key,
+    hash_secret,
+    parse_api_key,
 )
 
 
@@ -32,22 +33,23 @@ class UserService:
     def register_user(
         self, username: str
     ) -> Tuple[User, str]:
-        """Register a new user and return the user along with their secret"""
+        """Register a new user and return the user along with their API key"""
         # Validate username format
         self._validate_username(username)
 
-        # Generate a secure user_secret and hash it for storage
-        user_secret = generate_user_secret()
-        hashed_secret = hash_user_secret(user_secret)
+        # Generate API key components
+        key_id, secret, full_key = generate_api_key()
+        hashed_secret = hash_secret(secret)
 
-        # Create the user with hashed secret
+        # Create the user with key_id and hashed secret
         try:
             user = self.user_repository.create_user(
                 username=username,
+                key_id=key_id,
                 user_secret=hashed_secret,
             )
-            # Return the user and the ORIGINAL user_secret (not the hash)
-            return user, user_secret
+            # Return the user and the full API key
+            return user, full_key
         except HTTPException as e:
             raise e
         except Exception as e:
@@ -56,19 +58,35 @@ class UserService:
                 detail=f"Error creating user: {str(e)}",
             )
 
-    def authenticate_user(self, user_secret: str) -> User:
-        """Authenticate a user by their secret and return the user"""
-        # Hash the provided secret
-        hashed_secret = hash_user_secret(user_secret)
+    def authenticate_user(self, api_key: str) -> User:
+        """Authenticate a user by their API key and return the user"""
+        try:
+            # Parse the API key into key_id and secret
+            key_id, secret = parse_api_key(api_key)
 
-        # Find user by hashed secret
-        user = self.user_repository.get_by_secret_hash(
-            hashed_secret
-        )
-        if not user:
+            # Get user by key_id (fast lookup)
+            user = self.user_repository.get_by_key_id(
+                key_id
+            )
+            if not user:
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="Invalid API key",
+                    headers={"WWW-Authenticate": "Bearer"},
+                )
+
+            # Verify the secret
+            if user.user_secret != hash_secret(secret):
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="Invalid API key",
+                    headers={"WWW-Authenticate": "Bearer"},
+                )
+
+            return user
+        except ValueError:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Invalid credentials",
+                detail="Invalid API key format",
                 headers={"WWW-Authenticate": "Bearer"},
             )
-        return user

@@ -7,15 +7,15 @@ class ActivityBase(BaseModel):
     """Base schema for Activity with common attributes"""
 
     name: str = Field(..., min_length=1, max_length=255)
-    description: Optional[str] = Field(
-        None, min_length=1, max_length=1000
+    description: str = Field(
+        ..., min_length=1, max_length=1000
     )
     activity_schema: Dict = Field(
         ...,
         description="JSON Schema that defines the structure of moment data",
     )
     icon: str = Field(..., min_length=1, max_length=255)
-    color: str = Field(..., min_length=1, max_length=50)
+    color: str = Field(..., min_length=1, max_length=7)
 
     @validator("color")
     def validate_color(cls, v):
@@ -50,7 +50,7 @@ class ActivityUpdate(BaseModel):
         None, min_length=1, max_length=255
     )
     color: Optional[str] = Field(
-        None, min_length=1, max_length=50
+        None, min_length=1, max_length=7
     )
 
 
@@ -59,13 +59,10 @@ class ActivityResponse(ActivityBase):
 
     id: int
     user_id: str
-    moment_count: int = 0
+    moment_count: int
 
     class Config:
         from_attributes = True
-        json_encoders = {
-            dict: lambda v: v  # Preserve dictionaries as-is
-        }
 
 
 class ActivityList(BaseModel):

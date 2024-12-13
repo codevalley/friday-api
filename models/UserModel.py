@@ -1,7 +1,7 @@
 from sqlalchemy import Column, String, DateTime
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
-import uuid
+from uuid import uuid4
 
 from models.BaseModel import EntityMeta
 
@@ -14,7 +14,7 @@ class User(EntityMeta):
     id = Column(
         String(36),  # UUID length is 36 characters
         primary_key=True,
-        default=lambda: str(uuid.uuid4()),
+        default=lambda: str(uuid4()),
         index=True,
     )
     username = Column(
@@ -23,10 +23,14 @@ class User(EntityMeta):
         index=True,
         nullable=False,
     )
-    user_secret = Column(
-        String(64),  # Length for secure secret
+    key_id = Column(
+        String(36),  # UUID length is 36 characters
         unique=True,
         index=True,
+        nullable=False,
+    )
+    user_secret = Column(
+        String(64),  # Length for secure secret
         nullable=False,
     )
 

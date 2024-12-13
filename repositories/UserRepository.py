@@ -10,11 +10,12 @@ class UserRepository:
         self.db = db
 
     def create_user(
-        self, username: str, user_secret: str
+        self, username: str, key_id: str, user_secret: str
     ) -> User:
-        """Create a new user with the provided username and user_secret"""
+        """Create a new user with the provided username, key_id, user_secret"""
         user = User(
             username=username,
+            key_id=key_id,
             user_secret=user_secret,
         )
         self.db.add(user)
@@ -27,6 +28,11 @@ class UserRepository:
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
                     detail="Username already exists",
+                )
+            if "key_id" in str(e.orig):
+                raise HTTPException(
+                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    detail="Key ID collision occurred",
                 )
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -52,12 +58,10 @@ class UserRepository:
             .first()
         )
 
-    def get_by_secret_hash(
-        self, hashed_secret: str
-    ) -> Optional[User]:
-        """Get a user by their hashed secret"""
+    def get_by_key_id(self, key_id: str) -> Optional[User]:
+        """Get a user by their key_id (for API key authentication)"""
         return (
             self.db.query(User)
-            .filter(User.user_secret == hashed_secret)
+            .filter(User.key_id == key_id)
             .first()
         )

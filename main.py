@@ -1,4 +1,4 @@
-from fastapi import Depends, FastAPI
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from strawberry import Schema
 from strawberry.fastapi import GraphQLRouter
@@ -22,6 +22,9 @@ app = FastAPI(
     title=env.APP_NAME,
     version=env.API_VERSION,
     openapi_tags=Tags,
+    openapi_url="/openapi.json",
+    docs_url="/docs",
+    redoc_url="/redoc",
 )
 
 # CORS Configuration

@@ -5,18 +5,21 @@ from sqlalchemy import (
     JSON,
     CheckConstraint,
     ForeignKey,
+    select,
+    func,
 )
-from sqlalchemy.orm import relationship
+from sqlalchemy.orm import relationship, column_property
 from jsonschema import validate as validate_json_schema
 import json
 
 from models.BaseModel import EntityMeta
-from models.UserModel import User
+from models.MomentModel import Moment
 
 
 class Activity(EntityMeta):
     """
-    Activity Model represents different types of activities that can be logged as moments.
+    Activity Model represents different types of activities
+    that can be logged as moments.
     Each activity defines its own schema for validating moment data.
     """
 
@@ -35,6 +38,13 @@ class Activity(EntityMeta):
     )  # JSON Schema for validating moment data
     icon = Column(String(255), nullable=False)
     color = Column(String(7), nullable=False)
+
+    # Add moment_count as a column property
+    moment_count = column_property(
+        select(func.count(Moment.id))
+        .where(Moment.activity_id == id)
+        .scalar_subquery()
+    )
 
     # Relationships
     user = relationship("User", back_populates="activities")

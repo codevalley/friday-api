@@ -13,13 +13,13 @@ from jsonschema import validate as validate_json_schema
 import json
 
 from models.BaseModel import EntityMeta
-from models.UserModel import User
 
 
 class Moment(EntityMeta):
     """
     Moment Model represents a single moment or event in a person's life.
-    Each moment is associated with an activity type and contains data specific to that activity.
+    Each moment is associated with an activity type and contains data
+    specific to that activity.
     """
 
     __tablename__ = "moments"
@@ -69,7 +69,10 @@ class Moment(EntityMeta):
     )
 
     def __repr__(self):
-        return f"<Moment(id={self.id}, activity_id={self.activity_id}, timestamp='{self.timestamp}')>"
+        return (
+            f"<Moment(id={self.id}, activity_id={self.activity_id}, "
+            f"timestamp='{self.timestamp}')>"
+        )
 
     @property
     def data_dict(self) -> dict:
@@ -90,7 +93,7 @@ class Moment(EntityMeta):
             or not self.activity.activity_schema
         ):
             raise ValueError(
-                "moment must be associated with an activity that has a valid schema"
+                "moment must be linked to an activity with a valid schema"
             )
 
         try:
