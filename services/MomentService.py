@@ -35,8 +35,7 @@ class MomentService:
         # Get activity to validate data against schema
         activity = (
             self.activity_repository.validate_existence(
-                moment_data.activity_id,
-                user_id
+                moment_data.activity_id, user_id
             )
         )
 

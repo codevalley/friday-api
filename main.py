@@ -6,7 +6,9 @@ from strawberry.fastapi import GraphQLRouter
 from configs.Environment import get_environment_variables
 from configs.GraphQL import get_graphql_context
 from metadata.Tags import Tags
-from routers.v1.ActivityRouter import router as ActivityRouter
+from routers.v1.ActivityRouter import (
+    router as ActivityRouter,
+)
 from routers.v1.MomentRouter import router as MomentRouter
 from routers.v1.AuthRouter import router as AuthRouter
 from schemas.graphql.Query import Query

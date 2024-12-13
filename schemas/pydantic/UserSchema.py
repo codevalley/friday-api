@@ -18,6 +18,7 @@ class UserCreate(UserBase):
 
 class UserRegisterResponse(BaseModel):
     """Response model for user registration - simplified to avoid timestamp issues"""
+
     id: str
     username: str
     user_secret: str
@@ -25,6 +26,7 @@ class UserRegisterResponse(BaseModel):
 
 class UserResponse(UserBase):
     """Full user response model with timestamps"""
+
     id: str
     created_at: datetime
     updated_at: Optional[datetime] = None

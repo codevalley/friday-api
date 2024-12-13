@@ -56,15 +56,15 @@ class UserService:
                 detail=f"Error creating user: {str(e)}",
             )
 
-    def authenticate_user(
-        self, user_secret: str
-    ) -> User:
+    def authenticate_user(self, user_secret: str) -> User:
         """Authenticate a user by their secret and return the user"""
         # Hash the provided secret
         hashed_secret = hash_user_secret(user_secret)
-        
+
         # Find user by hashed secret
-        user = self.user_repository.get_by_secret_hash(hashed_secret)
+        user = self.user_repository.get_by_secret_hash(
+            hashed_secret
+        )
         if not user:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,

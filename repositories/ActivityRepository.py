@@ -107,7 +107,9 @@ class ActivityRepository:
                 detail="Activity with this name already exists",
             )
 
-    def delete(self, activity_id: int, user_id: str) -> bool:
+    def delete(
+        self, activity_id: int, user_id: str
+    ) -> bool:
         """Delete an activity"""
         activity = self.get_by_id(activity_id, user_id)
         if not activity:

@@ -1,4 +1,4 @@
-from typing import Optional, List
+from typing import Optional
 from sqlalchemy.orm import Session
 from models.UserModel import User
 from sqlalchemy.exc import IntegrityError
@@ -9,7 +9,9 @@ class UserRepository:
     def __init__(self, db: Session):
         self.db = db
 
-    def create_user(self, username: str, user_secret: str) -> User:
+    def create_user(
+        self, username: str, user_secret: str
+    ) -> User:
         """Create a new user with the provided username and user_secret"""
         user = User(
             username=username,
@@ -50,7 +52,9 @@ class UserRepository:
             .first()
         )
 
-    def get_by_secret_hash(self, hashed_secret: str) -> Optional[User]:
+    def get_by_secret_hash(
+        self, hashed_secret: str
+    ) -> Optional[User]:
         """Get a user by their hashed secret"""
         return (
             self.db.query(User)

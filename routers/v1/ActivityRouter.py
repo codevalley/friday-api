@@ -12,7 +12,9 @@ from schemas.pydantic.ActivitySchema import (
 from dependencies import get_current_user
 from models.UserModel import User
 
-router = APIRouter(prefix="/v1/activities", tags=["activities"])
+router = APIRouter(
+    prefix="/v1/activities", tags=["activities"]
+)
 
 
 @router.post(
@@ -29,9 +31,7 @@ async def create_activity(
             activity, current_user.id
         )
     except Exception as e:
-        raise HTTPException(
-            status_code=400, detail=str(e)
-        )
+        raise HTTPException(status_code=400, detail=str(e))
 
 
 @router.get("", response_model=List[ActivityResponse])

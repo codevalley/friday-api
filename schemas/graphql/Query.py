@@ -21,7 +21,9 @@ class Query:
     ) -> Optional[Activity]:
         activity_service = get_ActivityService(info)
         user = get_user_from_context(info)
-        return activity_service.get_activity_graphql(id, user.id)
+        return activity_service.get_activity_graphql(
+            id, user.id
+        )
 
     @strawberry.field(description="List all Activities")
     def getActivities(
@@ -74,4 +76,6 @@ class Query:
     ) -> List[Activity]:
         moment_service = get_MomentService(info)
         user = get_user_from_context(info)
-        return moment_service.get_recent_activities(user.id, limit)
+        return moment_service.get_recent_activities(
+            user.id, limit
+        )

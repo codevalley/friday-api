@@ -6,14 +6,18 @@ from jsonschema import ValidationError
 import json
 
 from configs.Database import get_db_connection
-from repositories.ActivityRepository import ActivityRepository
+from repositories.ActivityRepository import (
+    ActivityRepository,
+)
 from repositories.MomentRepository import MomentRepository
 from schemas.pydantic.ActivitySchema import (
     ActivityCreate,
     ActivityUpdate,
     ActivityResponse,
 )
-from schemas.graphql.Activity import Activity as ActivityType
+from schemas.graphql.Activity import (
+    Activity as ActivityType,
+)
 
 
 class ActivityService:
@@ -64,10 +68,14 @@ class ActivityService:
         self, user_id: str, skip: int = 0, limit: int = 100
     ) -> List[ActivityResponse]:
         """List all activities with pagination"""
-        activities = self.activity_repository.list_activities(
-            user_id=user_id, skip=skip, limit=limit
+        activities = (
+            self.activity_repository.list_activities(
+                user_id=user_id, skip=skip, limit=limit
+            )
         )
-        return [ActivityResponse.from_orm(a) for a in activities]
+        return [
+            ActivityResponse.from_orm(a) for a in activities
+        ]
 
     def update_activity(
         self,
@@ -144,8 +152,10 @@ class ActivityService:
         self, user_id: str, skip: int = 0, limit: int = 100
     ) -> List[ActivityType]:
         """List all activities with pagination for GraphQL"""
-        activities = self.activity_repository.list_activities(
-            user_id=user_id, skip=skip, limit=limit
+        activities = (
+            self.activity_repository.list_activities(
+                user_id=user_id, skip=skip, limit=limit
+            )
         )
         return [ActivityType.from_db(a) for a in activities]
 

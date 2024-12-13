@@ -19,7 +19,9 @@ ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 30
 
 # OAuth2 scheme for token authentication
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="v1/auth/token")
+oauth2_scheme = OAuth2PasswordBearer(
+    tokenUrl="v1/auth/token"
+)
 
 # JWT settings
 JWT_SECRET = os.getenv("JWT_SECRET", "your-secret-key")
@@ -68,20 +70,22 @@ def generate_user_secret() -> str:
 def hash_user_secret(user_secret: str) -> str:
     """Hash a user secret using bcrypt"""
     # Convert the user_secret to bytes and generate a salt
-    password = user_secret.encode('utf-8')
+    password = user_secret.encode("utf-8")
     salt = bcrypt.gensalt()
     # Hash the password
     hashed = bcrypt.hashpw(password, salt)
     # Return the hash as a string
-    return hashed.decode('utf-8')
+    return hashed.decode("utf-8")
 
 
-def verify_user_secret(plain_secret: str, hashed_secret: str) -> bool:
+def verify_user_secret(
+    plain_secret: str, hashed_secret: str
+) -> bool:
     """Verify a user secret against its hash using bcrypt"""
     try:
         # Convert strings to bytes for bcrypt
-        password = plain_secret.encode('utf-8')
-        stored_hash = hashed_secret.encode('utf-8')
+        password = plain_secret.encode("utf-8")
+        stored_hash = hashed_secret.encode("utf-8")
         # Check if the password matches
         return bcrypt.checkpw(password, stored_hash)
     except Exception:
@@ -94,7 +98,9 @@ def hash_secret(secret: str) -> str:
     return bcrypt.hashpw(secret.encode(), salt).decode()
 
 
-def verify_secret(plain_secret: str, hashed_secret: str) -> bool:
+def verify_secret(
+    plain_secret: str, hashed_secret: str
+) -> bool:
     """Verify a secret against its hash"""
     return bcrypt.checkpw(
         plain_secret.encode(), hashed_secret.encode()
@@ -149,7 +155,7 @@ async def get_current_user(
         detail="Could not validate credentials",
         headers={"WWW-Authenticate": "Bearer"},
     )
-    
+
     try:
         payload = decode_token(token)
         user_id = payload.get("user_id")
