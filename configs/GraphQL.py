@@ -16,10 +16,15 @@ async def get_graphql_context(
     activity_service: ActivityService = Depends(),
     moment_service: MomentService = Depends(),
     db: Session = Depends(get_db_connection),
-    current_user: Optional[User] = Depends(get_optional_user),
+    current_user: Optional[User] = Depends(
+        get_optional_user
+    ),
 ):
     # Check if it's a GraphiQL request
-    is_graphiql = request.headers.get("accept", "").find("text/html") != -1
+    is_graphiql = (
+        request.headers.get("accept", "").find("text/html")
+        != -1
+    )
 
     return {
         "activity_service": activity_service,

@@ -15,5 +15,6 @@ class Mutation(
     UserMutation, ActivityMutation, MomentMutation
 ):
     """Root mutation type that inherits
-       all mutations from specific mutation types"""
+    all mutations from specific mutation types"""
+
     pass

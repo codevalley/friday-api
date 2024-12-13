@@ -33,7 +33,7 @@ class ActivityMutation:
 
         db_activity = service.create_activity_graphql(
             activity_data=activity_create,
-            user_id=current_user.id
+            user_id=current_user.id,
         )
         return Activity.from_db(db_activity)
 
@@ -56,7 +56,7 @@ class ActivityMutation:
         db_activity = service.update_activity_graphql(
             activity_id=activity_id,
             activity_data=activity_data,
-            user_id=current_user.id
+            user_id=current_user.id,
         )
         return Activity.from_db(db_activity)
 
@@ -71,6 +71,5 @@ class ActivityMutation:
         service = get_ActivityService(info)
 
         return service.delete_activity(
-            activity_id=activity_id,
-            user_id=current_user.id
+            activity_id=activity_id, user_id=current_user.id
         )

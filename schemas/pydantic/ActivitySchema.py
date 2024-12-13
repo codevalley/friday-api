@@ -1,6 +1,7 @@
 from typing import Dict, Optional, List
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field, field_validator
 import re
+from schemas.base.activity_schema import ActivityData
 
 
 class ActivityBase(BaseModel):
@@ -17,8 +18,13 @@ class ActivityBase(BaseModel):
     icon: str = Field(..., min_length=1, max_length=255)
     color: str = Field(..., min_length=1, max_length=7)
 
-    @validator("color")
-    def validate_color(cls, v):
+    def to_domain(self) -> ActivityData:
+        """Convert to domain model"""
+        return ActivityData.from_dict(self.model_dump())
+
+    @field_validator("color")
+    @classmethod
+    def validate_color(cls, v: str) -> str:
         """Validate that color is a valid hex color code"""
         if not re.match(r"^#[0-9A-Fa-f]{6}$", v):
             raise ValueError(
@@ -53,13 +59,48 @@ class ActivityUpdate(BaseModel):
         None, min_length=1, max_length=7
     )
 
+    def to_domain(
+        self, existing: ActivityData
+    ) -> ActivityData:
+        """Convert to domain model, preserving existing data"""
+        update_dict = self.model_dump(exclude_unset=True)
+        existing_dict = existing.to_dict()
+        existing_dict.update(update_dict)
+        return ActivityData.from_dict(existing_dict)
 
-class ActivityResponse(ActivityBase):
+    @field_validator("color")
+    @classmethod
+    def validate_color(
+        cls, v: Optional[str]
+    ) -> Optional[str]:
+        """Validate that color is a valid hex color code if provided"""
+        if v is not None and not re.match(
+            r"^#[0-9A-Fa-f]{6}$", v
+        ):
+            raise ValueError(
+                "Color must be a valid hex color code (e.g., #4A90E2)"
+            )
+        return v
+
+
+class ActivityResponse(BaseModel):
     """Schema for Activity response"""
 
     id: int
+    name: str
+    description: str
+    activity_schema: Dict
+    icon: str
+    color: str
     user_id: str
-    moment_count: int
+    moment_count: int = 0
+
+    @classmethod
+    def from_domain(
+        cls, activity: ActivityData
+    ) -> "ActivityResponse":
+        """Create from domain model"""
+        return cls(**activity.to_dict())
 
     class Config:
         from_attributes = True

@@ -1,38 +1,66 @@
 import json
-from typing import Dict, Optional, Union
+from typing import Dict, Union, TypeVar, Optional
+
+T = TypeVar("T", Dict, str)
 
 
-def to_json_string(data: Optional[Dict]) -> Optional[str]:
-    """Convert a dictionary to a JSON string, handling None values"""
-    if data is None:
-        return None
-    return json.dumps(data)
+def ensure_dict(value: Union[str, Dict, None]) -> Dict:
+    """
+    Ensure a value is a dictionary, converting from JSON string if necessary.
+
+    Args:
+        value: A string containing JSON, a dictionary, or None
+
+    Returns:
+        Dict: The input converted to a dictionary,
+        or an empty dict if conversion fails
+    """
+    if value is None:
+        return {}
+    if isinstance(value, str):
+        try:
+            return json.loads(value)
+        except json.JSONDecodeError:
+            return {}
+    if isinstance(value, dict):
+        return value
+    return {}
 
 
-def from_json_string(data: Optional[str]) -> Optional[Dict]:
-    """Convert a JSON string to a dictionary, handling None values"""
-    if data is None:
-        return None
-    return json.loads(data)
+def ensure_string(value: Union[str, Dict, None]) -> str:
+    """
+    Ensure a value is a JSON string, converting from dictionary if necessary.
+
+    Args:
+        value: A dictionary, JSON string, or None
+
+    Returns:
+        str: The input converted to a JSON string, or "{}" if conversion fails
+    """
+    if value is None:
+        return "{}"
+    if isinstance(value, str):
+        try:
+            # Validate it's proper JSON by parsing and re-stringifying
+            return json.dumps(json.loads(value))
+        except json.JSONDecodeError:
+            return "{}"
+    if isinstance(value, dict):
+        return json.dumps(value)
+    return "{}"
 
 
-def ensure_dict(
-    data: Union[str, Dict, None]
-) -> Optional[Dict]:
-    """Ensure data is a dictionary, converting from string if necessary"""
-    if data is None:
-        return None
-    if isinstance(data, str):
-        return json.loads(data)
-    return data
+def safe_json_loads(value: Optional[str]) -> Dict:
+    """
+    Safely load a JSON string into a dictionary.
 
+    Args:
+        value: A string containing JSON or None
 
-def ensure_string(
-    data: Union[str, Dict, None]
-) -> Optional[str]:
-    """Ensure data is a JSON string, converting from dict if necessary"""
-    if data is None:
-        return None
-    if isinstance(data, dict):
-        return json.dumps(data)
-    return data
+    Returns:
+        Dict: The parsed dictionary, or an empty dict if parsing fails
+    """
+    try:
+        return json.loads(value) if value else {}
+    except json.JSONDecodeError:
+        return {}

@@ -1,6 +1,7 @@
 from typing import Dict, Optional, List
 from datetime import datetime
 from pydantic import BaseModel, Field, field_validator
+from schemas.base.moment_schema import MomentData
 from .ActivitySchema import ActivityResponse
 
 
@@ -15,6 +16,10 @@ class MomentBase(BaseModel):
     timestamp: Optional[datetime] = Field(
         None, description="UTC timestamp of the moment"
     )
+
+    def to_domain(self) -> MomentData:
+        """Convert to domain model"""
+        return MomentData.from_dict(self.model_dump())
 
     @field_validator("timestamp")
     @classmethod
@@ -40,26 +45,34 @@ class MomentUpdate(BaseModel):
     )
     timestamp: Optional[datetime] = None
 
+    def to_domain(self, existing: MomentData) -> MomentData:
+        """Convert to domain model, preserving existing data"""
+        update_dict = self.model_dump(exclude_unset=True)
+        existing_dict = existing.to_dict()
+        existing_dict.update(update_dict)
+        return MomentData.from_dict(existing_dict)
 
-class MomentResponse(MomentBase):
+
+class MomentResponse(BaseModel):
     """Schema for Moment response"""
 
     id: int
+    activity_id: int
+    data: Dict
+    timestamp: datetime
     activity: ActivityResponse
+
+    @classmethod
+    def from_domain(
+        cls, moment: MomentData, activity: ActivityResponse
+    ) -> "MomentResponse":
+        """Create from domain model"""
+        moment_dict = moment.to_dict()
+        moment_dict["activity"] = activity
+        return cls(**moment_dict)
 
     class Config:
         from_attributes = True
-        json_encoders = {
-            dict: lambda v: v  # Preserve dictionaries as-is
-        }
-
-    @field_validator("data")
-    @classmethod
-    def ensure_dict_data(cls, v):
-        """Ensure data is a dictionary"""
-        if hasattr(v, "data_dict"):
-            return v.data_dict
-        return v
 
 
 class MomentList(BaseModel):

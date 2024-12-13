@@ -1,28 +1,50 @@
 ### Phase 1: Code cleanup
 **General architecture**:  
-- [ ] Consider splitting large schema files or using a registry pattern for GraphQL to reduce bottom-of-file imports.
+- [x] Consider splitting large schema files or using a registry pattern for GraphQL to reduce bottom-of-file imports.
+  - Created base schema classes (MomentData, UserData, ActivityData)
+  - Moved common logic to base classes
+  - Better organized imports to reduce circular dependencies
 - [ ] See if long method names can be reduced without losing clarity
-- [ ] Check if the `RepositoryMeta` interface is still necessary since you have direct repository implementations.
+- [x] Check if the `RepositoryMeta` interface is still necessary since you have direct repository implementations.
+  - Removed in favor of direct domain model conversions
 
 **Models/Domain**:  
-- [ ] Ensure that `validate_schema` or `validate_data` is always called before commit, possibly in the service layer.
-- [ ] Strictly use UTC for timestamps and ensure no confusion in time handling.
+- [x] Ensure that `validate_schema` or `validate_data` is always called before commit, possibly in the service layer.
+  - Added validation in base schema classes with __post_init__
+  - Comprehensive validation for all fields
+- [x] Strictly use UTC for timestamps and ensure no confusion in time handling.
+  - Consistent UTC timestamp handling in base schemas
+  - Clear documentation about timestamp expectations
 
 **Repositories**:  
-- [ ] Remove `HTTPException` from repositories. Return `None` or raise a custom `RepositoryError`. The service layer can catch this and raise `HTTPException`.
-- [ ] Validate existence in the service layer rather than the repository layer, or have a repository method named `get_or_none` and let the service decide what to do if `None`.
+- [x] Remove `HTTPException` from repositories. Return `None` or raise a custom `RepositoryError`. The service layer can catch this and raise `HTTPException`.
+  - Moved HTTP concerns out of repositories
+  - Using domain-specific errors in base schemas
+- [x] Validate existence in the service layer rather than the repository layer, or have a repository method named `get_or_none` and let the service decide what to do if `None`.
+  - Validation now happens in service layer using base schemas
 
 **Services**:
-- [ ] Abstract error handling in services. Services can raise custom DomainError or `NotFoundError`. Routers catch these and return `HTTPException`.
+- [x] Abstract error handling in services. Services can raise custom DomainError or `NotFoundError`. Routers catch these and return `HTTPException`.
+  - Added proper error hierarchy with domain-specific errors
 
 **Schemas**:  
-- [ ] Some duplicate logic exists between Pydantic and JSONSchema validations. Consider consolidating validation logic where possible.
-- [ ] GraphQL schemas make frequent use of string-JSON conversions (`ensure_string` and `ensure_dict`). Can use a single utility or internal code that uses dicts, only graphql boundary uses strings.
-- [ ] The GraphQL layer references `info.context` a lot, which is fine, but consider a single context object with typed attributes for better maintainability.
-- [ ] If feasible, unify how you handle JSON fields. For instance, always store them as dict internally and convert to/from strings only at the boundary. Also reduce duplication of schema validation by centralizing it in the service layer. (agree?)
+- [x] Some duplicate logic exists between Pydantic and JSONSchema validations. Consider consolidating validation logic where possible.
+  - Consolidated validation in base schema classes
+  - Single source of truth for validation rules
+- [x] GraphQL schemas make frequent use of string-JSON conversions (`ensure_string` and `ensure_dict`). Can use a single utility or internal code that uses dicts, only graphql boundary uses strings.
+  - Created unified JSON handling in utils/json_utils.py
+  - Consistent conversion at boundaries only
+- [x] The GraphQL layer references `info.context` a lot, which is fine, but consider a single context object with typed attributes for better maintainability.
+  - Improved GraphQL context handling with proper typing
+- [x] If feasible, unify how you handle JSON fields. For instance, always store them as dict internally and convert to/from strings only at the boundary. Also reduce duplication of schema validation by centralizing it in the service layer. (agree?)
+  - Implemented dict-based internal storage
+  - JSON conversion only at boundaries
+  - Centralized validation in base schemas
 
 **Routers**:
-- [ ] Some routers directly raise HTTPException when they could just rely on the service to signal errors. Not a big issue, just a design choice. (choice?)
+- [x] Some routers directly raise HTTPException when they could just rely on the service to signal errors. Not a big issue, just a design choice. (choice?)
+  - Moved error handling to service layer
+  - Routers now handle only HTTP concerns
 - [ ] Pagination parameters (page, size) are not always consistently validated (e.g., `ge=1`, `le=100`). Make sure consistent validation is applied everywhere.
 
 **Security**:
@@ -53,7 +75,7 @@
    - [ ] Test pagination efficiency
 
 ### General Todo
-- Add these libs to our pipenv file.
+- [ ] Add these libs to our pipenv file.
    - python-jose
    - pathlib
    - httpx

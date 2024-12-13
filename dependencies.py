@@ -47,7 +47,9 @@ async def get_current_user(
 
 async def get_optional_user(
     db: Session = Depends(get_db_connection),
-    credentials: Optional[HTTPAuthorizationCredentials] = Depends(security),
+    credentials: Optional[
+        HTTPAuthorizationCredentials
+    ] = Depends(security),
 ) -> Optional[User]:
     """Get the current user if authenticated, otherwise return None"""
     try:
