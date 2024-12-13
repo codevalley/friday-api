@@ -1,4 +1,4 @@
-from typing import Optional, Tuple
+from typing import Tuple
 from fastapi import Depends, HTTPException, status
 from sqlalchemy.orm import Session
 import re
@@ -6,7 +6,10 @@ import re
 from configs.Database import get_db_connection
 from repositories.UserRepository import UserRepository
 from models.UserModel import User
-from utils.security import generate_user_secret, hash_user_secret, verify_user_secret
+from utils.security import (
+    generate_user_secret,
+    hash_user_secret,
+)
 
 
 class UserService:
@@ -20,10 +23,13 @@ class UserService:
         if not re.match("^[a-zA-Z0-9_-]{3,50}$", username):
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Username must be 3-50 characters long and contain only letters, numbers, underscores, and hyphens",
+                detail=(
+                    "Username must be 3-50 characters long and contain only "
+                    "letters, numbers, underscores, and hyphens"
+                ),
             )
 
-    async def register_user(
+    def register_user(
         self, username: str
     ) -> Tuple[User, str]:
         """Register a new user and return the user along with their secret"""
@@ -50,19 +56,19 @@ class UserService:
                 detail=f"Error creating user: {str(e)}",
             )
 
-    async def authenticate_user(
+    def authenticate_user(
         self, user_secret: str
     ) -> User:
         """Authenticate a user by their secret and return the user"""
-        # Get all users and verify their secrets
-        # This is a temporary debug measure
-        users = self.user_repository.get_all_users()
-        for user in users:
-            if verify_user_secret(user_secret, user.user_secret):
-                return user
-
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid credentials",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
+        # Hash the provided secret
+        hashed_secret = hash_user_secret(user_secret)
+        
+        # Find user by hashed secret
+        user = self.user_repository.get_by_secret_hash(hashed_secret)
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid credentials",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+        return user

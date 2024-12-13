@@ -1,4 +1,4 @@
-from typing import Optional, Dict
+from typing import Optional
 from fastapi import HTTPException, Depends
 from sqlalchemy.orm import Session
 import jsonschema
@@ -35,16 +35,10 @@ class MomentService:
         # Get activity to validate data against schema
         activity = (
             self.activity_repository.validate_existence(
-                moment_data.activity_id
+                moment_data.activity_id,
+                user_id
             )
         )
-
-        # Verify activity belongs to user
-        if activity.user_id != user_id:
-            raise HTTPException(
-                status_code=403,
-                detail="Not authorized to create moments for this activity",
-            )
 
         try:
             # Validate moment data against activity schema

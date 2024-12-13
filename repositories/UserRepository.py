@@ -1,7 +1,6 @@
-from typing import Optional, List, Tuple
+from typing import Optional, List
 from sqlalchemy.orm import Session
 from models.UserModel import User
-from utils.security import generate_user_secret
 from sqlalchemy.exc import IntegrityError
 from fastapi import HTTPException, status
 
@@ -33,10 +32,6 @@ class UserRepository:
             )
         return user
 
-    def get_all_users(self) -> List[User]:
-        """Get all users - temporary method for debugging"""
-        return self.db.query(User).all()
-
     def get_by_id(self, user_id: str) -> Optional[User]:
         """Get a user by their ID"""
         return (
@@ -55,12 +50,10 @@ class UserRepository:
             .first()
         )
 
-    def get_by_user_secret(
-        self, user_secret: str
-    ) -> Optional[User]:
-        """Get a user by their user_secret"""
+    def get_by_secret_hash(self, hashed_secret: str) -> Optional[User]:
+        """Get a user by their hashed secret"""
         return (
             self.db.query(User)
-            .filter(User.user_secret == user_secret)
+            .filter(User.user_secret == hashed_secret)
             .first()
         )
