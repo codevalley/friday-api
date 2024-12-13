@@ -51,6 +51,7 @@ class Location(EntityMeta):
 ```
 
 **Key Points:**
+
 - Define your columns, indexes, constraints.
 - Follow the project’s conventions (naming, indexing, etc.).
 - Add `__repr__` for easier debugging.
@@ -387,11 +388,13 @@ Also ensure `LocationService` is imported and used in `get_graphql_context` if t
 - Test with curl or a GraphQL client to verify all CRUD operations.
 
 **Example REST Calls:**
+
 ```bash
 curl -X POST "http://localhost:8000/v1/locations" -H "Content-Type: application/json" -d '{"name":"Home","latitude":37.7749,"longitude":-122.4194}'
 ```
 
 **GraphQL Example:**
+
 ```graphql
 mutation {
   create_location(location: {name: "Office", latitude: 40.7128, longitude: -74.0060}) {
@@ -418,17 +421,12 @@ By following the above steps, you have successfully introduced a new domain (`Lo
 7. Validate endpoints in `/docs` and `/graphql`
 
 This ensures a consistent, maintainable, and quickly expandable architecture for introducing new concepts into the system.
+
 # How to Add a New Domain/Entity: "Location" Example
-
-
 
 This document guides you through the process of introducing a new domain/entity (`Location`) into the existing codebase. By following these steps, you will have a fully integrated domain that includes models, repositories, services, schemas (Pydantic and GraphQL), routers, metadata, and endpoint visibility in both REST and GraphQL interfaces.
 
-
-
 ## Prerequisites
-
-
 
 - You have the project set up and running locally.
 
@@ -438,11 +436,7 @@ This document guides you through the process of introducing a new domain/entity 
 
 - You have knowledge of Python, FastAPI, SQLAlchemy, Strawberry GraphQL, and Pydantic.
 
-
-
 ## Steps Overview
-
-
 
 1. **Domain Model (SQLAlchemy)**  
 
@@ -464,23 +458,13 @@ This document guides you through the process of introducing a new domain/entity 
 
 10. **Test & Verify** (check `/docs` and `/graphql`)
 
-
-
 Below are detailed instructions and a recommended file structure. Replace `Location` with your actual entity name where appropriate.
-
-
 
 ---
 
-
-
 ## 1. Add a Domain Model
 
-
-
 **File:** `models/LocationModel.py`
-
-
 
 ```python
 
@@ -520,8 +504,6 @@ class Location(EntityMeta):
 
 ```
 
-
-
 **Key Points:**
 
 - Define your columns, indexes, constraints.
@@ -530,19 +512,11 @@ class Location(EntityMeta):
 
 - Add `__repr__` for easier debugging.
 
-
-
 ---
-
-
 
 ## 2. Database Migration
 
-
-
 If using a migration tool (e.g., Alembic), create a migration script:
-
-
 
 ```bash
 
@@ -552,23 +526,13 @@ alembic upgrade head
 
 ```
 
-
-
 If the project relies on `init()` in `models/BaseModel.py` with `create_all()`, ensure it’s invoked after adding the new model.
-
-
 
 ---
 
-
-
 ## 3. Create a Repository
 
-
-
 **File:** `repositories/LocationRepository.py`
-
-
 
 ```python
 
@@ -666,19 +630,11 @@ class LocationRepository:
 
 ```
 
-
-
 ---
-
-
 
 ## 4. Add Service Logic
 
-
-
 **File:** `services/LocationService.py`
-
-
 
 ```python
 
@@ -758,19 +714,11 @@ class LocationService:
 
 ```
 
-
-
 ---
-
-
 
 ## 5. Pydantic Schemas
 
-
-
 **File:** `schemas/pydantic/LocationSchema.py`
-
-
 
 ```python
 
@@ -818,19 +766,11 @@ class LocationResponse(LocationBase):
 
 ```
 
-
-
 ---
-
-
 
 ## 6. GraphQL Schemas
 
-
-
 **File:** `schemas/graphql/Location.py`
-
-
 
 ```python
 
@@ -900,15 +840,9 @@ class LocationUpdateInput:
 
 ```
 
-
-
 **Add Queries & Mutations:**
 
-
-
 Update `schemas/graphql/Query.py` to add a query for listing and getting locations:
-
-
 
 ```python
 
@@ -942,11 +876,7 @@ def getLocations(self, info: Info, skip: int = 0, limit: int = 100) -> List[Loca
 
 ```
 
-
-
 Update `schemas/graphql/Mutation.py`:
-
-
 
 ```python
 
@@ -992,11 +922,7 @@ def delete_location(self, location_id: int, info: Info) -> bool:
 
 ```
 
-
-
 **Note**: Make sure to add `location_service` to the GraphQL context in `configs/GraphQL.py`.
-
-
 
 ```python
 
@@ -1028,19 +954,11 @@ async def get_graphql_context(
 
 ```
 
-
-
 ---
-
-
 
 ## 7. REST Routers
 
-
-
 **File:** `routers/v1/LocationRouter.py`
-
-
 
 ```python
 
@@ -1106,11 +1024,7 @@ async def delete_location(location_id: int, service: LocationService = Depends()
 
 ```
 
-
-
 **Finally**, include this router in `main.py`:
-
-
 
 ```python
 
@@ -1120,19 +1034,11 @@ app.include_router(LocationRouter)
 
 ```
 
-
-
 ---
-
-
 
 ## 8. Metadata (Optional)
 
-
-
 Add a tag in `metadata/Tags.py`:
-
-
 
 ```python
 
@@ -1146,19 +1052,11 @@ Tags.append({
 
 ```
 
-
-
 ---
-
-
 
 ## 9. Update main.py (if not done yet)
 
-
-
 Make sure you have `LocationRouter` included:
-
-
 
 ```python
 
@@ -1170,19 +1068,11 @@ app.include_router(LocationRouter)
 
 ```
 
-
-
 Also ensure `LocationService` is imported and used in `get_graphql_context` if that wasn’t done yet.
-
-
 
 ---
 
-
-
 ## 10. Test & Verify
-
-
 
 - Run the server: `uvicorn main:app --reload`
 
@@ -1192,8 +1082,6 @@ Also ensure `LocationService` is imported and used in `get_graphql_context` if t
 
 - Test with curl or a GraphQL client to verify all CRUD operations.
 
-
-
 **Example REST Calls:**
 
 ```bash
@@ -1201,8 +1089,6 @@ Also ensure `LocationService` is imported and used in `get_graphql_context` if t
 curl -X POST "http://localhost:8000/v1/locations" -H "Content-Type: application/json" -d '{"name":"Home","latitude":37.7749,"longitude":-122.4194}'
 
 ```
-
-
 
 **GraphQL Example:**
 
@@ -1226,19 +1112,11 @@ mutation {
 
 ```
 
-
-
 ---
-
-
 
 ## Conclusion
 
-
-
 By following the above steps, you have successfully introduced a new domain (`Location`) into the codebase. This template can be replicated for any new domain entity you want to add. Just follow the same pattern:
-
-
 
 1. Model
 
@@ -1253,7 +1131,5 @@ By following the above steps, you have successfully introduced a new domain (`Lo
 6. Update main configuration (imports, router inclusion)
 
 7. Validate endpoints in `/docs` and `/graphql`
-
-
 
 This ensures a consistent, maintainable, and quickly expandable architecture for introducing new concepts into the system.

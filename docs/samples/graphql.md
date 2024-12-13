@@ -5,6 +5,7 @@
 ### Queries
 
 #### Get Activity by ID
+
 ```graphql
 query GetActivity {
   getActivity(id: 1) {
@@ -25,6 +26,7 @@ query GetActivity {
 ```
 
 #### List Activities
+
 ```graphql
 query ListActivities {
   getActivities(skip: 0, limit: 10) {
@@ -42,6 +44,7 @@ query ListActivities {
 ### Mutations
 
 #### Create Activity
+
 ```graphql
 mutation CreateActivity {
   createActivity(
@@ -64,6 +67,7 @@ mutation CreateActivity {
 ```
 
 #### Update Activity
+
 ```graphql
 mutation UpdateActivity {
   updateActivity(
@@ -88,9 +92,10 @@ mutation UpdateActivity {
 
 ## Moments
 
-### Queries
+### Query
 
 #### Get Moment by ID
+
 ```graphql
 query GetMoment {
   getMoment(id: 1) {
@@ -107,6 +112,7 @@ query GetMoment {
 ```
 
 #### List Moments
+
 ```graphql
 query ListMoments {
   getMoments(
@@ -133,9 +139,10 @@ query ListMoments {
 }
 ```
 
-### Mutations
+### Mutation
 
 #### Create Moment
+
 ```graphql
 mutation CreateMoment {
   createMoment(
@@ -157,6 +164,7 @@ mutation CreateMoment {
 ```
 
 #### Update Moment
+
 ```graphql
 mutation UpdateMoment {
   updateMoment(

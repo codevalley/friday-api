@@ -1,26 +1,32 @@
-from fastapi import Depends
+from fastapi import Depends, Request
 from strawberry.types import Info
 from sqlalchemy.orm import Session
+from typing import Optional
 
 from services.ActivityService import ActivityService
 from services.MomentService import MomentService
 from configs.Database import get_db_connection
-from dependencies import get_current_user
+from dependencies import get_optional_user
 from models.UserModel import User
 
 
 # GraphQL Dependency Context
 async def get_graphql_context(
+    request: Request,
     activity_service: ActivityService = Depends(),
     moment_service: MomentService = Depends(),
     db: Session = Depends(get_db_connection),
-    current_user: User = Depends(get_current_user),
+    current_user: Optional[User] = Depends(get_optional_user),
 ):
+    # Check if it's a GraphiQL request
+    is_graphiql = request.headers.get("accept", "").find("text/html") != -1
+
     return {
         "activity_service": activity_service,
         "moment_service": moment_service,
         "db": db,
         "user": current_user,
+        "is_graphiql": is_graphiql,
     }
 
 
@@ -40,5 +46,5 @@ def get_db_from_context(info: Info) -> Session:
 
 
 # Extract current user from GraphQL context
-def get_user_from_context(info: Info) -> User:
-    return info.context["user"]
+def get_user_from_context(info: Info) -> Optional[User]:
+    return info.context.get("user")

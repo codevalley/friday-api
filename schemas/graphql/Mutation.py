@@ -44,11 +44,13 @@ class Mutation(
     ) -> Activity:
         activity_service = get_ActivityService(info)
         current_user = get_user_from_context(info)
+        if not current_user:
+            raise Exception("Authentication required")
         activity_dict = activity.to_dict()
-        activity_dict["user_id"] = current_user.id
         activity_create = ActivityCreate(**activity_dict)
         return activity_service.create_activity_graphql(
-            activity_create
+            activity_data=activity_create,
+            user_id=current_user.id
         )
 
     @strawberry.field(
@@ -61,10 +63,15 @@ class Mutation(
         info: Info,
     ) -> Activity:
         activity_service = get_ActivityService(info)
+        current_user = get_user_from_context(info)
+        if not current_user:
+            raise Exception("Authentication required")
         activity_dict = activity.to_dict()
         activity_update = ActivityUpdate(**activity_dict)
         return activity_service.update_activity(
-            activity_id, activity_update
+            activity_id=activity_id,
+            activity_data=activity_update,
+            user_id=current_user.id
         )
 
     @strawberry.field(description="Delete an Activity")
@@ -72,4 +79,10 @@ class Mutation(
         self, activity_id: int, info: Info
     ) -> bool:
         activity_service = get_ActivityService(info)
-        return activity_service.delete_activity(activity_id)
+        current_user = get_user_from_context(info)
+        if not current_user:
+            raise Exception("Authentication required")
+        return activity_service.delete_activity(
+            activity_id=activity_id,
+            user_id=current_user.id
+        )
