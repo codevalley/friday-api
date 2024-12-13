@@ -22,7 +22,7 @@
         description TEXT,
         activity_schema JSON NOT NULL,
         icon VARCHAR(255) NOT NULL,
-        color VARCHAR(7) NOT NULL,
+        color VARCHAR(50) NOT NULL,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
         FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
