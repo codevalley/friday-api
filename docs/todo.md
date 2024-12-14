@@ -119,7 +119,7 @@
 3. Make database operations consistently async
 4. Add audit logging for security events
 5. Design and implement a secure user secret recovery process
-
+6. add to pipfile types-SQLAlchemy types-jsonschema
 ## Recent Fixes
 
 1. Fixed bcrypt version detection issue by:

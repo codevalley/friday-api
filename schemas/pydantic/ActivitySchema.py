@@ -1,8 +1,7 @@
-from typing import Dict, Optional, List
+from typing import Dict, Optional, List, Any
 from pydantic import BaseModel, Field, validator
 import re
 from schemas.base.activity_schema import ActivityData
-from .PaginationSchema import PaginationParams
 
 
 class ActivityBase(BaseModel):
@@ -12,7 +11,7 @@ class ActivityBase(BaseModel):
     description: str = Field(
         ..., min_length=1, max_length=1000
     )
-    activity_schema: Dict = Field(
+    activity_schema: Dict[str, Any] = Field(
         ...,
         description="JSON Schema that defines the structure of moment data",
     )
@@ -21,7 +20,7 @@ class ActivityBase(BaseModel):
 
     def to_domain(self) -> ActivityData:
         """Convert to domain model"""
-        return ActivityData.from_dict(self.model_dump())
+        return ActivityData.from_dict(self.dict())
 
     @validator("color")
     @classmethod
@@ -52,7 +51,7 @@ class ActivityUpdate(BaseModel):
     description: Optional[str] = Field(
         None, min_length=1, max_length=1000
     )
-    activity_schema: Optional[Dict] = None
+    activity_schema: Optional[Dict[str, Any]] = None
     icon: Optional[str] = Field(
         None, min_length=1, max_length=255
     )
@@ -64,7 +63,7 @@ class ActivityUpdate(BaseModel):
         self, existing: ActivityData
     ) -> ActivityData:
         """Convert to domain model, preserving existing data"""
-        update_dict = self.model_dump(exclude_unset=True)
+        update_dict = self.dict(exclude_unset=True)
         existing_dict = existing.to_dict()
         existing_dict.update(update_dict)
         return ActivityData.from_dict(existing_dict)
@@ -90,7 +89,7 @@ class ActivityResponse(BaseModel):
     id: int
     name: str
     description: str
-    activity_schema: Dict
+    activity_schema: Dict[str, Any]
     icon: str
     color: str
     user_id: str

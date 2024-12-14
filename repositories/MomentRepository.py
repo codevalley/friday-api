@@ -1,14 +1,15 @@
-from typing import List, Optional, Tuple
+from typing import List, Optional
 from datetime import datetime
 from sqlalchemy.orm import Session
 from sqlalchemy import desc
 from fastapi import HTTPException
 
-from models.MomentModel import Moment
+from models.MomentModel import Moment as MomentModel
 from models.ActivityModel import Activity
-from schemas.pydantic.MomentSchema import MomentList
-from schemas.pydantic.ActivitySchema import ActivityResponse
-from schemas.pydantic.MomentSchema import MomentResponse
+from schemas.pydantic.MomentSchema import (
+    MomentList,
+    MomentResponse,
+)
 
 
 class MomentRepository:
@@ -21,9 +22,9 @@ class MomentRepository:
         data: dict,
         user_id: str,
         timestamp: Optional[datetime] = None,
-    ) -> Moment:
+    ) -> MomentModel:
         """Create a new moment"""
-        moment = Moment(
+        moment = MomentModel(
             activity_id=activity_id,
             data=data,
             user_id=user_id,
@@ -34,15 +35,19 @@ class MomentRepository:
         self.db.refresh(moment)
         return moment
 
-    def get_by_id(self, moment_id: int) -> Optional[Moment]:
+    def get_by_id(
+        self, moment_id: int
+    ) -> Optional[MomentModel]:
         """Get a moment by ID"""
         return (
-            self.db.query(Moment)
-            .filter(Moment.id == moment_id)
+            self.db.query(MomentModel)
+            .filter(MomentModel.id == moment_id)
             .first()
         )
 
-    def validate_existence(self, moment_id: int) -> Moment:
+    def validate_existence(
+        self, moment_id: int
+    ) -> MomentModel:
         """Validate that a moment exists and return it"""
         moment = self.get_by_id(moment_id)
         if not moment:
@@ -64,20 +69,20 @@ class MomentRepository:
         List moments with filtering and pagination
         Returns a MomentList with pagination metadata
         """
-        query = self.db.query(Moment).join(Activity)
+        query = self.db.query(MomentModel).join(Activity)
 
         # Apply filters
         if activity_id is not None:
             query = query.filter(
-                Moment.activity_id == activity_id
+                MomentModel.activity_id == activity_id
             )
         if start_time is not None:
             query = query.filter(
-                Moment.timestamp >= start_time
+                MomentModel.timestamp >= start_time
             )
         if end_time is not None:
             query = query.filter(
-                Moment.timestamp <= end_time
+                MomentModel.timestamp <= end_time
             )
         if user_id is not None:
             query = query.filter(
@@ -93,14 +98,20 @@ class MomentRepository:
 
         # Get paginated results with activities eager loaded
         moments = (
-            query.order_by(desc(Moment.timestamp))
+            query.order_by(desc(MomentModel.timestamp))
             .offset(skip)
             .limit(size)
             .all()
         )
 
+        # Convert to response type
+        moment_responses = [
+            MomentResponse.from_orm(moment)
+            for moment in moments
+        ]
+
         return MomentList(
-            items=moments,
+            items=moment_responses,
             total=total,
             page=page,
             size=size,
@@ -109,7 +120,7 @@ class MomentRepository:
 
     def update(
         self, moment_id: int, **kwargs
-    ) -> Optional[Moment]:
+    ) -> Optional[MomentModel]:
         """Update a moment"""
         moment = self.get_by_id(moment_id)
         if not moment:
@@ -138,8 +149,8 @@ class MomentRepository:
     ) -> int:
         """Get the count of moments for a specific activity"""
         return (
-            self.db.query(Moment)
-            .filter(Moment.activity_id == activity_id)
+            self.db.query(MomentModel)
+            .filter(MomentModel.activity_id == activity_id)
             .count()
         )
 
@@ -149,9 +160,21 @@ class MomentRepository:
         """Get recently used activities based on moment timestamps"""
         return (
             self.db.query(Activity)
-            .join(Moment)
-            .order_by(desc(Moment.timestamp))
+            .join(MomentModel)
+            .order_by(desc(MomentModel.timestamp))
             .distinct()
+            .limit(limit)
+            .all()
+        )
+
+    def get_recent_by_user(
+        self, user_id: str, limit: int = 5
+    ) -> List[MomentModel]:
+        """Get recent moments for a user"""
+        return (
+            self.db.query(MomentModel)
+            .filter(MomentModel.user_id == user_id)
+            .order_by(desc(MomentModel.timestamp))
             .limit(limit)
             .all()
         )

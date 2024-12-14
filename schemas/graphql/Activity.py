@@ -1,39 +1,81 @@
 import strawberry
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 from schemas.base.activity_schema import ActivityData
 from utils.json_utils import ensure_dict
+from .types.Moment import (
+    Moment,
+)  # Import at the top instead of bottom
 
 
 @strawberry.type
 class Activity:
     """Activity type for GraphQL queries"""
 
-    id: int = strawberry.field(
+    @strawberry.field(
         description="Unique identifier for the activity"
     )
-    name: str = strawberry.field(
-        description="Name of the activity"
-    )
-    description: str = strawberry.field(
+    def id(self) -> int:
+        return self._id
+
+    @strawberry.field(description="Name of the activity")
+    def name(self) -> str:
+        return self._name
+
+    @strawberry.field(
         description="Detailed description of the activity"
     )
-    activitySchema: str = strawberry.field(
+    def description(self) -> str:
+        return self._description
+
+    @strawberry.field(
         description="JSON Schema defining the structure of moment data"
     )
-    icon: str = strawberry.field(
+    def activitySchema(self) -> str:
+        return self._activity_schema
+
+    @strawberry.field(
         description="Icon identifier for the activity"
     )
-    color: str = strawberry.field(
+    def icon(self) -> str:
+        return self._icon
+
+    @strawberry.field(
         description="Color code for the activity (hex format)"
     )
-    momentCount: int = strawberry.field(
-        default=0,
+    def color(self) -> str:
+        return self._color
+
+    @strawberry.field(
         description="Number of moments using this activity",
     )
-    moments: List["Moment"] = strawberry.field(
-        default_factory=list,
+    def momentCount(self) -> int:
+        return self._moment_count
+
+    @strawberry.field(
         description="Moments using this activity",
     )
+    def moments(self) -> List[Moment]:
+        return self._moments
+
+    def __init__(
+        self,
+        id: int,
+        name: str,
+        description: str,
+        activitySchema: str,
+        icon: str,
+        color: str,
+        momentCount: int = 0,
+        moments: Optional[List[Moment]] = None,
+    ):
+        self._id = id
+        self._name = name
+        self._description = description
+        self._activity_schema = activitySchema
+        self._icon = icon
+        self._color = color
+        self._moment_count = momentCount
+        self._moments = moments or []
 
     @classmethod
     def from_domain(
@@ -53,7 +95,7 @@ class Activity:
         )
 
     @classmethod
-    def from_db(cls, db_activity) -> "Activity":
+    def from_db(cls, db_activity: Any) -> "Activity":
         """Create from database model"""
         return cls.from_domain(
             ActivityData.from_dict(
@@ -112,23 +154,23 @@ class ActivityUpdateInput:
     """Input type for updating an activity"""
 
     name: Optional[str] = strawberry.field(
-        None,
+        default=None,
         description="Name of the activity (1-255 characters)",
     )
     description: Optional[str] = strawberry.field(
-        None,
+        default=None,
         description="Detailed description (1-1000 characters)",
     )
     activitySchema: Optional[str] = strawberry.field(
-        None,
+        default=None,
         description="JSON Schema defining the structure of moment data",
     )
     icon: Optional[str] = strawberry.field(
-        None,
+        default=None,
         description="Icon identifier (1-255 characters)",
     )
     color: Optional[str] = strawberry.field(
-        None,
+        default=None,
         description="Color code in hex format (e.g., #4A90E2)",
     )
 
@@ -136,7 +178,7 @@ class ActivityUpdateInput:
         self, existing: ActivityData
     ) -> ActivityData:
         """Convert to domain model, preserving existing data"""
-        update_dict = {}
+        update_dict: Dict[str, Any] = {}
         if self.name is not None:
             update_dict["name"] = self.name
         if self.description is not None:
@@ -159,18 +201,40 @@ class ActivityUpdateInput:
 class ActivityConnection:
     """Type for paginated activity lists"""
 
-    items: List[Activity]
-    total: int
-    skip: int = strawberry.field(
-        default=0, description="Number of items skipped"
+    @strawberry.field(description="List of activities")
+    def items(self) -> List[Activity]:
+        return self._items
+
+    @strawberry.field(description="Total number of items")
+    def total(self) -> int:
+        return self._total
+
+    @strawberry.field(description="Number of items skipped")
+    def skip(self) -> int:
+        return self._skip
+
+    @strawberry.field(
+        description="Maximum number of items returned (max 100)"
     )
-    limit: int = strawberry.field(
-        default=50,
-        description="Maximum number of items returned (max 100)",
-    )
+    def limit(self) -> int:
+        return self._limit
+
+    def __init__(
+        self,
+        items: List[Activity],
+        total: int,
+        skip: int = 0,
+        limit: int = 50,
+    ):
+        self._items = items
+        self._total = total
+        self._skip = skip
+        self._limit = limit
 
     @classmethod
-    def from_pydantic(cls, activity_list):
+    def from_pydantic(
+        cls, activity_list: Any
+    ) -> "ActivityConnection":
         """Convert pydantic ActivityList to GraphQL ActivityConnection"""
         return cls(
             items=[
@@ -181,7 +245,3 @@ class ActivityConnection:
             skip=activity_list.skip,
             limit=activity_list.limit,
         )
-
-
-# Import at the bottom to avoid circular imports
-from .Moment import Moment  # noqa

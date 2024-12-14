@@ -3,6 +3,7 @@ from datetime import datetime
 
 import strawberry
 from strawberry.types import Info
+from fastapi import HTTPException
 from configs.GraphQL import (
     get_ActivityService,
     get_MomentService,
@@ -10,7 +11,10 @@ from configs.GraphQL import (
 )
 
 from schemas.graphql.Activity import Activity
-from schemas.graphql.Moment import Moment, MomentConnection
+from schemas.graphql.types.Moment import (
+    Moment,
+    MomentConnection,
+)
 
 
 @strawberry.type(description="Query all entities")
@@ -21,6 +25,10 @@ class Query:
     ) -> Optional[Activity]:
         activity_service = get_ActivityService(info)
         user = get_user_from_context(info)
+        if not user:
+            raise HTTPException(
+                status_code=401, detail="Unauthorized"
+            )
         return activity_service.get_activity_graphql(
             id, user.id
         )
@@ -31,6 +39,10 @@ class Query:
     ) -> List[Activity]:
         activity_service = get_ActivityService(info)
         user = get_user_from_context(info)
+        if not user:
+            raise HTTPException(
+                status_code=401, detail="Unauthorized"
+            )
         return activity_service.list_activities_graphql(
             user_id=user.id, skip=skip, limit=limit
         )
@@ -41,6 +53,10 @@ class Query:
     ) -> Optional[Moment]:
         moment_service = get_MomentService(info)
         user = get_user_from_context(info)
+        if not user:
+            raise HTTPException(
+                status_code=401, detail="Unauthorized"
+            )
         return moment_service.get_moment_graphql(
             id, user.id
         )
@@ -59,14 +75,19 @@ class Query:
     ) -> MomentConnection:
         moment_service = get_MomentService(info)
         user = get_user_from_context(info)
-        return moment_service.list_moments_graphql(
+        if not user:
+            raise HTTPException(
+                status_code=401, detail="Unauthorized"
+            )
+        moments = moment_service.list_moments(
             page=page,
             size=size,
             activity_id=activity_id,
-            start_time=start_time,
-            end_time=end_time,
+            start_date=start_time,
+            end_date=end_time,
             user_id=user.id,
         )
+        return MomentConnection.from_pydantic(moments)
 
     @strawberry.field(
         description="Get recently used activities"
@@ -76,6 +97,10 @@ class Query:
     ) -> List[Activity]:
         moment_service = get_MomentService(info)
         user = get_user_from_context(info)
-        return moment_service.get_recent_activities(
+        if not user:
+            raise HTTPException(
+                status_code=401, detail="Unauthorized"
+            )
+        return moment_service.list_recent_activities(
             user.id, limit
         )

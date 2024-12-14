@@ -1,18 +1,17 @@
-from typing import Dict, Optional, List
+from typing import Dict, Optional, List, Any
 from datetime import datetime
 from pydantic import BaseModel, Field, validator
 from schemas.base.moment_schema import MomentData
 from .ActivitySchema import ActivityResponse
-from .PaginationSchema import PaginationParams
 
 
 class MomentBase(BaseModel):
     """Base schema for Moment with common attributes"""
 
     activity_id: int = Field(..., gt=0)
-    data: Dict = Field(
+    data: Dict[str, Any] = Field(
         ...,
-        description="Activity-specific data that matches the activity's schema",
+        description="Activity-specific data matching activity's schema",
     )
     timestamp: Optional[datetime] = Field(
         None, description="UTC timestamp of the moment"
@@ -20,7 +19,7 @@ class MomentBase(BaseModel):
 
     def to_domain(self) -> MomentData:
         """Convert to domain model"""
-        return MomentData.from_dict(self.model_dump())
+        return MomentData.from_dict(self.dict())
 
     @validator("timestamp")
     @classmethod
@@ -40,15 +39,15 @@ class MomentCreate(MomentBase):
 class MomentUpdate(BaseModel):
     """Schema for updating an existing Moment"""
 
-    data: Optional[Dict] = Field(
+    data: Optional[Dict[str, Any]] = Field(
         None,
-        description="Activity-specific data that matches the activity's schema",
+        description="Activity-specific data matching activity's schema",
     )
     timestamp: Optional[datetime] = None
 
     def to_domain(self, existing: MomentData) -> MomentData:
         """Convert to domain model, preserving existing data"""
-        update_dict = self.model_dump(exclude_unset=True)
+        update_dict = self.dict(exclude_unset=True)
         existing_dict = existing.to_dict()
         existing_dict.update(update_dict)
         return MomentData.from_dict(existing_dict)
@@ -59,7 +58,7 @@ class MomentResponse(BaseModel):
 
     id: int
     activity_id: int
-    data: Dict
+    data: Dict[str, Any]
     timestamp: datetime
     activity: ActivityResponse
 

@@ -8,18 +8,39 @@ from schemas.base.user_schema import UserData
 class User:
     """User type for GraphQL queries"""
 
-    id: str = strawberry.field(
+    @strawberry.field(
         description="Unique identifier for the user"
     )
-    username: str = strawberry.field(
-        description="User's unique username"
-    )
-    createdAt: datetime = strawberry.field(
+    def id(self) -> str:
+        return self._id
+
+    @strawberry.field(description="User's unique username")
+    def username(self) -> str:
+        return self._username
+
+    @strawberry.field(
         description="When the user was created"
     )
-    updatedAt: Optional[datetime] = strawberry.field(
+    def createdAt(self) -> datetime:
+        return self._created_at
+
+    @strawberry.field(
         description="When the user was last updated"
     )
+    def updatedAt(self) -> Optional[datetime]:
+        return self._updated_at
+
+    def __init__(
+        self,
+        id: str,
+        username: str,
+        createdAt: datetime,
+        updatedAt: Optional[datetime] = None,
+    ):
+        self._id = id
+        self._username = username
+        self._created_at = createdAt
+        self._updated_at = updatedAt
 
     @classmethod
     def from_domain(cls, user: UserData) -> "User":
@@ -28,6 +49,69 @@ class User:
         return cls(
             id=user_dict["id"],
             username=user_dict["username"],
+            createdAt=user_dict["createdAt"],
+            updatedAt=user_dict["updatedAt"],
+        )
+
+
+@strawberry.type
+class UserRegisterResponse:
+    """Response type for user registration"""
+
+    @strawberry.field(
+        description="Unique identifier for the user"
+    )
+    def id(self) -> str:
+        return self._id
+
+    @strawberry.field(description="User's unique username")
+    def username(self) -> str:
+        return self._username
+
+    @strawberry.field(
+        description="Secret key for authentication (provided in registration)"
+    )
+    def userSecret(self) -> str:
+        return self._user_secret
+
+    @strawberry.field(
+        description="When the user was created"
+    )
+    def createdAt(self) -> datetime:
+        return self._created_at
+
+    @strawberry.field(
+        description="When the user was last updated"
+    )
+    def updatedAt(self) -> Optional[datetime]:
+        return self._updated_at
+
+    def __init__(
+        self,
+        id: str,
+        username: str,
+        userSecret: str,
+        createdAt: datetime,
+        updatedAt: Optional[datetime] = None,
+    ):
+        self._id = id
+        self._username = username
+        self._user_secret = userSecret
+        self._created_at = createdAt
+        self._updated_at = updatedAt
+
+    @classmethod
+    def from_domain(
+        cls, user: UserData
+    ) -> "UserRegisterResponse":
+        """Create from domain model"""
+        user_dict = user.to_dict(
+            graphql=True, include_secret=True
+        )
+        return cls(
+            id=user_dict["id"],
+            username=user_dict["username"],
+            userSecret=user_dict["userSecret"],
             createdAt=user_dict["createdAt"],
             updatedAt=user_dict["updatedAt"],
         )
@@ -59,50 +143,23 @@ class UserLoginInput:
 
 
 @strawberry.type
-class UserRegisterResponse:
-    """Response type for user registration"""
-
-    id: str = strawberry.field(
-        description="Unique identifier for the user"
-    )
-    username: str = strawberry.field(
-        description="User's unique username"
-    )
-    userSecret: str = strawberry.field(
-        description="Secret key for authentication (provided in registration)"
-    )
-    createdAt: datetime = strawberry.field(
-        description="When the user was created"
-    )
-    updatedAt: Optional[datetime] = strawberry.field(
-        description="When the user was last updated"
-    )
-
-    @classmethod
-    def from_domain(
-        cls, user: UserData
-    ) -> "UserRegisterResponse":
-        """Create from domain model"""
-        user_dict = user.to_dict(
-            graphql=True, include_secret=True
-        )
-        return cls(
-            id=user_dict["id"],
-            username=user_dict["username"],
-            userSecret=user_dict["userSecret"],
-            createdAt=user_dict["createdAt"],
-            updatedAt=user_dict["updatedAt"],
-        )
-
-
-@strawberry.type
 class Token:
     """Authentication token response"""
 
-    accessToken: str = strawberry.field(
-        description="JWT access token"
+    @strawberry.field(description="JWT access token")
+    def accessToken(self) -> str:
+        return self._access_token
+
+    @strawberry.field(
+        description="Token type (always 'bearer')"
     )
-    tokenType: str = strawberry.field(
-        default="bearer",
-        description="Token type (always 'bearer')",
-    )
+    def tokenType(self) -> str:
+        return self._token_type
+
+    def __init__(
+        self,
+        accessToken: str,
+        tokenType: str = "bearer",
+    ):
+        self._access_token = accessToken
+        self._token_type = tokenType
