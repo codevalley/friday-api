@@ -59,14 +59,12 @@ class ActivityService:
             )
 
         activity = self.activity_repository.create(
-            name=activity_data.name,
+            instance_or_name=activity_data.name,
             description=activity_data.description,
             activity_schema=activity_data.activity_schema,
             icon=activity_data.icon,
             color=activity_data.color,
-            user_id=str(
-                user_id
-            ),  # Ensure user_id is string
+            user_id=str(user_id),  # Ensure user_id is string
         )
         return ActivityResponse.from_orm(activity)
 
@@ -82,7 +80,7 @@ class ActivityService:
         Returns:
             Activity response if found, None otherwise
         """
-        activity = self.activity_repository.get_by_id(
+        activity = self.activity_repository.get_by_user(
             activity_id,
             str(user_id),  # Ensure user_id is string
         )

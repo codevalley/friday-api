@@ -104,7 +104,7 @@ class MomentService:
 
         # Create the moment
         moment = self.moment_repository.create(
-            activity_id=domain_data.activity_id,
+            instance_or_activity_id=domain_data.activity_id,
             data=domain_data.data,
             user_id=user_id,
             timestamp=domain_data.timestamp,
@@ -164,7 +164,7 @@ class MomentService:
         Raises:
             HTTPException: If moment not found or user not authorized
         """
-        moment = self.moment_repository.get_by_id(moment_id)
+        moment = self.moment_repository.get(moment_id)
         if not moment or moment.activity.user_id != user_id:
             raise HTTPException(
                 status_code=404, detail="Moment not found"
@@ -209,7 +209,7 @@ class MomentService:
             HTTPException: If moment not found, user not authorized,
             or validation fails
         """
-        moment = self.moment_repository.get_by_id(moment_id)
+        moment = self.moment_repository.get(moment_id)
         if not moment or moment.activity.user_id != user_id:
             raise HTTPException(
                 status_code=404, detail="Moment not found"

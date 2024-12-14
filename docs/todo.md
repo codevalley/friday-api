@@ -3,17 +3,18 @@
 ### Action Plan (Organized as Epics)
 
 **Epic 1: Architectural Improvements**
-- Refactor JSON schema validation to the domain layer.
+- ~~Refactor JSON schema validation to the domain layer.~~ ✅
 - Resolve circular dependencies in services.
 
-**Epic 2: Repository Enhancements**
-- Introduce a `BaseRepository` class.
-- Standardize error handling with custom exceptions.
-- Improve transaction management for batch operations.
+**Epic 2: Repository Enhancements** ✅
+- ~~Introduce a `BaseRepository` class.~~
+- ~~Standardize error handling with custom exceptions.~~
+- ~~Improve transaction management for batch operations.~~
 
-**Epic 3: Service Refactoring**
-- Extract validation logic into shared utilities.
-- Simplify complex service methods.
+**Epic 3: Service Refactoring** ⏳
+- ~~Extract validation logic into shared utilities.~~ ✅
+- ~~Simplify complex service methods.~~ ✅
+- ~~Fix moment retrieval issues~~ ✅
 
 **Epic 4: Testing Enhancements**
 - Write integration tests for GraphQL APIs.
@@ -35,4 +36,3 @@
 
 ### Conclusion
 The "Friday API" demonstrates excellent adherence to Clean Architecture principles but has room for improvement in code reusability, validation consistency, and testing. By addressing the identified issues, the codebase can achieve higher maintainability, scalability, and robustness.
-

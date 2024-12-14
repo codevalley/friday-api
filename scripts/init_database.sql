@@ -1,3 +1,4 @@
+    DROP DATABASE IF EXISTS test_fridaystore;
     -- Create the database if it doesn't exist
     CREATE DATABASE IF NOT EXISTS test_fridaystore;
 
