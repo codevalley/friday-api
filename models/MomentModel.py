@@ -11,6 +11,7 @@ from sqlalchemy.orm import relationship
 from datetime import datetime, timezone
 from jsonschema import validate as validate_json_schema
 import json
+from typing import Any, Dict, cast
 
 from models.BaseModel import EntityMeta
 
@@ -75,15 +76,21 @@ class Moment(EntityMeta):
         )
 
     @property
-    def data_dict(self) -> dict:
+    def data_dict(self) -> Dict[str, Any]:
         """Return data as a dictionary"""
-        if isinstance(self.data, str):
-            return json.loads(self.data)
-        return self.data
+        data = self.data
+        if data is None:
+            return {}
+        if isinstance(data, str):
+            return json.loads(data)
+        if isinstance(data, dict):
+            return data
+        return cast(Dict[str, Any], data)
 
     def validate_data(self):
         """Validate that the moment data matches the activity's schema"""
-        if not isinstance(self.data, dict):
+        data = self.data_dict
+        if not isinstance(data, dict):
             raise ValueError(
                 "moment data must be a valid JSON object"
             )
@@ -97,9 +104,8 @@ class Moment(EntityMeta):
             )
 
         try:
-            validate_json_schema(
-                self.data, self.activity.activity_schema
-            )
+            schema = self.activity.activity_schema_dict
+            validate_json_schema(data, schema)
         except Exception as e:
             raise ValueError(
                 f"Invalid moment data: {str(e)}"

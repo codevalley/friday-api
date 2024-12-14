@@ -7,7 +7,12 @@ from configs.Environment import get_environment_variables
 env = get_environment_variables()
 
 # Generate Database URL
-DATABASE_URL = f"{env.DATABASE_DIALECT}://{env.DATABASE_USERNAME}:{env.DATABASE_PASSWORD}@{env.DATABASE_HOSTNAME}:{env.DATABASE_PORT}/{env.DATABASE_NAME}"
+DATABASE_URL = (
+    f"{env.DATABASE_DIALECT}://"
+    f"{env.DATABASE_USERNAME}:{env.DATABASE_PASSWORD}"
+    f"@{env.DATABASE_HOSTNAME}:{env.DATABASE_PORT}"
+    f"/{env.DATABASE_NAME}"
+)
 
 # Create Database Engine
 Engine = create_engine(

@@ -1,5 +1,4 @@
 import pytest
-from datetime import datetime, timezone
 from sqlalchemy.exc import IntegrityError
 
 from models.ActivityModel import Activity

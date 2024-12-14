@@ -11,6 +11,7 @@ from sqlalchemy import (
 from sqlalchemy.orm import relationship, column_property
 from jsonschema import validate as validate_json_schema
 import json
+from typing import Any, Dict, cast
 
 from models.BaseModel import EntityMeta
 from models.MomentModel import Moment
@@ -80,15 +81,21 @@ class Activity(EntityMeta):
         )
 
     @property
-    def activity_schema_dict(self) -> dict:
+    def activity_schema_dict(self) -> Dict[str, Any]:
         """Return activity_schema as a dictionary"""
-        if isinstance(self.activity_schema, str):
-            return json.loads(self.activity_schema)
-        return self.activity_schema
+        schema = self.activity_schema
+        if schema is None:
+            return {}
+        if isinstance(schema, str):
+            return json.loads(schema)
+        if isinstance(schema, dict):
+            return schema
+        return cast(Dict[str, Any], schema)
 
     def validate_schema(self):
         """Validate that the activity_schema is a valid JSON Schema"""
-        if not isinstance(self.activity_schema, dict):
+        schema_dict = self.activity_schema_dict
+        if not isinstance(schema_dict, dict):
             raise ValueError(
                 "activity_schema must be a valid JSON object"
             )
@@ -104,9 +111,7 @@ class Activity(EntityMeta):
         }
 
         try:
-            validate_json_schema(
-                self.activity_schema, meta_schema
-            )
+            validate_json_schema(schema_dict, meta_schema)
         except Exception as e:
             raise ValueError(
                 f"Invalid JSON Schema: {str(e)}"
@@ -115,16 +120,15 @@ class Activity(EntityMeta):
         return True
 
     def validate_moment_data(
-        self, moment_data: dict
+        self, moment_data: Dict[str, Any]
     ) -> bool:
         """
         Validate moment data against the activity's schema
         Returns True if valid, raises ValidationError if invalid
         """
         try:
-            validate_json_schema(
-                moment_data, self.activity_schema
-            )
+            schema = self.activity_schema_dict
+            validate_json_schema(moment_data, schema)
             return True
         except Exception as e:
             raise ValueError(

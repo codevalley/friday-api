@@ -3,8 +3,6 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from datetime import datetime, timezone
 
-from models.ActivityModel import Activity
-from models.MomentModel import Moment
 from models.BaseModel import EntityMeta
 
 # Test database URL should be configured in .env.test
@@ -15,10 +13,13 @@ from configs.Environment import get_environment_variables
 def engine():
     """Create engine for test database"""
     env = get_environment_variables()
-    test_engine = create_engine(
-        f"{env.DATABASE_DIALECT}://{env.DATABASE_USERNAME}:{env.DATABASE_PASSWORD}@"
-        f"{env.DATABASE_HOSTNAME}:{env.DATABASE_PORT}/{env.DATABASE_NAME}"
+    db_url = (
+        f"{env.DATABASE_DIALECT}://"
+        f"{env.DATABASE_USERNAME}:{env.DATABASE_PASSWORD}"
+        f"@{env.DATABASE_HOSTNAME}:{env.DATABASE_PORT}"
+        f"/{env.DATABASE_NAME}"
     )
+    test_engine = create_engine(db_url)
 
     # Create all tables
     EntityMeta.metadata.drop_all(

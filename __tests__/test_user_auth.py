@@ -1,10 +1,8 @@
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy.orm import Session
 
 from main import app
 from models.UserModel import User
-from services.UserService import UserService
 from configs.Database import (
     get_db_connection,
     SessionLocal,

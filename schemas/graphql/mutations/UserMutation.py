@@ -1,16 +1,13 @@
 import strawberry
-from typing import Optional
-from sqlalchemy.orm import Session
-
-from configs.Database import get_db_connection
 from services.UserService import UserService
 from schemas.graphql.types.User import (
-    User,
     UserCreateInput,
     UserLoginInput,
     UserRegisterResponse,
     Token,
 )
+from typing import cast
+from datetime import datetime
 
 
 @strawberry.type
@@ -28,11 +25,13 @@ class UserMutation:
             input.username
         )
         return UserRegisterResponse(
-            id=user.id,
-            username=user.username,
-            user_secret=user_secret,
-            created_at=user.created_at,
-            updated_at=user.updated_at,
+            id=cast(str, user.id),
+            username=cast(str, user.username),
+            userSecret=user_secret,
+            createdAt=cast(datetime, user.created_at),
+            updatedAt=cast(
+                datetime | None, user.updated_at
+            ),
         )
 
     @strawberry.mutation
@@ -44,10 +43,10 @@ class UserMutation:
         """Login to get an access token"""
         db = info.context["db"]
         service = UserService(db)
-        user = service.authenticate_user(input.user_secret)
+        user = service.authenticate_user(input.userSecret)
         from utils.security import create_access_token
 
         access_token = create_access_token(
             data={"sub": user.id}
         )
-        return Token(access_token=access_token)
+        return Token(accessToken=access_token)

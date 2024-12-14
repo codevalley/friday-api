@@ -1,368 +1,283 @@
+### Hands-On Guide: Adding a New Entity to Your Project
 
-# How to Add a New Domain Entity
-
-This guide explains how to introduce a new domain entity into the codebase following the established clean architecture principles. It covers creating models, repositories, services, schemas, routers, and tests for the new entity. We will use "Location" as an example entity—replace `Location` and related terms with your actual domain concept.
-
-## Prerequisites
-
-- You have a working environment with the project set up, database configured, and migrations ready.
-- You understand the project's clean architecture layers:
-  - **Domain (models)**: Core domain entities and business rules (no external dependencies).
-  - **Data Access (repositories)**: Encapsulate data persistence, returning domain objects to services.
-  - **Application (services)**: Implement use cases, business logic, and validation.
-  - **Presentation (routers, schemas)**: REST and GraphQL interfaces and schemas.
-  
-- You have reviewed the existing code, architecture documentation, and best practice recommendations.
-
-## Steps Overview
-
-1. **Domain Model (SQLAlchemy)**
-2. **Database Migrations**
-3. **Repository**
-4. **Service Layer**
-5. **Pydantic Schemas**
-6. **GraphQL Schemas**
-7. **Routers (REST Endpoints)**
-8. **Testing**
-9. **Documentation Updates**
-
-Follow these steps carefully to ensure consistency, maintainability, and adherence to clean architecture.
+This guide provides a step-by-step walkthrough for adding a new entity to your project while maintaining adherence to the clean architecture and best practices already established. For this example, let's add a new entity called `Task` to your project.
 
 ---
 
-## 1. Domain Model
+### **Step 1: Prerequisites**
+1. **Understand the Project Architecture:**
+   - Domain Layer: Core models and business rules.
+   - Application Layer: Services implementing use cases.
+   - Data Access Layer: Repositories abstracting database operations.
+   - Presentation Layer: REST and GraphQL APIs.
 
-**File:** `models/LocationModel.py`
-
-Domain models reside in `models/`. Keep them free of external logic (no HTTP exceptions, no I/O). Just define the SQLAlchemy columns, relationships, and any basic constraints.
-
-```python
-from sqlalchemy import Column, Integer, String, Float
-from sqlalchemy.orm import relationship
-from models.BaseModel import EntityMeta
-
-class Location(EntityMeta):
-    __tablename__ = "locations"
-    
-    id = Column(Integer, primary_key=True, index=True)
-    name = Column(String(255), unique=True, index=True, nullable=False)
-    latitude = Column(Float, nullable=False)
-    longitude = Column(Float, nullable=False)
-    
-    # If related entities exist, define relationships here.
-    # e.g., `moments = relationship("Moment", back_populates="location")`
-
-    def __repr__(self):
-        return f"<Location(id={self.id}, name='{self.name}')>"
-```
-
-**Key Points:**
-- Define columns and constraints.
-- Prefer UTC for any datetime fields.
-- No external logic or HTTP exceptions.  
+2. **Tools Required:**
+   - Python 3.12+.
+   - Database migration tool (e.g., Alembic if you're using it).
+   - Your editor configured with black, flake8, and mypy.
 
 ---
 
-## 2. Database Migrations
+### **Step 2: Domain Model**
+1. **File:** `models/TaskModel.py`
+2. **Implementation:**
+   ```python
+   from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey
+   from sqlalchemy.orm import relationship
+   from datetime import datetime
+   from models.BaseModel import EntityMeta
 
-Use your existing migration framework (e.g., Alembic) to create and apply a migration script:
+   class Task(EntityMeta):
+       __tablename__ = "tasks"
 
-```bash
-alembic revision --autogenerate -m "Add locations table"
-alembic upgrade head
-```
+       id = Column(Integer, primary_key=True, index=True)
+       title = Column(String(255), nullable=False)
+       description = Column(String(1000), nullable=True)
+       is_completed = Column(Boolean, default=False)
+       user_id = Column(String(36), ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+       created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+       updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
 
-Ensure `init()` or `metadata.create_all()` is invoked if the project uses direct `create_all()` calls.
+       # Relationships
+       user = relationship("User", back_populates="tasks")
 
----
-
-## 3. Repository
-
-**File:** `repositories/LocationRepository.py`
-
-Repositories handle all CRUD operations and return domain entities. They should not raise `HTTPException`. If an entity is not found, return `None` and let services or routers handle errors.
-
-```python
-from typing import List, Optional
-from sqlalchemy.orm import Session
-from models.LocationModel import Location
-
-class LocationRepository:
-    def __init__(self, db: Session):
-        self.db = db
-
-    def create(self, name: str, latitude: float, longitude: float) -> Location:
-        location = Location(name=name, latitude=latitude, longitude=longitude)
-        self.db.add(location)
-        self.db.commit()
-        self.db.refresh(location)
-        return location
-    
-    def get_by_id(self, location_id: int) -> Optional[Location]:
-        return self.db.query(Location).filter(Location.id == location_id).first()
-
-    def list_all(self, skip: int = 0, limit: int = 100) -> List[Location]:
-        return self.db.query(Location).offset(skip).limit(limit).all()
-
-    def update(self, location_id: int, **kwargs) -> Optional[Location]:
-        location = self.get_by_id(location_id)
-        if not location:
-            return None
-        for key, value in kwargs.items():
-            if value is not None:
-                setattr(location, key, value)
-        self.db.commit()
-        self.db.refresh(location)
-        return location
-
-    def delete(self, location_id: int) -> bool:
-        location = self.get_by_id(location_id)
-        if not location:
-            return False
-        self.db.delete(location)
-        self.db.commit()
-        return True
-```
-
-**Key Points:**
-- No `HTTPException` here.
-- Return `None` if not found.
+       def __repr__(self):
+           return f"<Task(id={self.id}, title={self.title}, is_completed={self.is_completed})>"
+   ```
 
 ---
 
-## 4. Service Layer
+### **Step 3: Database Migration**
+1. **File:** `scripts/migrations/add_task_entity.sql`
+2. **Implementation:**
+   ```sql
+   -- Create tasks table
+   CREATE TABLE tasks (
+       id INT PRIMARY KEY AUTO_INCREMENT,
+       title VARCHAR(255) NOT NULL,
+       description TEXT,
+       is_completed BOOLEAN DEFAULT FALSE,
+       user_id VARCHAR(36) NOT NULL,
+       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+       updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+       FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+   );
 
-**File:** `services/LocationService.py`
+   -- Add indexes
+   CREATE INDEX idx_tasks_user_id ON tasks(user_id);
+   ```
 
-Services orchestrate domain logic, validation, and repository calls. They handle domain-level validation and raise domain-specific exceptions or return `None` when needed. The router layer will map these conditions to HTTP errors.
-
-```python
-from typing import Optional, List
-from fastapi import Depends
-from sqlalchemy.orm import Session
-from configs.Database import get_db_connection
-from repositories.LocationRepository import LocationRepository
-from schemas.pydantic.LocationSchema import LocationCreate, LocationUpdate
-from exceptions import EntityNotFoundError  # Example custom exception
-
-class LocationService:
-    def __init__(self, db: Session = Depends(get_db_connection)):
-        self.db = db
-        self.location_repository = LocationRepository(db)
-
-    def create_location(self, location_data: LocationCreate):
-        # Basic validation can be done here if needed.
-        location = self.location_repository.create(
-            name=location_data.name,
-            latitude=location_data.latitude,
-            longitude=location_data.longitude
-        )
-        return location
-
-    def get_location(self, location_id: int):
-        location = self.location_repository.get_by_id(location_id)
-        if not location:
-            raise EntityNotFoundError("Location not found")
-        return location
-
-    def list_locations(self, skip: int = 0, limit: int = 100):
-        return self.location_repository.list_all(skip=skip, limit=limit)
-
-    def update_location(self, location_id: int, update_data: LocationUpdate):
-        location = self.location_repository.get_by_id(location_id)
-        if not location:
-            raise EntityNotFoundError("Location not found")
-        updated_location = self.location_repository.update(
-            location_id, **update_data.dict(exclude_unset=True)
-        )
-        return updated_location
-
-    def delete_location(self, location_id: int):
-        success = self.location_repository.delete(location_id)
-        if not success:
-            raise EntityNotFoundError("Location not found")
-        return True
-```
-
-**Key Points:**
-- Services raise domain-specific exceptions (e.g., `EntityNotFoundError`) rather than `HTTPException`.
-- Validation and business rules belong here.
+3. **Run Migration:**
+   ```bash
+   alembic revision --autogenerate -m "Add Task entity"
+   alembic upgrade head
+   ```
 
 ---
 
-## 5. Pydantic Schemas
+### **Step 4: Repository**
+1. **File:** `repositories/TaskRepository.py`
+2. **Implementation:**
+   ```python
+   from typing import List, Optional
+   from sqlalchemy.orm import Session
+   from models.TaskModel import Task
 
-**File:** `schemas/pydantic/LocationSchema.py`
+   class TaskRepository:
+       def __init__(self, db: Session):
+           self.db = db
 
-Pydantic models define data shapes for requests and responses. They also enforce input validation.
+       def create(self, title: str, description: Optional[str], user_id: str) -> Task:
+           task = Task(title=title, description=description, user_id=user_id)
+           self.db.add(task)
+           self.db.commit()
+           self.db.refresh(task)
+           return task
 
-```python
-from typing import Optional
-from pydantic import BaseModel, Field
+       def get_by_id(self, task_id: int, user_id: str) -> Optional[Task]:
+           return self.db.query(Task).filter(Task.id == task_id, Task.user_id == user_id).first()
 
-class LocationBase(BaseModel):
-    name: str = Field(..., min_length=1, max_length=255)
-    latitude: float
-    longitude: float
+       def list_tasks(self, user_id: str, skip: int = 0, limit: int = 100) -> List[Task]:
+           return self.db.query(Task).filter(Task.user_id == user_id).offset(skip).limit(limit).all()
 
-class LocationCreate(LocationBase):
-    pass
+       def update(self, task_id: int, user_id: str, **kwargs) -> Optional[Task]:
+           task = self.get_by_id(task_id, user_id)
+           if not task:
+               return None
+           for key, value in kwargs.items():
+               setattr(task, key, value)
+           self.db.commit()
+           self.db.refresh(task)
+           return task
 
-class LocationUpdate(BaseModel):
-    name: Optional[str] = Field(None, min_length=1, max_length=255)
-    latitude: Optional[float] = None
-    longitude: Optional[float] = None
-
-class LocationResponse(LocationBase):
-    id: int
-    
-    class Config:
-        orm_mode = True
-```
-
-**Key Points:**
-- Keep input/output schemas separate (e.g., `LocationCreate` vs. `LocationResponse`).
-- Use `Field` constraints and `orm_mode` for seamless SQLAlchemy model integration.
-
----
-
-## 6. GraphQL Schemas
-
-**File:** `schemas/graphql/Location.py`
-
-Define GraphQL types and inputs. In GraphQL, handle conversions cleanly—use dict internally and only convert to strings if needed.
-
-```python
-import strawberry
-from typing import Optional, List
-from utils.json_utils import ensure_string, ensure_dict
-
-@strawberry.type
-class Location:
-    id: int
-    name: str
-    latitude: float
-    longitude: float
-
-    @classmethod
-    def from_db(cls, db_location):
-        return cls(
-            id=db_location.id,
-            name=db_location.name,
-            latitude=db_location.latitude,
-            longitude=db_location.longitude
-        )
-
-@strawberry.input
-class LocationInput:
-    name: str
-    latitude: float
-    longitude: float
-
-@strawberry.input
-class LocationUpdateInput:
-    name: Optional[str] = None
-    latitude: Optional[float] = None
-    longitude: Optional[float] = None
-```
-
-Then integrate `Location` queries and mutations in `schemas/graphql/Query.py` and `schemas/graphql/Mutation.py`, using the `LocationService` from context and handling domain exceptions.
+       def delete(self, task_id: int, user_id: str) -> bool:
+           task = self.get_by_id(task_id, user_id)
+           if not task:
+               return False
+           self.db.delete(task)
+           self.db.commit()
+           return True
+   ```
 
 ---
 
-## 7. Routers (REST Endpoints)
+### **Step 5: Service Layer**
+1. **File:** `services/TaskService.py`
+2. **Implementation:**
+   ```python
+   from typing import List, Optional
+   from fastapi import Depends
+   from sqlalchemy.orm import Session
+   from repositories.TaskRepository import TaskRepository
+   from schemas.pydantic.TaskSchema import TaskCreate, TaskUpdate, TaskResponse
+   from configs.Database import get_db_connection
 
-**File:** `routers/v1/LocationRouter.py`
+   class TaskService:
+       def __init__(self, db: Session = Depends(get_db_connection)):
+           self.task_repository = TaskRepository(db)
 
-Routers convert domain exceptions into `HTTPException` and handle authentication if needed.
+       def create_task(self, task_data: TaskCreate, user_id: str) -> TaskResponse:
+           task = self.task_repository.create(
+               title=task_data.title,
+               description=task_data.description,
+               user_id=user_id
+           )
+           return TaskResponse.from_orm(task)
 
-```python
-from typing import List
-from fastapi import APIRouter, Depends, HTTPException, status
-from schemas.pydantic.LocationSchema import LocationCreate, LocationUpdate, LocationResponse
-from services.LocationService import LocationService
-from exceptions import EntityNotFoundError
+       def get_task(self, task_id: int, user_id: str) -> Optional[TaskResponse]:
+           task = self.task_repository.get_by_id(task_id, user_id)
+           if not task:
+               return None
+           return TaskResponse.from_orm(task)
 
-router = APIRouter(
-    prefix="/v1/locations",
-    tags=["locations"]
-)
+       def list_tasks(self, user_id: str, page: int = 1, size: int = 100) -> List[TaskResponse]:
+           skip = (page - 1) * size
+           tasks = self.task_repository.list_tasks(user_id, skip, size)
+           return [TaskResponse.from_orm(task) for task in tasks]
 
-@router.post("", response_model=LocationResponse, status_code=status.HTTP_201_CREATED)
-async def create_location(location: LocationCreate, service: LocationService = Depends()):
-    loc = service.create_location(location)
-    return loc
+       def update_task(self, task_id: int, task_data: TaskUpdate, user_id: str) -> Optional[TaskResponse]:
+           task = self.task_repository.update(task_id, user_id, **task_data.dict(exclude_unset=True))
+           if not task:
+               return None
+           return TaskResponse.from_orm(task)
 
-@router.get("", response_model=List[LocationResponse])
-async def list_locations(skip: int = 0, limit: int = 100, service: LocationService = Depends()):
-    return service.list_locations(skip=skip, limit=limit)
-
-@router.get("/{location_id}", response_model=LocationResponse)
-async def get_location(location_id: int, service: LocationService = Depends()):
-    try:
-        return service.get_location(location_id)
-    except EntityNotFoundError as e:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
-
-@router.put("/{location_id}", response_model=LocationResponse)
-async def update_location(location_id: int, location: LocationUpdate, service: LocationService = Depends()):
-    try:
-        return service.update_location(location_id, location)
-    except EntityNotFoundError as e:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
-
-@router.delete("/{location_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_location(location_id: int, service: LocationService = Depends()):
-    try:
-        service.delete_location(location_id)
-    except EntityNotFoundError as e:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
-    return None
-```
-
-**Key Points:**
-- Routers map domain exceptions to `HTTPException`.
-- Maintain consistent pagination and query parameters.
+       def delete_task(self, task_id: int, user_id: str) -> bool:
+           return self.task_repository.delete(task_id, user_id)
+   ```
 
 ---
 
-## 8. Testing
+### **Step 6: Schema**
+1. **Pydantic Schema**
+   - **File:** `schemas/pydantic/TaskSchema.py`
+   ```python
+   from pydantic import BaseModel, Field
+   from datetime import datetime
+   from typing import Optional
 
-Add unit tests for each layer and integration tests for the endpoints. Place them in `__tests__` directory:
+   class TaskBase(BaseModel):
+       title: str = Field(..., min_length=1, max_length=255)
+       description: Optional[str] = Field(None, max_length=1000)
 
-- **Unit Tests**: Test `LocationService` and `LocationRepository` logic.
-- **Integration Tests**: Use `TestClient` to call endpoints and verify responses.
-- **GraphQL Tests**: Verify GraphQL queries and mutations return expected results.
+   class TaskCreate(TaskBase):
+       pass
 
-Example (unit test):
+   class TaskUpdate(BaseModel):
+       title: Optional[str] = Field(None, min_length=1, max_length=255)
+       description: Optional[str] = Field(None, max_length=1000)
+       is_completed: Optional[bool] = None
 
-```python
-def test_location_service_create(db_session):
-    service = LocationService(db_session)
-    loc = service.create_location(LocationCreate(name="Office", latitude=40.7128, longitude=-74.0060))
-    assert loc.name == "Office"
-```
+   class TaskResponse(TaskBase):
+       id: int
+       is_completed: bool
+       created_at: datetime
+       updated_at: datetime
+
+       class Config:
+           orm_mode = True
+   ```
+
+2. **GraphQL Schema**
+   - **File:** `schemas/graphql/Task.py`
+   ```python
+   import strawberry
+   from typing import Optional
+
+   @strawberry.type
+   class Task:
+       id: int
+       title: str
+       description: Optional[str]
+       is_completed: bool
+       created_at: str
+       updated_at: str
+   ```
 
 ---
 
-## 9. Documentation Updates
+### **Step 7: API Endpoints**
+1. **REST Endpoint**
+   - **File:** `routers/v1/TaskRouter.py`
+   ```python
+   from fastapi import APIRouter, Depends, HTTPException
+   from typing import List
+   from services.TaskService import TaskService
+   from schemas.pydantic.TaskSchema import TaskCreate, TaskUpdate, TaskResponse
+   from dependencies import get_current_user
+   from models.UserModel import User
 
-- Update `docs/` to include the new entity’s details.
-- Add references in `docs/arch/data-access.md` or `docs/arch/domain-models.md` if needed.
-- Keep `repo-structure.md` updated.
+   router = APIRouter(prefix="/v1/tasks", tags=["tasks"])
+
+   @router.post("", response_model=TaskResponse)
+   async def create_task(task: TaskCreate, service: TaskService = Depends(), current_user: User = Depends(get_current_user)):
+       return service.create_task(task, current_user.id)
+
+   @router.get("", response_model=List[TaskResponse])
+   async def list_tasks(page: int = 1, size: int = 50, service: TaskService = Depends(), current_user: User = Depends(get_current_user)):
+       return service.list_tasks(current_user.id, page, size)
+
+   @router.get("/{task_id}", response_model=TaskResponse)
+   async def get_task(task_id: int, service: TaskService = Depends(), current_user: User = Depends(get_current_user)):
+       task = service.get_task(task_id, current_user.id)
+       if not task:
+           raise HTTPException(status_code=404, detail="Task not found")
+       return task
+
+   @router.put("/{task_id}", response_model=TaskResponse)
+   async def update_task(task_id: int, task: TaskUpdate, service: TaskService = Depends(), current_user: User = Depends(get_current_user)):
+       return service.update_task(task_id, task, current_user.id)
+
+   @router.delete("/{task_id}", status_code=204)
+   async def delete_task(task_id: int, service: TaskService = Depends(), current_user: User = Depends(get_current_user)):
+       if not service.delete_task(task_id, current_user.id):
+           raise HTTPException(status_code=404, detail="Task not found")
+   ```
+
+2. **GraphQL Endpoint**
+   - **File:** `schemas/graphql/mutations/TaskMutation.py`
+   ```python
+   import strawberry
+   from typing import List
+   from schemas.graphql.types.Task import Task
+
+   @strawberry.type
+   class TaskMutation:
+       @strawberry.mutation
+       async def create_task(self, title: str, description: str) -> Task:
+           # Implement task creation logic here
+           pass
+   ```
 
 ---
 
-## Additional Recommendations
+### **Step 8: Testing**
+1. **Unit Tests:**
+   - Create tests for `TaskRepository` and `TaskService`.
+   - Place test files in `__tests__/repositories/test_TaskRepository.py` and `__tests__/services/test_TaskService.py`.
 
-- **No `HTTPException` in Models or Repositories**: Keep them domain- and data-layer agnostic.
-- **Use Domain Exceptions in Services**: Services should raise exceptions like `EntityNotFoundError`.  
-- **Consistent Validation**: Validate data in services when it involves business rules.  
-- **Follow Code Style**: Use `black`, `isort`, `flake8`, `mypy` for code consistency.
-- **Performance Considerations**: If needed, add indexing or caching in repositories.
+2. **Integration Tests:**
+   - Test endpoints with FastAPI's TestClient.
 
 ---
 
-## Conclusion
-
-By following these steps, you integrate a new domain entity into the system while maintaining clean architecture principles. This approach ensures that your code remains testable, maintainable, and scalable as your project grows.
+This guide provides everything you need to add a new entity to your project efficiently. Let me know if you want me to refine this further or provide additional boilerplate!

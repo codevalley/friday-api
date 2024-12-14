@@ -1,7 +1,7 @@
 Tags = [
     {
         "name": "activities",
-        "description": "Create and manage activity types with custom JSON schemas",
+        "description": "Create, manage activity types with custom JSON schema",
     },
     {
         "name": "moments",
