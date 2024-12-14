@@ -1,98 +1,37 @@
 # Friday API todo
 
-### Action Plan (Organized as Epics)
+---
 
-**Epic 1: Architectural Improvements**
-- ~~Refactor JSON schema validation to the domain layer.~~ ✅
-- Resolve circular dependencies in services.
+### **Recommended Epics & Tasks**
 
-**Epic 2: Repository Enhancements** ✅
-- ~~Introduce a `BaseRepository` class.~~
-- ~~Standardize error handling with custom exceptions.~~
-- ~~Improve transaction management for batch operations.~~
+#### **Epic 1: Improve Code Consistency**
+- **Task 1.1:** Standardize naming conventions across schemas (e.g., `activity_schema` vs. `activitySchema`).
+- **Task 1.2:** Centralize validation logic in utilities (e.g., `_validate_pagination`).
 
-**Epic 3: Service Refactoring** ⏳
-- ~~Extract validation logic into shared utilities.~~ ✅
-- ~~Simplify complex service methods.~~ ✅
-- ~~Fix moment retrieval issues~~ ✅
+#### **Epic 2: Enhance Error Handling**
+- **Task 2.1:** Introduce a global exception handler for common errors like `ValidationError` or `SQLAlchemyError`.
+- **Task 2.2:** Ensure repositories do not raise HTTP-specific exceptions.
 
-**Epic 4: Testing Enhancements**
-- Write integration tests for GraphQL APIs.
-- Add edge case tests for schema validation.
+#### **Epic 3: Optimize Performance**
+- **Task 3.1:** Index JSON fields (`data`, `activity_schema`) or move heavily queried data to relational columns.
+- **Task 3.2:** Profile database queries for the `list_moments` method to identify potential bottlenecks.
 
-**Epic 5: Code Quality and Cleanup**
-- Remove unused methods and imports.
-- Implement middleware for centralized error handling.
+#### **Epic 4: Expand Test Coverage**
+- **Task 4.1:** Add edge case tests for all service methods.
+- **Task 4.2:** Implement integration tests for all endpoints, especially GraphQL queries and mutations.
 
-**Epic 6: Database Improvements**
-- Integrate Alembic for schema migrations.
-- Improve granularity of database constraints.
+#### **Epic 6: Strengthen Security**
+- **Task 6.1:** Ensure consistent use of `bcrypt` or a similar library for hashing secrets.
+- **Task 6.2:** Validate JWT expiration logic for long-running sessions.
 
-**Epic 7: Documentation Updates**
-- Update API documentation to include error response formats.
-- Add migration strategy and database guidelines to project documentation.
+#### **Epic 7: Improve Documentation**
+- **Task 7.1:** Update API and GraphQL documentation to reflect any changes in naming conventions.
+- **Task 7.2:** Add examples for using the JSON schema validation in custom activities.
 
-
-
-## ** [Second scan] Epics and Tasks**
-### **Epic 1: Codebase Cleanup**
-1. **Centralize Validation Logic**:
-   - Extract JSON schema validation into a shared utility.
-   - Ensure uniform use of this utility in models, services, and repositories.
-
-2. **Consolidate Pagination Logic**:
-   - Introduce a shared pagination utility in `utils/`.
-
-3. **Remove Unused Code**:
-   - Audit unused methods and imports across all files.
-
-4. **Enhance Type Annotations**:
-   - Improve type hints in all repository and service methods.
+#### **Epic 8: Simplify GraphQL Logic**
+- **Task 8.1:** Leverage GraphQL resolvers for field-level optimizations.
+- **Task 8.2:** Remove redundant service calls in GraphQL queries.
 
 ---
 
-### **Epic 2: Architectural Refinements**
-1. **Ensure Uniform Error Handling**:
-   - Create a shared error-handling module.
-   - Refactor all services and routers to use consistent exception handling.
-
-2. **Optimize Cross-Layer Interactions**:
-   - Reuse service methods across REST and GraphQL layers to reduce duplication.
-
-3. **Expand Repository Abstraction**:
-   - Leverage `BaseRepository` for more uniform CRUD operations.
-
----
-
-### **Epic 3: Schema Enhancements**
-1. **Standardize Pydantic and GraphQL Schemas**:
-   - Ensure naming conventions and validation logic are consistent across Pydantic and Strawberry schemas.
-
-2. **Improve Domain Mapping**:
-   - Review and streamline the `to_domain` and `from_domain` methods for all entities.
-
-3. **Simplify Conversion Utilities**:
-   - Consolidate `ensure_dict` and `ensure_string` utilities to reduce redundancy.
-
----
-
-### **Epic 4: Testing Improvements**
-1. **Expand Unit Test Coverage**:
-   - Add tests for edge cases in repositories and services.
-   - Validate cascading delete scenarios for related entities.
-
-2. **Introduce Integration Tests**:
-   - Verify end-to-end functionality of key workflows (e.g., creating an activity and logging moments).
-
-3. **Improve Test Fixtures**:
-   - Use modular fixtures to set up reusable test data.
-
----
-
-### **Epic 5: Documentation and Linting**
-1. **Update Documentation**:
-   - Include examples of common workflows (e.g., logging moments) in `README.md`.
-   - Document error codes and responses for REST and GraphQL APIs.
-
-2. **Ensure Code Quality**:
-   - Fix all linting issues detected by `flake8`, `black`, and `mypy`.
+Would you like me to organize this into a Kanban-style format or prioritize these epics and tasks further? Let me know how you'd like to proceed!

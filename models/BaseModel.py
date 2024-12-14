@@ -11,7 +11,7 @@ Base = declarative_base()
 EntityMeta: Type[DeclarativeMeta] = Base
 
 # Type variable for model instances
-ModelType = TypeVar("ModelType", bound=Base)
+ModelType = TypeVar("ModelType", bound=Base)  # type: ignore
 
 
 def to_dict(model: ModelType) -> Dict[str, Any]:

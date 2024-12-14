@@ -1,152 +1,211 @@
-# Testing Strategy
+# Detailed Test Plan for Comprehensive Coverage
 
-## Overview
+## Project Overview
 
-The project implements a comprehensive testing strategy that covers all layers of the clean architecture. Tests are organized in the `__tests__` directory and use pytest as the test runner along with unittest for assertions.
+This test plan aims to ensure robust test coverage for all aspects of the project. The goal is to systematically test the application's functionality, performance, and reliability through unit, integration, end-to-end (E2E), and performance testing. The plan also integrates CI/CD practices for continuous quality assurance.
 
-## Current Test Coverage Status (as of 2024-12-12)
+---
 
-### Completed Tests
-1. **Model Tests**:
-   - Activity Model
-     - Model initialization
-     - Database persistence
-     - Moment relationships
-     - Unique name constraint
-     - Required fields validation
-     - Schema validation
-   - Moment Model
-     - Model initialization
-     - Database persistence
-     - Activity relationships
-     - Cascade delete behavior
-     - Required fields validation
-     - Data validation against activity schema
+## Objectives
 
-### Pending Tests
-1. **Service Layer**:
-   - Activity Service
-   - Moment Service
-   - Data validation and business logic
+- Achieve at least 90% test coverage for critical services, models, and repositories.
+- Ensure all user flows and edge cases are validated through integration and E2E tests.
+- Identify performance bottlenecks and ensure the system handles concurrent users efficiently.
+- Maintain test reliability by automating test execution and coverage tracking in CI pipelines.
 
-2. **Repository Layer**:
-   - Activity Repository
-   - Moment Repository
-   - Query filters and constraints
+---
 
-3. **API Layer**:
-   - GraphQL queries and mutations
-   - REST endpoints
-   - Error handling
-   - Authentication/Authorization
+## Test Types and Scope
 
-## Test Structure
+### 1. **Unit Tests**
 
+**Scope**:
+- Validate the behavior of individual components, such as repositories, models, and services.
+- Focus on isolated tests by mocking dependencies.
+
+**Test Areas**:
+- **Repositories**:
+  - CRUD operations.
+  - Handling invalid inputs and unique constraints.
+  - Edge cases for query filters and pagination.
+- **Models**:
+  - Initialization and relationships (e.g., `Activity` and `Moment` models).
+  - JSON schema validation (e.g., `ActivitySchema`).
+- **Services**:
+  - Business logic validation for `ActivityService`, `MomentService`, and `UserService`.
+  - Dependency handling through mocked repositories.
+
+**Examples**:
+- Test `MomentService.create_moment` for valid and invalid `activity_id` values.
+- Validate schema constraints for the `ActivityModel`.
+
+**Tools**:
+- `pytest`
+- `unittest.mock`
+
+---
+
+### 2. **Integration Tests**
+
+**Scope**:
+- Test interactions between components such as services, repositories, and databases.
+- Verify cascading operations and relationships (e.g., deleting an `Activity` removes associated `Moments`).
+
+**Test Areas**:
+- **Database Integration**:
+  - Validate schema migrations.
+  - Test cascading delete behavior.
+- **API Interactions**:
+  - REST and GraphQL endpoint responses.
+  - Validating role-based access and authentication logic.
+
+**Examples**:
+- Test `POST /moments` endpoint for correct validation and schema adherence.
+- Verify cascading deletion logic between `Activity` and `Moment` models.
+
+**Tools**:
+- `pytest`
+- `TestClient` from FastAPI
+
+---
+
+### 3. **End-to-End (E2E) Tests**
+
+**Scope**:
+- Simulate real-world user scenarios to validate the system end-to-end.
+- Ensure APIs, databases, and all integrations function as expected under real usage scenarios.
+
+**Test Areas**:
+- User registration, authentication, and role-based flows.
+- Activity and moment creation, updates, retrieval, and deletion.
+- Invalid token handling and permission violations.
+
+**Examples**:
+- Simulate a user registering, creating an activity, adding moments, and retrieving data.
+- Test boundary cases for authentication token expiration.
+
+**Tools**:
+- `TestClient` from FastAPI
+- Selenium (if UI testing is needed)
+
+---
+
+### 4. **Performance Tests**
+
+**Scope**:
+- Ensure the application performs well under various loads and usage scenarios.
+- Identify and optimize performance bottlenecks.
+
+**Test Areas**:
+- Pagination performance for large datasets.
+- API response times under concurrent user requests.
+- Database query efficiency.
+
+**Examples**:
+- Benchmark `GET /activities` endpoint with 1,000 concurrent users.
+- Measure query execution time for filtering and sorting operations.
+
+**Tools**:
+- Locust
+- Apache JMeter
+
+---
+
+## Coverage Goals
+
+| Component           | Coverage Target |
+|---------------------|-----------------|
+| Repositories        | 95%            |
+| Models              | 90%            |
+| Services            | 90%            |
+| REST/GraphQL APIs   | 85%            |
+| End-to-End Scenarios| 80%            |
+
+---
+
+## Test Suite Updates
+
+### Add New Test Files
+- **`test_activity_service.py`**: Expand scenarios for JSON schema validation and cascading updates.
+- **`test_graphql_queries.py`**: Add comprehensive tests for GraphQL queries and mutations.
+
+### Upgrade Existing Tests
+- Include edge cases:
+  - Invalid timestamps in `MomentService`.
+  - Schema evolution tests for new fields in JSON schemas.
+
+### Automate Coverage Tracking
+- Use `pytest-cov` to visualize and track test coverage.
+
+---
+
+## CI/CD Integration
+
+**Setup**:
+1. Use GitHub Actions to run tests on every pull request.
+2. Configure coverage tracking and fail builds if coverage drops below the threshold.
+3. Generate performance test reports in CI.
+
+**Sample Workflow**:
+```yaml
+name: CI Pipeline
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+defaults:
+  run:
+    working-directory: ./
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v3
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+      - name: Install dependencies
+        run: |
+          pip install pipenv
+          pipenv install --dev
+      - name: Run tests
+        run: pipenv run pytest --cov=your_module_name
+      - name: Upload Coverage
+        uses: actions/upload-artifact@v3
+        with:
+          name: coverage-report
+          path: htmlcov/
 ```
-__tests__/
-├── unit/
-│   ├── models/              
-│   │   ├── test_activity_model.py
-│   │   └── test_moment_model.py
-│   ├── services/           
-│   │   ├── test_activity_service.py
-│   │   └── test_moment_service.py
-│   └── repositories/       
-│       ├── test_activity_repository.py
-│       └── test_moment_repository.py
-├── integration/           
-│   ├── graphql/
-│   │   ├── test_activity_queries.py
-│   │   ├── test_moment_queries.py
-│   │   ├── test_activity_mutations.py
-│   │   └── test_moment_mutations.py
-│   └── rest/
-│       ├── test_activity_endpoints.py
-│       └── test_moment_endpoints.py
-├── conftest.py            
-└── fixtures/             
-    ├── activity_fixtures.py
-    └── moment_fixtures.py
-```
 
-## Test Categories
+---
 
-### 1. Unit Tests
+## Project Timeline
 
-#### Model Tests (`unit/models/`)
-Currently implemented tests cover:
-- Model initialization and validation
-- Database persistence and constraints
-- Field validations (required fields, unique constraints)
-- Relationships between models
-- Schema validation for Activity and Moment data
-- Cascade delete behavior
+| Phase                | Duration | Activities                                         |
+|----------------------|----------|---------------------------------------------------|
+| Unit Test Expansion  | 2 Weeks  | Create missing tests, refactor outdated ones.     |
+| Integration Tests    | 2 Weeks  | Write tests for all API endpoints and database.   |
+| E2E Tests            | 2 Weeks  | Simulate real-world user flows.                   |
+| Performance Testing  | 1 Week   | Run benchmarks and optimize bottlenecks.          |
+| CI/CD Integration    | 1 Week   | Automate test execution and coverage tracking.    |
 
-Example (`test_activity_model.py`):
-```python
-def test_activity_model_initialization():
-    activity = Activity(
-        name="test_activity",
-        description="Test activity",
-        activity_schema={"type": "object"},
-        icon="",
-        color="#000000"
-    )
-    assert activity.name == "test_activity"
-    assert activity.icon == ""
+---
 
-def test_activity_required_fields():
-    activity = Activity()  # Missing required fields
-    with pytest.raises(IntegrityError):
-        db_session.add(activity)
-        db_session.commit()
-```
+## Deliverables
 
-## Running Tests
+- Comprehensive test suite for all components.
+- Automated CI/CD pipeline for consistent quality checks.
+- Coverage reports accessible in CI/CD pipelines.
+- Detailed performance benchmarks.
 
-To run the tests, use the following commands:
+---
 
-```bash
-# Install dependencies
-pipenv install --dev
+## Conclusion
 
-# Run all tests
-pipenv run pytest
+This test plan provides a structured approach to ensure the system's quality, reliability, and performance. By following this plan, the project can achieve robust test coverage and maintain high-quality standards throughout the development lifecycle.
 
-# Run specific test category
-pipenv run pytest __tests__/unit/models -v
-
-# Run with coverage report
-pipenv run pytest --cov=./ --cov-report=term-missing
-```
-
-## Next Steps
-
-1. Implement Service Layer Tests
-   - CRUD operations
-   - Business logic validation
-   - Error handling
-
-2. Implement Repository Layer Tests
-   - Database operations
-   - Query filters
-   - Error conditions
-
-3. Implement Integration Tests
-   - GraphQL API
-   - REST endpoints
-   - End-to-end workflows
-
-4. Add Performance Tests
-   - Load testing
-   - Response time benchmarks
-   - Database query optimization
-
-## Best Practices
-
-1. **Test Isolation**: Each test should be independent and not rely on the state from other tests
-2. **Clean Setup/Teardown**: Use fixtures to set up and clean up test data
-3. **Meaningful Assertions**: Tests should verify specific behaviors and edge cases
-4. **Clear Test Names**: Use descriptive names that indicate what is being tested
-5. **DRY Test Code**: Use fixtures and helper functions to avoid repetition
-6. **Complete Coverage**: Aim for high test coverage, especially in critical paths
