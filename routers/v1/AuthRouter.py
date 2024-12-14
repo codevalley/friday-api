@@ -1,7 +1,6 @@
 from fastapi import (
     APIRouter,
     Depends,
-    HTTPException,
     status,
 )
 from sqlalchemy.orm import Session
@@ -13,7 +12,9 @@ from schemas.pydantic.UserSchema import (
     UserLoginRequest,
     Token,
 )
+from schemas.pydantic.CommonSchema import GenericResponse
 from utils.security import create_access_token
+from utils.error_handlers import handle_exceptions
 from datetime import timedelta
 
 router = APIRouter(prefix="/v1/auth", tags=["auth"])
@@ -21,64 +22,52 @@ router = APIRouter(prefix="/v1/auth", tags=["auth"])
 
 @router.post(
     "/register",
-    response_model=UserRegisterResponse,
+    response_model=GenericResponse[UserRegisterResponse],
     status_code=status.HTTP_201_CREATED,
 )
-def register_user(
+@handle_exceptions
+async def register_user(
     request: UserCreate,
     db: Session = Depends(get_db_connection),
 ):
     """Register a new user"""
     service = UserService(db)
-    try:
-        user, user_secret = service.register_user(
-            username=request.username
-        )
-        return {
+    user, user_secret = service.register_user(
+        username=request.username
+    )
+    return GenericResponse(
+        data={
             "id": user.id,
             "username": user.username,
             "user_secret": user_secret,  # Return the plain user_secret
-        }
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(e),
-        )
+        },
+        message="User registered successfully",
+    )
 
 
-@router.post("/token", response_model=Token)
+@router.post(
+    "/token",
+    response_model=GenericResponse[Token],
+)
+@handle_exceptions
 async def login_for_access_token(
     request: UserLoginRequest,
     db: Session = Depends(get_db_connection),
 ):
     """Login to get an access token"""
     service = UserService(db)
-    try:
-        user = service.authenticate_user(
-            request.user_secret
-        )
+    user = service.authenticate_user(request.user_secret)
 
-        if not user:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Incorrect username or password",
-                headers={"WWW-Authenticate": "Bearer"},
-            )
+    # Create access token with user ID as subject
+    access_token = create_access_token(
+        data={"sub": user.id},
+        expires_delta=timedelta(minutes=30),
+    )
 
-        # Create access token with user ID as subject
-        access_token = create_access_token(
-            data={"sub": user.id},
-            expires_delta=timedelta(minutes=30),
-        )
-
-        return {
+    return GenericResponse(
+        data={
             "access_token": access_token,
             "token_type": "bearer",
-        }
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(e),
-        )
+        },
+        message="Login successful",
+    )

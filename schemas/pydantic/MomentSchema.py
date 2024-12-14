@@ -1,106 +1,155 @@
-from typing import Dict, Optional, List, Any
 from datetime import datetime
-from pydantic import BaseModel, Field, validator
+from typing import Any, Dict, Optional
+
+from pydantic import Field, validator, ConfigDict
+
 from schemas.base.moment_schema import MomentData
-from .ActivitySchema import ActivityResponse
+from schemas.pydantic.ActivitySchema import ActivityResponse
+from schemas.pydantic.CommonSchema import (
+    BaseSchema,
+    PaginatedResponse,
+)
 
 
-class MomentBase(BaseModel):
-    """Base schema for Moment with common attributes"""
+# Common model configuration
+model_config = ConfigDict(
+    from_attributes=True,  # Enable ORM mode
+    json_encoders={
+        datetime: lambda v: v.isoformat()  # Format datetime as ISO string
+    },
+)
 
-    activity_id: int = Field(..., gt=0)
+
+class MomentBase(BaseSchema):
+    """Base schema for Moment with common attributes.
+
+    Attributes:
+        activity_id: ID of the activity this moment belongs to
+        data: Activity-specific data matching activity's schema
+        timestamp: UTC timestamp of when this moment occurred
+    """
+
+    activity_id: int = Field(
+        ...,
+        gt=0,
+        description="ID of the activity this moment belongs to",
+    )
     data: Dict[str, Any] = Field(
         ...,
         description="Activity-specific data matching activity's schema",
     )
     timestamp: Optional[datetime] = Field(
-        None, description="UTC timestamp of the moment"
+        None,
+        description="UTC timestamp of when this moment occurred",
     )
 
-    def to_domain(self) -> MomentData:
-        """Convert to domain model"""
-        return MomentData.from_dict(self.dict())
+    model_config = model_config
 
     @validator("timestamp")
     @classmethod
     def default_timestamp(
         cls, v: Optional[datetime]
     ) -> datetime:
-        """Set default timestamp to current UTC time if not provided"""
+        """Set default timestamp to current UTC time if not provided.
+
+        Args:
+            v: The timestamp value to validate
+
+        Returns:
+            datetime: The validated timestamp or current UTC time
+        """
         return v or datetime.utcnow()
+
+    def to_domain(self) -> MomentData:
+        """Convert to domain model.
+
+        Returns:
+            MomentData: Domain model instance with validated data
+        """
+        return MomentData.from_dict(self.model_dump())
 
 
 class MomentCreate(MomentBase):
-    """Schema for creating a new Moment"""
+    """Schema for creating a new Moment.
+
+    Inherits all fields from MomentBase.
+    """
 
     pass
 
 
-class MomentUpdate(BaseModel):
-    """Schema for updating an existing Moment"""
+class MomentUpdate(BaseSchema):
+    """Schema for updating an existing Moment.
+
+    All fields are optional since this is used for partial updates.
+
+    Attributes:
+        data: Optional new activity-specific data
+        timestamp: Optional new timestamp
+    """
 
     data: Optional[Dict[str, Any]] = Field(
         None,
         description="Activity-specific data matching activity's schema",
     )
-    timestamp: Optional[datetime] = None
+    timestamp: Optional[datetime] = Field(
+        None,
+        description="UTC timestamp of when this moment occurred",
+    )
+
+    model_config = model_config
 
     def to_domain(self, existing: MomentData) -> MomentData:
-        """Convert to domain model, preserving existing data"""
-        update_dict = self.dict(exclude_unset=True)
+        """Convert to domain model, preserving existing data.
+
+        Args:
+            existing: Existing moment data to update
+
+        Returns:
+            MomentData: Updated domain model instance
+        """
+        update_dict = self.model_dump(exclude_unset=True)
         existing_dict = existing.to_dict()
         existing_dict.update(update_dict)
         return MomentData.from_dict(existing_dict)
 
 
-class MomentResponse(BaseModel):
-    """Schema for Moment response"""
+class MomentResponse(MomentBase):
+    """Full moment response model with all fields.
 
-    id: int
-    activity_id: int
-    data: Dict[str, Any]
-    timestamp: datetime
-    activity: ActivityResponse
+    Attributes:
+        id: Unique identifier for the moment
+        activity: Full activity response data
+    """
+
+    id: int = Field(
+        ...,
+        description="Unique identifier for the moment",
+    )
+    activity: ActivityResponse = Field(
+        ...,
+        description="Full activity response data",
+    )
 
     @classmethod
     def from_domain(
         cls, moment: MomentData, activity: ActivityResponse
     ) -> "MomentResponse":
-        """Create from domain model"""
+        """Create from domain model.
+
+        Args:
+            moment: Domain model instance to convert
+            activity: Activity response data to include
+
+        Returns:
+            MomentResponse: Response model instance
+        """
         moment_dict = moment.to_dict()
         moment_dict["activity"] = activity
         return cls(**moment_dict)
 
-    class Config:
-        from_attributes = True
 
+class MomentList(PaginatedResponse[MomentResponse]):
+    """Paginated list of moments."""
 
-class MomentList(BaseModel):
-    """Schema for listing moments with pagination metadata"""
-
-    items: List[MomentResponse]
-    total: int
-    page: int = Field(
-        ge=1, description="Current page number (1-based)"
-    )
-    size: int = Field(
-        ge=1,
-        le=100,
-        description="Number of items per page (max 100)",
-    )
-    pages: int = Field(
-        0, description="Total number of pages"
-    )
-
-    @validator("pages", pre=True)
-    @classmethod
-    def calculate_pages(cls, v: int, values: dict) -> int:
-        """Calculate total pages based on total items and page size"""
-        if "total" in values and "size" in values:
-            return (
-                values["total"] + values["size"] - 1
-            ) // values["size"]
-        return v
-
-    class Config:
-        from_attributes = True
+    model_config = model_config

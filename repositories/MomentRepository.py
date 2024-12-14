@@ -1,8 +1,7 @@
 from typing import List, Optional, Dict, Any, Union
 from datetime import datetime
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import desc
-from fastapi import HTTPException, status
 
 from models.MomentModel import Moment as MomentModel
 from models.ActivityModel import Activity
@@ -71,10 +70,11 @@ class MomentRepository(BaseRepository[MomentModel, int]):
             limit: Maximum number of moments to return
 
         Returns:
-            List of recent moments
+            List of recent moments with activities eager loaded
         """
         return (
             self.db.query(MomentModel)
+            .options(joinedload(MomentModel.activity))
             .filter(MomentModel.user_id == user_id)
             .order_by(desc(MomentModel.timestamp))
             .limit(limit)
@@ -126,6 +126,7 @@ class MomentRepository(BaseRepository[MomentModel, int]):
         start_time: Optional[datetime] = None,
         end_time: Optional[datetime] = None,
         user_id: Optional[str] = None,
+        include_activity: bool = True,
     ) -> MomentList:
         """List moments with filtering and pagination
 
@@ -136,40 +137,72 @@ class MomentRepository(BaseRepository[MomentModel, int]):
             start_time: Optional start time filter
             end_time: Optional end time filter
             user_id: Optional user ID filter
+            include_activity: Whether to eager load activities
 
         Returns:
             MomentList with pagination metadata
         """
-        query = self.db.query(MomentModel).join(Activity)
+        # Build base query
+        base_query = self.db.query(MomentModel)
+
+        # Add eager loading if requested
+        if include_activity:
+            base_query = base_query.options(
+                joinedload(MomentModel.activity)
+            )
+
+        # Always join with Activity for user filtering
+        base_query = base_query.join(
+            Activity, MomentModel.activity_id == Activity.id
+        )
 
         # Apply filters
+        if user_id is not None:
+            base_query = base_query.filter(
+                Activity.user_id == user_id
+            )
         if activity_id is not None:
-            query = query.filter(
+            base_query = base_query.filter(
                 MomentModel.activity_id == activity_id
             )
         if start_time is not None:
-            query = query.filter(
+            base_query = base_query.filter(
                 MomentModel.timestamp >= start_time
             )
         if end_time is not None:
-            query = query.filter(
+            base_query = base_query.filter(
                 MomentModel.timestamp <= end_time
             )
+
+        # Get total count before pagination
+        count_query = self.db.query(MomentModel.id).join(
+            Activity, MomentModel.activity_id == Activity.id
+        )
         if user_id is not None:
-            query = query.filter(
+            count_query = count_query.filter(
                 Activity.user_id == user_id
             )
-
-        # Get total count
-        total = query.count()
+        if activity_id is not None:
+            count_query = count_query.filter(
+                MomentModel.activity_id == activity_id
+            )
+        if start_time is not None:
+            count_query = count_query.filter(
+                MomentModel.timestamp >= start_time
+            )
+        if end_time is not None:
+            count_query = count_query.filter(
+                MomentModel.timestamp <= end_time
+            )
+        total = count_query.distinct().count()
 
         # Calculate pagination
         pages = (total + size - 1) // size
         skip = (page - 1) * size
 
-        # Get paginated results with activities eager loaded
+        # Get paginated results with ordering
         moments = (
-            query.order_by(desc(MomentModel.timestamp))
+            base_query.order_by(desc(MomentModel.timestamp))
             .offset(skip)
             .limit(size)
             .all()
@@ -228,10 +261,6 @@ class MomentRepository(BaseRepository[MomentModel, int]):
         Raises:
             HTTPException: If moment not found
         """
-        moment = self.get(moment_id)
-        if not moment:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Moment not found",
-            )
-        return moment
+        return super().validate_existence(
+            moment_id, "Moment not found"
+        )

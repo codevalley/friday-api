@@ -1,14 +1,13 @@
 from typing import Optional, List, Dict, cast
 from fastapi import HTTPException, Depends
 from sqlalchemy.orm import Session
-from jsonschema import validate, ValidationError
 from datetime import datetime
+from pydantic import ValidationError
 
 from schemas.base.moment_schema import MomentData
 from schemas.graphql.types.Moment import Moment
 from repositories.MomentRepository import MomentRepository
 from schemas.graphql.types.Activity import Activity
-
 from configs.Database import get_db_connection
 from repositories.ActivityRepository import (
     ActivityRepository,
@@ -76,41 +75,52 @@ class MomentService:
         Raises:
             HTTPException: If validation fails or activity not found
         """
-        # Convert to domain model if needed
-        domain_data = (
-            moment_data
-            if isinstance(moment_data, MomentData)
-            else moment_data.to_domain()
-        )
-
-        # Get activity to validate data against schema
-        activity = (
-            self.activity_repository.validate_existence(
-                domain_data.activity_id, user_id
-            )
-        )
-
         try:
-            # Validate moment data against activity schema
-            validate(
-                instance=domain_data.data,
-                schema=activity.activity_schema_dict,
+            # Convert to domain model if needed
+            domain_data = (
+                moment_data
+                if isinstance(moment_data, MomentData)
+                else moment_data.to_domain()
             )
+
+            # Get activity and validate data against its schema
+            activity = (
+                self.activity_repository.validate_existence(
+                    domain_data.activity_id, user_id
+                )
+            )
+
+            # Validate moment data against activity schema
+            try:
+                activity.validate_moment_data(
+                    domain_data.data
+                )
+            except ValueError as e:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Moment data does not match"
+                    f" activity schema: {str(e)}",
+                )
+
+            # Create the moment - validation handled by Pydantic
+            moment = self.moment_repository.create(
+                instance_or_activity_id=activity.id,  # Use validated activity
+                data=domain_data.data,
+                user_id=user_id,
+                timestamp=domain_data.timestamp,
+            )
+
+            return MomentResponse.from_orm(moment)
         except ValidationError as e:
             raise HTTPException(
                 status_code=400,
                 detail=f"Invalid moment data: {str(e)}",
             )
-
-        # Create the moment
-        moment = self.moment_repository.create(
-            instance_or_activity_id=domain_data.activity_id,
-            data=domain_data.data,
-            user_id=user_id,
-            timestamp=domain_data.timestamp,
-        )
-
-        return MomentResponse.from_orm(moment)
+        except Exception as e:
+            raise HTTPException(
+                status_code=500,
+                detail=f"Error creating moment: {str(e)}",
+            )
 
     def list_moments(
         self,
@@ -139,15 +149,15 @@ class MomentService:
         """
         self._validate_pagination(page, size)
 
-        moments = self.moment_repository.list_moments(
+        return self.moment_repository.list_moments(
             page=page,
             size=size,
             activity_id=activity_id,
             start_time=start_date,
             end_time=end_date,
             user_id=user_id,
+            include_activity=True,
         )
-        return moments
 
     def get_moment(
         self, moment_id: int, user_id: str
@@ -215,28 +225,25 @@ class MomentService:
                 status_code=404, detail="Moment not found"
             )
 
-        # If updating data, validate against activity schema
-        if moment_data.data is not None:
-            try:
-                validate(
-                    instance=moment_data.data,
-                    schema=moment.activity.activity_schema_dict,
-                )
-            except ValidationError as e:
-                raise HTTPException(
-                    status_code=400,
-                    detail=f"Invalid moment data: {str(e)}",
-                )
-
-        update_dict = moment_data.dict(exclude_unset=True)
-        updated = self.moment_repository.update(
-            moment_id=moment_id, **update_dict
-        )
-        if not updated:
-            raise HTTPException(
-                status_code=404, detail="Moment not found"
+        try:
+            # Validation handled by Pydantic
+            update_dict = moment_data.dict(
+                exclude_unset=True
             )
-        return MomentResponse.from_orm(updated)
+            updated = self.moment_repository.update(
+                moment_id=moment_id, **update_dict
+            )
+            if not updated:
+                raise HTTPException(
+                    status_code=404,
+                    detail="Moment not found",
+                )
+            return MomentResponse.from_orm(updated)
+        except ValidationError as e:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid moment data: {str(e)}",
+            )
 
     def list_recent_activities(
         self, user_id: str, limit: int = 5

@@ -1,6 +1,5 @@
 from typing import List, Optional, Dict, Any, Union
 from sqlalchemy.orm import Session
-from sqlalchemy.exc import IntegrityError
 from fastapi import HTTPException, status
 
 from models.ActivityModel import Activity
@@ -153,7 +152,8 @@ class ActivityRepository(BaseRepository[Activity, int]):
             user_id: User ID to verify ownership
 
         Returns:
-            True if activity was deleted, False if not found or not owned by user
+            True if activity was deleted,
+            False if not found or not owned by user
         """
         activity = self.get_by_user(activity_id, user_id)
         if not activity:
@@ -179,6 +179,8 @@ class ActivityRepository(BaseRepository[Activity, int]):
         if not activity:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail="Activity not found or access denied",
+                detail=(
+                    "Activity not found or access denied"
+                ),
             )
         return activity

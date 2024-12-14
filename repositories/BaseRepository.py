@@ -1,20 +1,32 @@
-from typing import Generic, List, Optional, Type, TypeVar
+from typing import (
+    Generic,
+    List,
+    Optional,
+    Type,
+    TypeVar,
+    Any,
+)
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from fastapi import HTTPException, status
 
 from .RepositoryMeta import RepositoryMeta
 
-# Type variable for SQLAlchemy model
-M = TypeVar("M")
-# Type variable for primary key
-K = TypeVar("K")
+# Type variables with better constraints
+ModelType = TypeVar("ModelType")
+KeyType = TypeVar(
+    "KeyType", int, str
+)  # Limit key types to int and str
 
 
-class BaseRepository(RepositoryMeta[M, K], Generic[M, K]):
-    """Base repository implementing common CRUD operations with error handling"""
+class BaseRepository(
+    RepositoryMeta[ModelType, KeyType],
+    Generic[ModelType, KeyType],
+):
+    """Base repository implementing common CRUD operations
+    with error handling"""
 
-    def __init__(self, db: Session, model: Type[M]):
+    def __init__(self, db: Session, model: Type[ModelType]):
         """Initialize repository with database session and model class
 
         Args:
@@ -24,7 +36,7 @@ class BaseRepository(RepositoryMeta[M, K], Generic[M, K]):
         self.db = db
         self.model = model
 
-    def create(self, instance: M) -> M:
+    def create(self, instance: ModelType) -> ModelType:
         """Create a new instance in the database
 
         Args:
@@ -35,6 +47,7 @@ class BaseRepository(RepositoryMeta[M, K], Generic[M, K]):
 
         Raises:
             HTTPException: If database constraints are violated
+            or other errors occur
         """
         try:
             self.db.add(instance)
@@ -51,11 +64,11 @@ class BaseRepository(RepositoryMeta[M, K], Generic[M, K]):
             self.db.rollback()
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=f"Database error occurred: {str(e)}",
+                detail=f"Database error: {str(e)}",
             )
 
-    def get(self, id: K) -> Optional[M]:
-        """Get an instance by ID
+    def get(self, id: KeyType) -> Optional[ModelType]:
+        """Get a single instance by ID
 
         Args:
             id: Primary key value
@@ -63,58 +76,67 @@ class BaseRepository(RepositoryMeta[M, K], Generic[M, K]):
         Returns:
             Model instance if found, None otherwise
         """
-        try:
-            return (
-                self.db.query(self.model)
-                .filter(self.model.id == id)
-                .first()
+        return (
+            self.db.query(self.model)
+            .filter(self.model.id == id)
+            .first()
+        )
+
+    def get_by_id(
+        self, id: KeyType, user_id: str
+    ) -> Optional[ModelType]:
+        """Get a single instance by ID and user_id for authorization
+
+        Args:
+            id: Primary key value
+            user_id: User ID for authorization
+
+        Returns:
+            Model instance if found and authorized, None otherwise
+        """
+        return (
+            self.db.query(self.model)
+            .filter(
+                self.model.id == id,
+                self.model.user_id == user_id,
             )
-        except SQLAlchemyError as e:
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=f"Database error occurred: {str(e)}",
-            )
+            .first()
+        )
 
     def list(
-        self, limit: int = 100, start: int = 0
-    ) -> List[M]:
+        self, skip: int = 0, limit: int = 100
+    ) -> List[ModelType]:
         """List instances with pagination
 
         Args:
-            limit: Maximum number of instances to return
-            start: Number of instances to skip
+            skip: Number of records to skip
+            limit: Maximum number of records to return
 
         Returns:
             List of model instances
-
-        Raises:
-            HTTPException: If database error occurs
         """
-        try:
-            return (
-                self.db.query(self.model)
-                .offset(start)
-                .limit(limit)
-                .all()
-            )
-        except SQLAlchemyError as e:
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=f"Database error occurred: {str(e)}",
-            )
+        return (
+            self.db.query(self.model)
+            .offset(skip)
+            .limit(limit)
+            .all()
+        )
 
-    def update(self, id: K, data: dict) -> Optional[M]:
+    def update(
+        self, id: KeyType, data: dict[str, Any]
+    ) -> Optional[ModelType]:
         """Update an instance by ID
 
         Args:
             id: Primary key value
-            data: Dictionary of attributes to update
+            data: Dictionary of fields to update
 
         Returns:
             Updated model instance if found, None otherwise
 
         Raises:
             HTTPException: If database constraints are violated
+            or other errors occur
         """
         try:
             instance = self.get(id)
@@ -122,11 +144,7 @@ class BaseRepository(RepositoryMeta[M, K], Generic[M, K]):
                 return None
 
             for key, value in data.items():
-                if (
-                    hasattr(instance, key)
-                    and value is not None
-                ):
-                    setattr(instance, key, value)
+                setattr(instance, key, value)
 
             self.db.commit()
             self.db.refresh(instance)
@@ -141,10 +159,10 @@ class BaseRepository(RepositoryMeta[M, K], Generic[M, K]):
             self.db.rollback()
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=f"Database error occurred: {str(e)}",
+                detail=f"Database error: {str(e)}",
             )
 
-    def delete(self, id: K) -> bool:
+    def delete(self, id: KeyType) -> bool:
         """Delete an instance by ID
 
         Args:
@@ -168,16 +186,30 @@ class BaseRepository(RepositoryMeta[M, K], Generic[M, K]):
             self.db.rollback()
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=f"Database error occurred: {str(e)}",
+                detail=f"Database error: {str(e)}",
             )
 
-    def exists(self, id: K) -> bool:
-        """Check if an instance exists
+    def validate_existence(
+        self,
+        id: KeyType,
+        error_message: str = "Resource not found",
+    ) -> ModelType:
+        """Validate that a resource exists and raise HTTPException if not
 
         Args:
             id: Primary key value
+            error_message: Custom error message to use
 
         Returns:
-            True if instance exists, False otherwise
+            Model instance if found
+
+        Raises:
+            HTTPException: If resource not found
         """
-        return self.get(id) is not None
+        instance = self.get(id)
+        if not instance:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=error_message,
+            )
+        return instance

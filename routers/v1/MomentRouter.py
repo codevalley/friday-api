@@ -1,6 +1,6 @@
-from typing import List, Optional
+from typing import List
 from datetime import datetime
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, status
 
 from schemas.pydantic.MomentSchema import (
     MomentResponse,
@@ -8,34 +8,48 @@ from schemas.pydantic.MomentSchema import (
     MomentUpdate,
     MomentList,
 )
+from schemas.pydantic.ActivitySchema import ActivityResponse
 from schemas.pydantic.PaginationSchema import (
     PaginationParams,
+)
+from schemas.pydantic.CommonSchema import (
+    MessageResponse,
+    GenericResponse,
 )
 from services.MomentService import MomentService
 from dependencies import get_current_user
 from models.UserModel import User
+from utils.error_handlers import handle_exceptions
 
 router = APIRouter(prefix="/v1/moments", tags=["moments"])
 
 
 @router.post(
-    "", response_model=MomentResponse, status_code=201
+    "",
+    response_model=GenericResponse[MomentResponse],
+    status_code=status.HTTP_201_CREATED,
 )
+@handle_exceptions
 async def create_moment(
     moment: MomentCreate,
     service: MomentService = Depends(),
     current_user: User = Depends(get_current_user),
 ):
     """Create a new moment"""
-    return service.create_moment(moment, current_user.id)
+    result = service.create_moment(moment, current_user.id)
+    return GenericResponse(
+        data=result,
+        message="Moment created successfully",
+    )
 
 
-@router.get("", response_model=MomentList)
+@router.get("", response_model=GenericResponse[MomentList])
+@handle_exceptions
 async def list_moments(
     pagination: PaginationParams = Depends(),
-    activity_id: Optional[int] = None,
-    start_date: Optional[datetime] = None,
-    end_date: Optional[datetime] = None,
+    activity_id: int | None = None,
+    start_date: datetime | None = None,
+    end_date: datetime | None = None,
     service: MomentService = Depends(),
     current_user: User = Depends(get_current_user),
 ):
@@ -45,7 +59,7 @@ async def list_moments(
     - start_date: Filter moments after this time (UTC)
     - end_date: Filter moments before this time (UTC)
     """
-    return service.list_moments(
+    result = service.list_moments(
         page=pagination.page,
         size=pagination.size,
         activity_id=activity_id,
@@ -53,19 +67,32 @@ async def list_moments(
         end_date=end_date,
         user_id=current_user.id,
     )
+    return GenericResponse(
+        data=result,
+        message=f"Retrieved {result.total} moments",
+    )
 
 
-@router.get("/{moment_id}", response_model=MomentResponse)
+@router.get(
+    "/{moment_id}",
+    response_model=GenericResponse[MomentResponse],
+)
+@handle_exceptions
 async def get_moment(
     moment_id: int,
     service: MomentService = Depends(),
     current_user: User = Depends(get_current_user),
 ):
     """Get a moment by ID"""
-    return service.get_moment(moment_id, current_user.id)
+    result = service.get_moment(moment_id, current_user.id)
+    return GenericResponse(data=result)
 
 
-@router.put("/{moment_id}", response_model=MomentResponse)
+@router.put(
+    "/{moment_id}",
+    response_model=GenericResponse[MomentResponse],
+)
+@handle_exceptions
 async def update_moment(
     moment_id: int,
     moment: MomentUpdate,
@@ -73,12 +100,21 @@ async def update_moment(
     current_user: User = Depends(get_current_user),
 ):
     """Update a moment"""
-    return service.update_moment(
+    result = service.update_moment(
         moment_id, moment, current_user.id
+    )
+    return GenericResponse(
+        data=result,
+        message="Moment updated successfully",
     )
 
 
-@router.delete("/{moment_id}", status_code=204)
+@router.delete(
+    "/{moment_id}",
+    response_model=MessageResponse,
+    status_code=status.HTTP_200_OK,
+)
+@handle_exceptions
 async def delete_moment(
     moment_id: int,
     service: MomentService = Depends(),
@@ -86,16 +122,26 @@ async def delete_moment(
 ):
     """Delete a moment"""
     service.delete_moment(moment_id, current_user.id)
-    return None
+    return MessageResponse(
+        message="Moment deleted successfully"
+    )
 
 
-@router.get("/activities/recent", response_model=List[dict])
+@router.get(
+    "/activities/recent",
+    response_model=GenericResponse[List[ActivityResponse]],
+)
+@handle_exceptions
 async def get_recent_activities(
     limit: int = Query(5, ge=1, le=20),
     service: MomentService = Depends(),
     current_user: User = Depends(get_current_user),
 ):
     """Get recently used activities"""
-    return service.list_recent_activities(
+    activities = service.list_recent_activities(
         str(current_user.id), limit
+    )
+    return GenericResponse(
+        data=activities,
+        message=f"Retrieved {len(activities)} recent activities",
     )

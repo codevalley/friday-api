@@ -16,16 +16,18 @@ extract_json_value() {
     local response=$1
     local field=$2
     
-    # Try using jq if available
-    if command -v jq &> /dev/null; then
-        echo "$response" | jq -r ".$field"
-        return
+    # First try to extract from data field (GenericResponse format)
+    # This handles nested fields like data.id, data.items, etc.
+    value=$(echo "$response" | grep -o "\"data\":{[^}]*\"$field\":[[:space:]]*[^,}]*" | grep -o "\"$field\":[[:space:]]*[^,}]*" | sed -E "s/\"$field\":[[:space:]]*//;s/\"//g")
+    
+    # If not found in data field, try direct field (for backward compatibility)
+    if [ -z "$value" ]; then
+        value=$(echo "$response" | grep -o "\"$field\":[[:space:]]*[^,}]*" | sed -E "s/\"$field\":[[:space:]]*//;s/\"//g")
     fi
     
-    # Fallback: basic string manipulation
-    # Extract value between quotes after field name
-    # Handle both string and number values
-    value=$(echo "$response" | grep -o "\"$field\":[[:space:]]*[\"0-9][^,}]*" | sed -E "s/\"$field\":[[:space:]]*//;s/\"//g")
+    # Trim any whitespace
+    value=$(echo "$value" | sed -E 's/^[[:space:]]*|[[:space:]]*$//g')
+    
     echo "$value"
 }
 
@@ -37,6 +39,18 @@ check_api_response() {
     # Check for error response
     if echo "$response" | grep -q "\"detail\""; then
         echo -e "${RED}✗ Failed - $context${NC}"
+        echo "$response"
+        exit 1
+    fi
+
+    # Check for data field (GenericResponse format)
+    if ! echo "$response" | grep -q "\"data\":{"; then
+        # Special case for auth endpoints that might not be wrapped yet
+        if echo "$response" | grep -q "\"user_secret\":\|\"access_token\":"; then
+            echo -e "${GREEN}✓ Success${NC}"
+            return
+        fi
+        echo -e "${RED}✗ Failed - $context - Invalid response format${NC}"
         echo "$response"
         exit 1
     fi
@@ -109,9 +123,9 @@ ACTIVITY1_RESPONSE=$(curl -s -X POST "$BASE_URL/activities" \
         \"icon\": \"📚\",
         \"color\": \"#4A90E2\"
     }")
-ACTIVITY1_ID=$(extract_json_value "$ACTIVITY1_RESPONSE" "id")
 echo "Activity1 Response: $ACTIVITY1_RESPONSE"
-echo "Activity1 ID: $ACTIVITY1_ID"
+ACTIVITY1_ID=$(extract_json_value "$ACTIVITY1_RESPONSE" "id")
+echo "Activity1 ID (raw): '$ACTIVITY1_ID'"  # Debug output with quotes
 check_api_response "$ACTIVITY1_RESPONSE" "Creating reading activity"
 
 # Activity 2: Exercise
@@ -125,25 +139,31 @@ ACTIVITY2_RESPONSE=$(curl -s -X POST "$BASE_URL/activities" \
         \"icon\": \"💪\",
         \"color\": \"#FF5733\"
     }")
-ACTIVITY2_ID=$(extract_json_value "$ACTIVITY2_RESPONSE" "id")
 echo "Activity2 Response: $ACTIVITY2_RESPONSE"
-echo "Activity2 ID: $ACTIVITY2_ID"
+ACTIVITY2_ID=$(extract_json_value "$ACTIVITY2_RESPONSE" "id")
+echo "Activity2 ID (raw): '$ACTIVITY2_ID'"  # Debug output with quotes
 check_api_response "$ACTIVITY2_RESPONSE" "Creating exercise activity"
+
+# Verify activity IDs
+if [ -z "$ACTIVITY1_ID" ] || [ -z "$ACTIVITY2_ID" ]; then
+    echo -e "${RED}Failed to extract activity IDs${NC}"
+    echo "Activity1 ID: '$ACTIVITY1_ID'"
+    echo "Activity2 ID: '$ACTIVITY2_ID'"
+    exit 1
+fi
 
 # 3. Create moments for user1
 echo -e "\n${BLUE}3. Creating moments for user1...${NC}"
 # Reading moments
 for i in {1..2}; do
     echo "Creating reading moment $i with activity ID: $ACTIVITY1_ID"
+    MOMENT_DATA="{\"book\":\"Book $i\",\"pages\":$((i * 50))}"
     MOMENT_RESPONSE=$(curl -s -X POST "$BASE_URL/moments" \
         -H "Authorization: Bearer $TOKEN1" \
         -H "Content-Type: application/json" \
         -d "{
             \"activity_id\": $ACTIVITY1_ID,
-            \"data\": {
-                \"book\": \"Book $i\",
-                \"pages\": $((i * 50))
-            },
+            \"data\": $MOMENT_DATA,
             \"timestamp\": \"2024-12-12T$((12 + i)):30:00Z\"
         }")
     echo "Reading Moment $i Response: $MOMENT_RESPONSE"
@@ -153,15 +173,13 @@ done
 # Exercise moments
 for i in {1..2}; do
     echo "Creating exercise moment $i with activity ID: $ACTIVITY2_ID"
+    MOMENT_DATA="{\"type\":\"Running\",\"duration\":$((i * 30))}"
     MOMENT_RESPONSE=$(curl -s -X POST "$BASE_URL/moments" \
         -H "Authorization: Bearer $TOKEN1" \
         -H "Content-Type: application/json" \
         -d "{
             \"activity_id\": $ACTIVITY2_ID,
-            \"data\": {
-                \"type\": \"Running\",
-                \"duration\": $((i * 30))
-            },
+            \"data\": $MOMENT_DATA,
             \"timestamp\": \"2024-12-12T$((14 + i)):30:00Z\"
         }")
     echo "Exercise Moment $i Response: $MOMENT_RESPONSE"
@@ -212,15 +230,13 @@ check_api_response "$ACTIVITY3_RESPONSE" "Creating coding activity"
 # 6. Create moments for user2
 echo -e "\n${BLUE}6. Creating moments for user2...${NC}"
 for i in {1..3}; do
+    MOMENT_DATA="{\"language\":\"Python\",\"hours\":$i}"
     MOMENT_RESPONSE=$(curl -s -X POST "$BASE_URL/moments" \
         -H "Authorization: Bearer $TOKEN2" \
         -H "Content-Type: application/json" \
         -d "{
-            \"activity_id\": \"$ACTIVITY3_ID\",
-            \"data\": {
-                \"language\": \"Python\",
-                \"hours\": $i
-            },
+            \"activity_id\": $ACTIVITY3_ID,
+            \"data\": $MOMENT_DATA,
             \"timestamp\": \"2024-12-12T$((16 + i)):30:00Z\"
         }")
     echo "Coding Moment $i Response: $MOMENT_RESPONSE"

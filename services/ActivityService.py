@@ -1,9 +1,7 @@
 from typing import List, Optional
 from fastapi import HTTPException, Depends
 from sqlalchemy.orm import Session
-from jsonschema import Draft7Validator
-from jsonschema.exceptions import ValidationError
-import json
+from jsonschema import ValidationError
 
 from configs.Database import get_db_connection
 from repositories.ActivityRepository import (
@@ -17,6 +15,7 @@ from schemas.pydantic.ActivitySchema import (
     ActivityResponse,
 )
 from schemas.graphql.types.Activity import Activity
+import json
 
 
 class ActivityService:
@@ -45,28 +44,32 @@ class ActivityService:
             Created activity response
 
         Raises:
-            HTTPException: If JSON schema validation fails
+            HTTPException: If schema validation fails
         """
         try:
-            # Validate that the activity_schema is a valid JSON Schema
-            Draft7Validator.check_schema(
-                activity_data.activity_schema
+            # Convert to domain model
+            domain_data = activity_data.to_domain()
+            domain_data.user_id = str(
+                user_id
+            )  # Ensure user_id is string
+
+            # Create activity
+            activity = self.activity_repository.create(
+                instance_or_name=domain_data.name,
+                description=domain_data.description,
+                activity_schema=domain_data.activity_schema,
+                icon=domain_data.icon,
+                color=domain_data.color,
+                user_id=domain_data.user_id,
             )
+
+            # Convert back to response model
+            return ActivityResponse.from_orm(activity)
         except ValidationError as e:
             raise HTTPException(
                 status_code=400,
-                detail=f"Invalid JSON Schema: {str(e)}",
+                detail=f"Invalid activity data: {str(e)}",
             )
-
-        activity = self.activity_repository.create(
-            instance_or_name=activity_data.name,
-            description=activity_data.description,
-            activity_schema=activity_data.activity_schema,
-            icon=activity_data.icon,
-            color=activity_data.color,
-            user_id=str(user_id),  # Ensure user_id is string
-        )
-        return ActivityResponse.from_orm(activity)
 
     def get_activity(
         self, activity_id: int, user_id: str
@@ -150,7 +153,7 @@ class ActivityService:
             Updated activity response if found, None otherwise
 
         Raises:
-            HTTPException: If JSON schema validation fails
+            HTTPException: If schema validation fails
         """
         # Get existing activity
         activity = self.activity_repository.get_by_id(
@@ -160,30 +163,26 @@ class ActivityService:
         if not activity:
             return None
 
-        # Update fields
-        update_data = activity_data.dict(exclude_unset=True)
-        if "activity_schema" in update_data:
-            try:
-                Draft7Validator.check_schema(
-                    update_data["activity_schema"]
-                )
-            except ValidationError as e:
-                raise HTTPException(
-                    status_code=400,
-                    detail=f"Invalid JSON Schema: {str(e)}",
-                )
-
-        # Update the activity
-        updated = self.activity_repository.update(
-            activity_id=activity_id,
-            user_id=str(
-                user_id
-            ),  # Ensure user_id is string
-            **update_data,
-        )
-        if not updated:
-            return None
-        return ActivityResponse.from_orm(updated)
+        try:
+            # Update fields - validation handled by Pydantic
+            update_data = activity_data.dict(
+                exclude_unset=True
+            )
+            updated = self.activity_repository.update(
+                activity_id=activity_id,
+                user_id=str(
+                    user_id
+                ),  # Ensure user_id is string
+                **update_data,
+            )
+            if not updated:
+                return None
+            return ActivityResponse.from_orm(updated)
+        except ValidationError as e:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid activity data: {str(e)}",
+            )
 
     def delete_activity(
         self, activity_id: int, user_id: str

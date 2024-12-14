@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, status
 
 from services.ActivityService import ActivityService
 from schemas.pydantic.ActivitySchema import (
@@ -10,8 +10,13 @@ from schemas.pydantic.ActivitySchema import (
 from schemas.pydantic.PaginationSchema import (
     PaginationParams,
 )
+from schemas.pydantic.CommonSchema import (
+    MessageResponse,
+    GenericResponse,
+)
 from dependencies import get_current_user
 from models.UserModel import User
+from utils.error_handlers import handle_exceptions
 
 router = APIRouter(
     prefix="/v1/activities", tags=["activities"]
@@ -19,59 +24,69 @@ router = APIRouter(
 
 
 @router.post(
-    "", response_model=ActivityResponse, status_code=201
+    "",
+    response_model=GenericResponse[ActivityResponse],
+    status_code=status.HTTP_201_CREATED,
 )
+@handle_exceptions
 async def create_activity(
     activity: ActivityCreate,
     service: ActivityService = Depends(),
     current_user: User = Depends(get_current_user),
 ):
     """Create a new activity"""
-    try:
-        return service.create_activity(
-            activity, current_user.id
-        )
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+    result = service.create_activity(
+        activity, current_user.id
+    )
+    return GenericResponse(
+        data=result,
+        message="Activity created successfully",
+    )
 
 
-@router.get("", response_model=ActivityList)
+@router.get(
+    "", response_model=GenericResponse[ActivityList]
+)
+@handle_exceptions
 async def list_activities(
     pagination: PaginationParams = Depends(),
     service: ActivityService = Depends(),
     current_user: User = Depends(get_current_user),
 ):
     """List all activities with pagination"""
-    return service.list_activities(
+    result = service.list_activities(
         user_id=current_user.id,
         page=pagination.page,
         size=pagination.size,
     )
+    return GenericResponse(
+        data=result,
+        message=f"Retrieved {result.total} activities",
+    )
 
 
 @router.get(
-    "/{activity_id}", response_model=ActivityResponse
+    "/{activity_id}",
+    response_model=GenericResponse[ActivityResponse],
 )
+@handle_exceptions
 async def get_activity(
     activity_id: int,
     service: ActivityService = Depends(),
     current_user: User = Depends(get_current_user),
 ):
     """Get an activity by ID"""
-    activity = service.get_activity(
+    result = service.get_activity(
         activity_id, current_user.id
     )
-    if not activity:
-        raise HTTPException(
-            status_code=404,
-            detail="Activity not found",
-        )
-    return activity
+    return GenericResponse(data=result)
 
 
 @router.put(
-    "/{activity_id}", response_model=ActivityResponse
+    "/{activity_id}",
+    response_model=GenericResponse[ActivityResponse],
 )
+@handle_exceptions
 async def update_activity(
     activity_id: int,
     activity: ActivityUpdate,
@@ -79,31 +94,30 @@ async def update_activity(
     current_user: User = Depends(get_current_user),
 ):
     """Update an activity"""
-    updated = service.update_activity(
+    result = service.update_activity(
         activity_id,
         activity,
         current_user.id,
     )
-    if not updated:
-        raise HTTPException(
-            status_code=404,
-            detail="Activity not found",
-        )
-    return updated
+    return GenericResponse(
+        data=result,
+        message="Activity updated successfully",
+    )
 
 
-@router.delete("/{activity_id}")
+@router.delete(
+    "/{activity_id}",
+    response_model=MessageResponse,
+    status_code=status.HTTP_200_OK,
+)
+@handle_exceptions
 async def delete_activity(
     activity_id: int,
     service: ActivityService = Depends(),
     current_user: User = Depends(get_current_user),
 ):
     """Delete an activity"""
-    if not service.delete_activity(
-        activity_id, current_user.id
-    ):
-        raise HTTPException(
-            status_code=404,
-            detail="Activity not found",
-        )
-    return {"message": "Activity deleted successfully"}
+    service.delete_activity(activity_id, current_user.id)
+    return MessageResponse(
+        message="Activity deleted successfully"
+    )
