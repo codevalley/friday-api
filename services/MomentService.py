@@ -1,7 +1,7 @@
 from typing import Optional, List, Dict, cast
 from fastapi import HTTPException, Depends
 from sqlalchemy.orm import Session
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from pydantic import ValidationError
 
 from schemas.base.moment_schema import MomentData
@@ -58,6 +58,63 @@ class MomentService:
                 detail="Page size must be between 1 and 100",
             )
 
+    def _validate_timestamp(
+        self, timestamp: datetime
+    ) -> None:
+        """Validate moment timestamp
+
+        Args:
+            timestamp: Moment timestamp to validate
+
+        Raises:
+            HTTPException: If timestamp is invalid
+        """
+        # Convert naive datetime to UTC if needed
+        if timestamp.tzinfo is None:
+            timestamp = timestamp.replace(
+                tzinfo=timezone.utc
+            )
+
+        now = datetime.now(timezone.utc)
+        max_future = now + timedelta(
+            days=1
+        )  # Allow up to 1 day in future
+        min_past = now - timedelta(
+            days=365 * 10
+        )  # Allow up to 10 years in past
+
+        if timestamp > max_future:
+            raise HTTPException(
+                status_code=400,
+                detail="Timestamp cannot be more than 1 day in the future",
+            )
+        if timestamp < min_past:
+            raise HTTPException(
+                status_code=400,
+                detail="Timestamp cannot be more than 10 years in the past",
+            )
+
+    def _validate_activity_ownership(
+        self, activity_id: int, user_id: str
+    ) -> None:
+        """Validate that activity belongs to user
+
+        Args:
+            activity_id: ID of activity to validate
+            user_id: ID of user to check ownership against
+
+        Raises:
+            HTTPException: If activity doesn't exist or doesn't belong to user
+        """
+        activity = self.activity_repository.get_by_user(
+            activity_id, user_id
+        )
+        if not activity:
+            raise HTTPException(
+                status_code=404,
+                detail="Activity not found or does not belong to user",
+            )
+
     def create_moment(
         self,
         moment_data: MomentCreate | MomentData,
@@ -82,6 +139,22 @@ class MomentService:
                 if isinstance(moment_data, MomentData)
                 else moment_data.to_domain()
             )
+
+            # Ensure timestamp has timezone info
+            if domain_data.timestamp.tzinfo is None:
+                domain_data.timestamp = (
+                    domain_data.timestamp.replace(
+                        tzinfo=timezone.utc
+                    )
+                )
+
+            # Validate activity ownership
+            self._validate_activity_ownership(
+                domain_data.activity_id, user_id
+            )
+
+            # Validate timestamp
+            self._validate_timestamp(domain_data.timestamp)
 
             # Get activity and validate data against its schema
             activity = (

@@ -1,5 +1,7 @@
 import strawberry
 from typing import List, Optional, Dict, Any
+
+from models.ActivityModel import Activity as ActivityModel
 from schemas.base.activity_schema import ActivityData
 from utils.json_utils import ensure_dict
 from .Moment import Moment
@@ -7,7 +9,11 @@ from .Moment import Moment
 
 @strawberry.type
 class Activity:
-    """Activity type for GraphQL queries"""
+    """Activity type for GraphQL queries.
+
+    Represents an activity that can be logged with moments.
+    Each activity has its own schema for validating moment data.
+    """
 
     @strawberry.field(
         description="Unique identifier for the activity"
@@ -66,6 +72,18 @@ class Activity:
         momentCount: int = 0,
         moments: Optional[List[Moment]] = None,
     ):
+        """Initialize Activity type.
+
+        Args:
+            id: Unique identifier
+            name: Display name
+            description: Detailed description
+            activitySchema: JSON Schema for moment data
+            icon: Display icon (emoji)
+            color: Display color (hex code)
+            momentCount: Number of moments using this activity
+            moments: List of moments using this activity
+        """
         self._id = id
         self._name = name
         self._description = description
@@ -79,7 +97,14 @@ class Activity:
     def from_domain(
         cls, activity: ActivityData
     ) -> "Activity":
-        """Create from domain model"""
+        """Create from domain model.
+
+        Args:
+            activity: Domain model instance to convert
+
+        Returns:
+            Activity: GraphQL type instance
+        """
         activity_dict = activity.to_json_dict(graphql=True)
         return cls(
             id=activity_dict["id"],
@@ -93,8 +118,17 @@ class Activity:
         )
 
     @classmethod
-    def from_db(cls, db_activity: Any) -> "Activity":
-        """Create from database model"""
+    def from_db(
+        cls, db_activity: ActivityModel
+    ) -> "Activity":
+        """Create from database model.
+
+        Args:
+            db_activity: SQLAlchemy model instance
+
+        Returns:
+            Activity: GraphQL type instance
+        """
         return cls.from_domain(
             ActivityData.from_dict(
                 {
@@ -114,7 +148,10 @@ class Activity:
 
 @strawberry.input
 class ActivityInput:
-    """Input type for creating a new activity"""
+    """Input type for creating a new activity.
+
+    Defines the structure for activity creation mutations.
+    """
 
     name: str = strawberry.field(
         description="Name of the activity (1-255 characters)"
@@ -133,7 +170,11 @@ class ActivityInput:
     )
 
     def to_dict(self) -> Dict[str, Any]:
-        """Convert to dictionary for Pydantic model creation"""
+        """Convert to dictionary for Pydantic model creation.
+
+        Returns:
+            Dict[str, Any]: Dictionary representation
+        """
         return {
             "name": self.name,
             "description": self.description,
@@ -145,13 +186,20 @@ class ActivityInput:
         }
 
     def to_domain(self) -> ActivityData:
-        """Convert to domain model"""
+        """Convert to domain model.
+
+        Returns:
+            ActivityData: Domain model instance
+        """
         return ActivityData.from_dict(self.to_dict())
 
 
 @strawberry.input
 class ActivityUpdateInput:
-    """Input type for updating an activity"""
+    """Input type for updating an activity.
+
+    All fields are optional since this is used for partial updates.
+    """
 
     name: Optional[str] = strawberry.field(
         default=None,
@@ -175,7 +223,11 @@ class ActivityUpdateInput:
     )
 
     def to_dict(self) -> Dict[str, Any]:
-        """Convert to dictionary for Pydantic model creation"""
+        """Convert to dictionary for Pydantic model creation.
+
+        Returns:
+            Dict[str, Any]: Dictionary with only set fields
+        """
         update_dict: Dict[str, Any] = {}
         if self.name is not None:
             update_dict["name"] = self.name
@@ -194,7 +246,14 @@ class ActivityUpdateInput:
     def to_domain(
         self, existing: ActivityData
     ) -> ActivityData:
-        """Convert to domain model, preserving existing data"""
+        """Convert to domain model, preserving existing data.
+
+        Args:
+            existing: Existing activity data to update
+
+        Returns:
+            ActivityData: Updated domain model instance
+        """
         existing_dict = existing.to_dict()
         existing_dict.update(self.to_dict())
         return ActivityData.from_dict(existing_dict)
@@ -202,7 +261,10 @@ class ActivityUpdateInput:
 
 @strawberry.type
 class ActivityConnection:
-    """Type for paginated activity lists"""
+    """Type for paginated activity lists.
+
+    Implements cursor-based pagination for activities.
+    """
 
     @strawberry.field(description="List of activities")
     def items(self) -> List[Activity]:
@@ -233,6 +295,14 @@ class ActivityConnection:
         page: int = 1,
         size: int = 50,
     ):
+        """Initialize ActivityConnection.
+
+        Args:
+            items: List of activities for current page
+            total: Total number of activities
+            page: Current page number (1-based)
+            size: Number of items per page
+        """
         self._items = items
         self._total = total
         self._page = page
@@ -240,9 +310,16 @@ class ActivityConnection:
 
     @classmethod
     def from_pydantic(
-        cls, activity_list: Any
+        cls, activity_list: ActivityData
     ) -> "ActivityConnection":
-        """Convert pydantic ActivityList to GraphQL ActivityConnection"""
+        """Convert pydantic ActivityList to GraphQL ActivityConnection.
+
+        Args:
+            activity_list: Pydantic model instance
+
+        Returns:
+            ActivityConnection: GraphQL type instance
+        """
         return cls(
             items=[
                 Activity.from_db(item)

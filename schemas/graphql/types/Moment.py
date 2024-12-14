@@ -1,12 +1,20 @@
 import strawberry
-from typing import Optional, Any, List
+from typing import Optional, Dict, Any, List
 from datetime import datetime
+
+from models.MomentModel import Moment as MomentModel
 from schemas.base.moment_schema import MomentData
+from utils.json_utils import ensure_dict
 
 
 @strawberry.type
 class Moment:
-    """Type for moment data in GraphQL"""
+    """Type for moment data in GraphQL.
+
+    Represents a single moment or event in a person's life.
+    Each moment is associated with an activity type and contains
+    data specific to that activity.
+    """
 
     @strawberry.field(
         description="Unique identifier for the moment"
@@ -46,6 +54,15 @@ class Moment:
         timestamp: datetime,
         userId: Optional[str] = None,
     ):
+        """Initialize Moment type.
+
+        Args:
+            id: Unique identifier
+            activityId: ID of the associated activity
+            data: JSON string containing moment data
+            timestamp: When the moment occurred
+            userId: ID of the user who created the moment
+        """
         self._id = id
         self._activity_id = activityId
         self._data = data
@@ -54,7 +71,14 @@ class Moment:
 
     @classmethod
     def from_domain(cls, moment: MomentData) -> "Moment":
-        """Create from domain model"""
+        """Create from domain model.
+
+        Args:
+            moment: Domain model instance to convert
+
+        Returns:
+            Moment: GraphQL type instance
+        """
         moment_dict = moment.to_json_dict(graphql=True)
         return cls(
             id=moment_dict["id"],
@@ -65,8 +89,15 @@ class Moment:
         )
 
     @classmethod
-    def from_db(cls, db_moment: Any) -> "Moment":
-        """Create from database model"""
+    def from_db(cls, db_moment: MomentModel) -> "Moment":
+        """Create from database model.
+
+        Args:
+            db_moment: SQLAlchemy model instance
+
+        Returns:
+            Moment: GraphQL type instance
+        """
         return cls.from_domain(
             MomentData.from_dict(
                 {
@@ -82,7 +113,10 @@ class Moment:
 
 @strawberry.type
 class MomentConnection:
-    """Type for paginated moment lists"""
+    """Type for paginated moment lists.
+
+    Implements cursor-based pagination for moments.
+    """
 
     @strawberry.field(description="List of moments")
     def items(self) -> List[Moment]:
@@ -113,6 +147,14 @@ class MomentConnection:
         page: int = 1,
         size: int = 50,
     ):
+        """Initialize MomentConnection.
+
+        Args:
+            items: List of moments for current page
+            total: Total number of moments
+            page: Current page number (1-based)
+            size: Number of items per page
+        """
         self._items = items
         self._total = total
         self._page = page
@@ -121,9 +163,16 @@ class MomentConnection:
 
     @classmethod
     def from_pydantic(
-        cls, moment_list: Any
+        cls, moment_list: MomentData
     ) -> "MomentConnection":
-        """Create from pydantic MomentList"""
+        """Convert pydantic MomentList to GraphQL MomentConnection.
+
+        Args:
+            moment_list: Pydantic model instance
+
+        Returns:
+            MomentConnection: GraphQL type instance
+        """
         return cls(
             items=[
                 Moment.from_db(moment)
@@ -137,7 +186,12 @@ class MomentConnection:
 
 @strawberry.input
 class MomentInput:
-    """Input type for creating a new moment"""
+    """Input type for creating a new moment.
+
+    Defines the structure for moment creation mutations.
+    The data field should contain JSON that matches the
+    associated activity's schema.
+    """
 
     activityId: int = strawberry.field(
         description="ID of the activity this moment belongs to"
@@ -150,12 +204,22 @@ class MomentInput:
         description="UTC timestamp for the moment",
     )
 
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert to dictionary for domain model creation.
+
+        Returns:
+            Dict[str, Any]: Dictionary representation
+        """
+        return {
+            "activity_id": self.activityId,
+            "data": ensure_dict(self.data),
+            "timestamp": self.timestamp,
+        }
+
     def to_domain(self) -> MomentData:
-        """Convert to domain model"""
-        return MomentData.from_dict(
-            {
-                "activity_id": self.activityId,
-                "data": self.data,  # Will be converted to dict by MomentData
-                "timestamp": self.timestamp,
-            }
-        )
+        """Convert to domain model.
+
+        Returns:
+            MomentData: Domain model instance
+        """
+        return MomentData.from_dict(self.to_dict())

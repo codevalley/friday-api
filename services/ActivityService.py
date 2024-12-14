@@ -1,7 +1,11 @@
 from typing import List, Optional
 from fastapi import HTTPException, Depends
 from sqlalchemy.orm import Session
-from jsonschema import ValidationError
+from jsonschema import (
+    ValidationError,
+    validate as validate_schema,
+)
+import re
 
 from configs.Database import get_db_connection
 from repositories.ActivityRepository import (
@@ -31,6 +35,77 @@ class ActivityService:
         self.activity_repository = ActivityRepository(db)
         self.moment_repository = MomentRepository(db)
 
+    def _validate_pagination(
+        self, page: int, size: int
+    ) -> None:
+        """Validate pagination parameters
+
+        Args:
+            page: Page number (1-based)
+            size: Items per page
+
+        Raises:
+            HTTPException: If parameters are invalid
+        """
+        if page < 1:
+            raise HTTPException(
+                status_code=400,
+                detail="Page number must be positive",
+            )
+        if size < 1 or size > 100:
+            raise HTTPException(
+                status_code=400,
+                detail="Page size must be between 1 and 100",
+            )
+
+    def _validate_color(self, color: str) -> None:
+        """Validate hex color code format
+
+        Args:
+            color: Color code to validate
+
+        Raises:
+            HTTPException: If color format is invalid
+        """
+        if not re.match("^#[0-9A-Fa-f]{6}$", color):
+            raise HTTPException(
+                status_code=400,
+                detail="Color must be a valid hex code (e.g. #FF0000)",
+            )
+
+    def _validate_activity_schema(
+        self, schema: dict
+    ) -> None:
+        """Validate activity schema format
+
+        Args:
+            schema: JSON schema to validate
+
+        Raises:
+            HTTPException: If schema is invalid
+        """
+        try:
+            # Basic JSON Schema validation
+            meta_schema = {
+                "type": "object",
+                "required": ["type", "properties"],
+                "properties": {
+                    "type": {
+                        "type": "string",
+                        "enum": ["object"],
+                    },
+                    "properties": {"type": "object"},
+                },
+            }
+            validate_schema(
+                instance=schema, schema=meta_schema
+            )
+        except ValidationError as e:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid activity schema format: {str(e)}",
+            )
+
     def create_activity(
         self, activity_data: ActivityCreate, user_id: str
     ) -> ActivityResponse:
@@ -52,6 +127,14 @@ class ActivityService:
             domain_data.user_id = str(
                 user_id
             )  # Ensure user_id is string
+
+            # Validate color format
+            self._validate_color(domain_data.color)
+
+            # Validate activity schema
+            self._validate_activity_schema(
+                domain_data.activity_schema
+            )
 
             # Create activity
             activity = self.activity_repository.create(
@@ -104,6 +187,9 @@ class ActivityService:
         Returns:
             List of activities with pagination metadata
         """
+        # Validate pagination parameters
+        self._validate_pagination(page, size)
+
         # Convert page/size to skip/limit for repository
         skip = (page - 1) * size
         limit = size

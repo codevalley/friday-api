@@ -20,13 +20,71 @@ class UserService:
         self.user_repository = UserRepository(db)
 
     def _validate_username(self, username: str) -> None:
-        """Validate username format"""
-        if not re.match("^[a-zA-Z0-9_-]{3,50}$", username):
+        """Validate username format with comprehensive rules
+
+        Args:
+            username: Username to validate
+
+        Raises:
+            HTTPException: If username format is invalid
+        """
+        # Basic length check
+        if not 3 <= len(username) <= 50:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=(
-                    "Username must be 3-50 characters long and contain only "
+                    "Username must be between 3 and 50 characters long"
+                ),
+            )
+
+        # Check for valid characters
+        if not re.match(
+            "^[a-zA-Z][a-zA-Z0-9_-]*$", username
+        ):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=(
+                    "Username must start with a letter and contain only "
                     "letters, numbers, underscores, and hyphens"
+                ),
+            )
+
+        # Check for consecutive special characters
+        if re.search(r"[_-]{2,}", username):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=(
+                    "Username cannot contain consecutive special characters"
+                ),
+            )
+
+        # Check for reserved words
+        reserved_words = {
+            "admin",
+            "root",
+            "system",
+            "anonymous",
+            "user",
+            "moderator",
+            "support",
+            "help",
+            "info",
+            "test",
+        }
+        if username.lower() in reserved_words:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="This username is reserved and cannot be used",
+            )
+
+        # Check for common patterns that might indicate spam/abuse
+        if re.search(
+            r"\d{4,}", username
+        ):  # 4+ consecutive numbers
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=(
+                    "Username cannot contain more than 3 consecutive numbers"
                 ),
             )
 
