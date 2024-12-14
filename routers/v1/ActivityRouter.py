@@ -1,13 +1,14 @@
-from typing import List
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.orm import Session
 
-from configs.Database import get_db_connection
 from services.ActivityService import ActivityService
 from schemas.pydantic.ActivitySchema import (
     ActivityCreate,
     ActivityUpdate,
     ActivityResponse,
+    ActivityList,
+)
+from schemas.pydantic.PaginationSchema import (
+    PaginationParams,
 )
 from dependencies import get_current_user
 from models.UserModel import User
@@ -34,18 +35,17 @@ async def create_activity(
         raise HTTPException(status_code=400, detail=str(e))
 
 
-@router.get("", response_model=List[ActivityResponse])
+@router.get("", response_model=ActivityList)
 async def list_activities(
-    skip: int = 0,
-    limit: int = 100,
+    pagination: PaginationParams = Depends(),
     service: ActivityService = Depends(),
     current_user: User = Depends(get_current_user),
 ):
     """List all activities with pagination"""
     return service.list_activities(
         user_id=current_user.id,
-        skip=skip,
-        limit=limit,
+        page=pagination.page,
+        size=pagination.size,
     )
 
 

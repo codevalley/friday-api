@@ -16,6 +16,8 @@ mysqlclient = "*"
 python-jose = {extras = ["cryptography"], version = "*"}
 passlib = {extras = ["bcrypt"], version = "*"}
 black = "*"
+types-jsonschema = "*"
+types-sqlalchemy = "*"
 
 [dev-packages]
 pre-commit = ">=2.18.1"

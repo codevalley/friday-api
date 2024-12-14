@@ -7,7 +7,7 @@ from datetime import datetime
 from schemas.base.moment_schema import MomentData
 from schemas.graphql.types.Moment import Moment
 from repositories.MomentRepository import MomentRepository
-from schemas.graphql.Activity import Activity
+from schemas.graphql.types.Activity import Activity
 
 from configs.Database import get_db_connection
 from repositories.ActivityRepository import (

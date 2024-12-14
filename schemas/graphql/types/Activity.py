@@ -2,9 +2,7 @@ import strawberry
 from typing import List, Optional, Dict, Any
 from schemas.base.activity_schema import ActivityData
 from utils.json_utils import ensure_dict
-from .types.Moment import (
-    Moment,
-)  # Import at the top instead of bottom
+from .Moment import Moment
 
 
 @strawberry.type
@@ -134,19 +132,21 @@ class ActivityInput:
         description="Color code in hex format (e.g., #4A90E2)"
     )
 
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert to dictionary for Pydantic model creation"""
+        return {
+            "name": self.name,
+            "description": self.description,
+            "activity_schema": ensure_dict(
+                self.activitySchema
+            ),
+            "icon": self.icon,
+            "color": self.color,
+        }
+
     def to_domain(self) -> ActivityData:
         """Convert to domain model"""
-        return ActivityData.from_dict(
-            {
-                "name": self.name,
-                "description": self.description,
-                "activity_schema": ensure_dict(
-                    self.activitySchema
-                ),
-                "icon": self.icon,
-                "color": self.color,
-            }
-        )
+        return ActivityData.from_dict(self.to_dict())
 
 
 @strawberry.input
@@ -174,10 +174,8 @@ class ActivityUpdateInput:
         description="Color code in hex format (e.g., #4A90E2)",
     )
 
-    def to_domain(
-        self, existing: ActivityData
-    ) -> ActivityData:
-        """Convert to domain model, preserving existing data"""
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert to dictionary for Pydantic model creation"""
         update_dict: Dict[str, Any] = {}
         if self.name is not None:
             update_dict["name"] = self.name
@@ -191,9 +189,14 @@ class ActivityUpdateInput:
             update_dict["icon"] = self.icon
         if self.color is not None:
             update_dict["color"] = self.color
+        return update_dict
 
+    def to_domain(
+        self, existing: ActivityData
+    ) -> ActivityData:
+        """Convert to domain model, preserving existing data"""
         existing_dict = existing.to_dict()
-        existing_dict.update(update_dict)
+        existing_dict.update(self.to_dict())
         return ActivityData.from_dict(existing_dict)
 
 
@@ -209,27 +212,31 @@ class ActivityConnection:
     def total(self) -> int:
         return self._total
 
-    @strawberry.field(description="Number of items skipped")
-    def skip(self) -> int:
-        return self._skip
+    @strawberry.field(description="Current page number")
+    def page(self) -> int:
+        return self._page
 
     @strawberry.field(
-        description="Maximum number of items returned (max 100)"
+        description="Number of items per page"
     )
-    def limit(self) -> int:
-        return self._limit
+    def size(self) -> int:
+        return self._size
+
+    @strawberry.field(description="Total number of pages")
+    def pages(self) -> int:
+        return (self._total + self._size - 1) // self._size
 
     def __init__(
         self,
         items: List[Activity],
         total: int,
-        skip: int = 0,
-        limit: int = 50,
+        page: int = 1,
+        size: int = 50,
     ):
         self._items = items
         self._total = total
-        self._skip = skip
-        self._limit = limit
+        self._page = page
+        self._size = size
 
     @classmethod
     def from_pydantic(
@@ -242,6 +249,6 @@ class ActivityConnection:
                 for item in activity_list.items
             ],
             total=activity_list.total,
-            skip=activity_list.skip,
-            limit=activity_list.limit,
+            page=activity_list.page,
+            size=activity_list.size,
         )

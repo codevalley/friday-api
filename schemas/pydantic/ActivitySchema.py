@@ -111,15 +111,28 @@ class ActivityList(BaseModel):
 
     items: List[ActivityResponse]
     total: int
-    skip: int = Field(
-        ge=0,
-        description="Number of items to skip (for offset-based pagination)",
+    page: int = Field(
+        ge=1,
+        description="Current page number (1-based)",
     )
-    limit: int = Field(
+    size: int = Field(
         ge=1,
         le=100,
-        description="Maximum number of items to return (max 100)",
+        description="Number of items per page (max 100)",
     )
+    pages: int = Field(
+        description="Total number of pages",
+    )
+
+    @validator("pages", pre=True)
+    @classmethod
+    def calculate_pages(cls, v: int, values: dict) -> int:
+        """Calculate total pages based on total items and page size"""
+        if "total" in values and "size" in values:
+            return (
+                values["total"] + values["size"] - 1
+            ) // values["size"]
+        return v
 
     class Config:
         from_attributes = True

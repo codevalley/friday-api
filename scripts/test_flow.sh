@@ -229,7 +229,7 @@ done
 
 # 7. List activities for user2 (should only see their own)
 echo -e "\n${BLUE}7. Listing activities for user2...${NC}"
-ACTIVITIES_RESPONSE=$(curl -s -X GET "$BASE_URL/activities?skip=0&limit=100" \
+ACTIVITIES_RESPONSE=$(curl -s -X GET "$BASE_URL/activities?page=1&size=100" \
     -H "Authorization: Bearer $TOKEN2")
 echo "Activities Response: $ACTIVITIES_RESPONSE"
 check_api_response "$ACTIVITIES_RESPONSE" "Listing activities"
