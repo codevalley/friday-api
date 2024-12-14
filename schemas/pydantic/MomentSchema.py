@@ -1,8 +1,9 @@
 from typing import Dict, Optional, List
 from datetime import datetime
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, validator
 from schemas.base.moment_schema import MomentData
 from .ActivitySchema import ActivityResponse
+from .PaginationSchema import PaginationParams
 
 
 class MomentBase(BaseModel):
@@ -21,7 +22,7 @@ class MomentBase(BaseModel):
         """Convert to domain model"""
         return MomentData.from_dict(self.model_dump())
 
-    @field_validator("timestamp")
+    @validator("timestamp")
     @classmethod
     def default_timestamp(
         cls, v: Optional[datetime]
@@ -80,21 +81,26 @@ class MomentList(BaseModel):
 
     items: List[MomentResponse]
     total: int
-    page: int
-    size: int
+    page: int = Field(
+        ge=1, description="Current page number (1-based)"
+    )
+    size: int = Field(
+        ge=1,
+        le=100,
+        description="Number of items per page (max 100)",
+    )
     pages: int = Field(
         0, description="Total number of pages"
     )
 
-    @field_validator("pages", mode="before")
+    @validator("pages", pre=True)
     @classmethod
-    def calculate_pages(cls, v: int, info) -> int:
+    def calculate_pages(cls, v: int, values: dict) -> int:
         """Calculate total pages based on total items and page size"""
-        data = info.data
-        if "total" in data and "size" in data:
+        if "total" in values and "size" in values:
             return (
-                data["total"] + data["size"] - 1
-            ) // data["size"]
+                values["total"] + values["size"] - 1
+            ) // values["size"]
         return v
 
     class Config:

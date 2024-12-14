@@ -155,5 +155,33 @@ class ActivityUpdateInput:
         return ActivityData.from_dict(existing_dict)
 
 
+@strawberry.type
+class ActivityConnection:
+    """Type for paginated activity lists"""
+
+    items: List[Activity]
+    total: int
+    skip: int = strawberry.field(
+        default=0, description="Number of items skipped"
+    )
+    limit: int = strawberry.field(
+        default=50,
+        description="Maximum number of items returned (max 100)",
+    )
+
+    @classmethod
+    def from_pydantic(cls, activity_list):
+        """Convert pydantic ActivityList to GraphQL ActivityConnection"""
+        return cls(
+            items=[
+                Activity.from_db(item)
+                for item in activity_list.items
+            ],
+            total=activity_list.total,
+            skip=activity_list.skip,
+            limit=activity_list.limit,
+        )
+
+
 # Import at the bottom to avoid circular imports
 from .Moment import Moment  # noqa

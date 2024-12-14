@@ -1,7 +1,8 @@
 from typing import Dict, Optional, List
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, validator
 import re
 from schemas.base.activity_schema import ActivityData
+from .PaginationSchema import PaginationParams
 
 
 class ActivityBase(BaseModel):
@@ -22,7 +23,7 @@ class ActivityBase(BaseModel):
         """Convert to domain model"""
         return ActivityData.from_dict(self.model_dump())
 
-    @field_validator("color")
+    @validator("color")
     @classmethod
     def validate_color(cls, v: str) -> str:
         """Validate that color is a valid hex color code"""
@@ -68,7 +69,7 @@ class ActivityUpdate(BaseModel):
         existing_dict.update(update_dict)
         return ActivityData.from_dict(existing_dict)
 
-    @field_validator("color")
+    @validator("color")
     @classmethod
     def validate_color(
         cls, v: Optional[str]
@@ -111,8 +112,15 @@ class ActivityList(BaseModel):
 
     items: List[ActivityResponse]
     total: int
-    skip: int
-    limit: int
+    skip: int = Field(
+        ge=0,
+        description="Number of items to skip (for offset-based pagination)",
+    )
+    limit: int = Field(
+        ge=1,
+        le=100,
+        description="Maximum number of items to return (max 100)",
+    )
 
     class Config:
         from_attributes = True
