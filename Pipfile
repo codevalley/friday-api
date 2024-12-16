@@ -19,6 +19,7 @@ types-jsonschema = "*"
 types-sqlalchemy = "*"
 pytest = "*"
 aiosqlite = "*"
+pymysql = "*"
 
 [dev-packages]
 pre-commit = ">=2.18.1"

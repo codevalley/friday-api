@@ -12,9 +12,9 @@ from fastapi import HTTPException
 
 
 @pytest.fixture
-def base_repository(db_session):
+def base_repository(test_db_session):
     """Create a BaseRepository instance for testing"""
-    return BaseRepository(db=db_session, model=TestModel)
+    return BaseRepository(db=test_db_session, model=TestModel)
 
 
 @pytest.fixture

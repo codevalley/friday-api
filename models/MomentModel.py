@@ -96,6 +96,30 @@ class Moment(EntityMeta):
         ),
     )
 
+    def __init__(self, **kwargs):
+        """Initialize a moment with validation.
+
+        Args:
+            **kwargs: Moment attributes
+
+        Raises:
+            ValueError: If any validation fails
+        """
+        # Validate required fields before initialization
+        if not kwargs.get('user_id'):
+            raise ValueError("user_id is required")
+        if not kwargs.get('activity_id'):
+            raise ValueError("activity_id is required")
+        if not kwargs.get('data'):
+            raise ValueError("data is required")
+
+        # Validate data against activity schema
+        data = kwargs.get('data')
+        if not isinstance(data, dict):
+            raise ValueError("moment data must be a valid JSON object")
+
+        super().__init__(**kwargs)
+
     def __repr__(self) -> str:
         """String representation of the moment.
 

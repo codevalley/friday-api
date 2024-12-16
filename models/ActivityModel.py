@@ -10,6 +10,7 @@ from sqlalchemy import (
     event,
     text,
     CheckConstraint,
+    UniqueConstraint,
 )
 from sqlalchemy.orm import (
     relationship,
@@ -133,6 +134,10 @@ class Activity(EntityMeta):
         CheckConstraint(
             "color IS NOT NULL AND color != ''",
             name="check_color_not_empty",
+        ),
+        UniqueConstraint(
+            "name", "user_id",
+            name="unique_name_per_user",
         ),
     )
 

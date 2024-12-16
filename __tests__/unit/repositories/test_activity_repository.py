@@ -11,22 +11,22 @@ from repositories.ActivityRepository import ActivityRepository
 
 
 @pytest.fixture
-def activity_repository(db_session):
+def activity_repository(test_db_session):
     """Create ActivityRepository instance with test database"""
-    return ActivityRepository(db_session)
+    return ActivityRepository(test_db_session)
 
 
 @pytest.fixture
-def test_user(db_session):
+def test_user(test_db_session):
     """Create a test user for activity tests"""
     user = User(
         username="testuser",
         key_id="test-key",
         user_secret="test-secret"
     )
-    db_session.add(user)
-    db_session.commit()
-    db_session.refresh(user)
+    test_db_session.add(user)
+    test_db_session.commit()
+    test_db_session.refresh(user)
     return user
 
 
@@ -147,7 +147,7 @@ def test_get_by_name_wrong_user(activity_repository, sample_activity_data):
     assert retrieved is None
 
 
-def test_list_activities(activity_repository, sample_activity_data, db_session):
+def test_list_activities(activity_repository, sample_activity_data, test_db_session):
     """Test listing activities for a user"""
     # Create test user and other user
     other_user = User(
@@ -155,9 +155,9 @@ def test_list_activities(activity_repository, sample_activity_data, db_session):
         key_id="other-key",
         user_secret="other-secret"
     )
-    db_session.add(other_user)
-    db_session.commit()
-    db_session.refresh(other_user)
+    test_db_session.add(other_user)
+    test_db_session.commit()
+    test_db_session.refresh(other_user)
 
     # Create activities for test user
     for i in range(3):

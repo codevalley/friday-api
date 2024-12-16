@@ -15,20 +15,20 @@ from models.UserModel import User as UserModel
 
 
 @pytest.fixture
-def user_repo(db_session: Session) -> UserRepository:
-    return UserRepository(db_session)
+def user_repo(test_db_session: Session) -> UserRepository:
+    return UserRepository(test_db_session)
 
 
 @pytest.fixture
 def activity_repo(
-    db_session: Session,
+    test_db_session: Session,
 ) -> ActivityRepository:
-    return ActivityRepository(db_session)
+    return ActivityRepository(test_db_session)
 
 
 @pytest.fixture
-def moment_repo(db_session: Session) -> MomentRepository:
-    return MomentRepository(db_session)
+def moment_repo(test_db_session: Session) -> MomentRepository:
+    return MomentRepository(test_db_session)
 
 
 @pytest.fixture

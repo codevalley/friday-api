@@ -8,8 +8,7 @@ from typing import Generator
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
-from sqlalchemy.pool import StaticPool
+from sqlalchemy.orm import declarative_base, sessionmaker
 
 from configs.Database import get_db_connection
 from main import app
@@ -20,14 +19,12 @@ from models.UserModel import User
 from utils.security import hash_user_secret
 
 
-# Create in-memory test database
-TEST_SQLALCHEMY_DATABASE_URL = "sqlite:///:memory:"
+# Use test MySQL database
+TEST_SQLALCHEMY_DATABASE_URL = "mysql+pymysql://root:1234567890@localhost:3306/test_fridaystore"
 
 # Create engine for operations
 engine = create_engine(
     TEST_SQLALCHEMY_DATABASE_URL,
-    connect_args={"check_same_thread": False},
-    poolclass=StaticPool,
     echo=True,  # Enable SQL logging for debugging
 )
 
@@ -74,7 +71,6 @@ def test_client(test_db_session):
 
     Uses the test_db_session fixture to override the get_db dependency.
     """
-
     def override_get_db():
         try:
             yield test_db_session
@@ -101,9 +97,6 @@ def sample_user(test_db_session):
     test_db_session.add(user)
     test_db_session.commit()
     test_db_session.refresh(user)
-    
-    # Add password to user object for test purposes
-    user.password = password  # type: ignore
     return user
 
 
@@ -123,9 +116,6 @@ def another_user(test_db_session):
     test_db_session.add(user)
     test_db_session.commit()
     test_db_session.refresh(user)
-    
-    # Add password to user object for test purposes
-    user.password = password  # type: ignore
     return user
 
 
