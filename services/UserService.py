@@ -148,3 +148,21 @@ class UserService:
                 detail="Invalid API key format",
                 headers={"WWW-Authenticate": "Bearer"},
             )
+
+    def get_user_by_id(self, user_id: str) -> User:
+        """Get a user by their ID"""
+        try:
+            user = self.user_repository.get_by_id(user_id)
+            if not user:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="User not found",
+                )
+            return user
+        except HTTPException as e:
+            raise e
+        except Exception as e:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Error getting user: {str(e)}",
+            )

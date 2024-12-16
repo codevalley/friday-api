@@ -3,15 +3,11 @@
 import asyncio
 import uuid
 from datetime import datetime, timezone
-from typing import AsyncGenerator, Generator
+from typing import Generator
 
 import pytest
-from httpx import AsyncClient
+from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
-from sqlalchemy.ext.asyncio import (
-    AsyncSession,
-    create_async_engine,
-)
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
@@ -21,35 +17,25 @@ from models.ActivityModel import Activity
 from models.BaseModel import Base
 from models.MomentModel import Moment
 from models.UserModel import User
+from utils.security import hash_user_secret
 
 
 # Create in-memory test database
-TEST_SQLALCHEMY_DATABASE_URL = (
-    "sqlite+aiosqlite:///:memory:"
-)
-SYNC_SQLALCHEMY_DATABASE_URL = "sqlite:///:memory:"
+TEST_SQLALCHEMY_DATABASE_URL = "sqlite:///:memory:"
 
-# Create async engine for async operations
-async_engine = create_async_engine(
+# Create engine for operations
+engine = create_engine(
     TEST_SQLALCHEMY_DATABASE_URL,
     connect_args={"check_same_thread": False},
     poolclass=StaticPool,
     echo=True,  # Enable SQL logging for debugging
 )
 
-# Create sync engine for sync operations
-sync_engine = create_engine(
-    SYNC_SQLALCHEMY_DATABASE_URL,
-    connect_args={"check_same_thread": False},
-    poolclass=StaticPool,
-)
-
-# Create async session factory
-AsyncTestingSessionLocal = sessionmaker(
-    class_=AsyncSession,
+# Create session factory
+TestingSessionLocal = sessionmaker(
     autocommit=False,
     autoflush=False,
-    bind=async_engine,
+    bind=engine,
     expire_on_commit=False,  # Prevent expired objects after commit
 )
 
@@ -67,116 +53,105 @@ def event_loop() -> Generator:
 
 
 @pytest.fixture(scope="function")
-async def test_db_session() -> (
-    AsyncGenerator[AsyncSession, None]
-):
+def test_db_session():
     """Create a fresh database session for a test."""
     # Create tables
-    async with async_engine.begin() as conn:
-        await conn.run_sync(Base.metadata.drop_all)
-        await conn.run_sync(Base.metadata.create_all)
+    Base.metadata.drop_all(bind=engine)
+    Base.metadata.create_all(bind=engine)
 
     # Create session
-    session = AsyncTestingSessionLocal()
+    session = TestingSessionLocal()
     try:
         yield session
     finally:
-        await session.rollback()
-        await session.close()
-
-    # Clean up
-    async with async_engine.begin() as conn:
-        await conn.run_sync(Base.metadata.drop_all)
+        session.close()
+        Base.metadata.drop_all(bind=engine)
 
 
 @pytest.fixture(scope="function")
-async def async_client(
-    test_db_session: AsyncSession,
-) -> AsyncClient:
-    """Create a new FastAPI AsyncClient.
+def test_client(test_db_session):
+    """Create a new FastAPI TestClient.
 
     Uses the test_db_session fixture to override the get_db dependency.
     """
 
-    async def override_get_db():
+    def override_get_db():
         try:
             yield test_db_session
         finally:
-            pass
+            test_db_session.close()
 
-    app.dependency_overrides[get_db_connection] = (
-        override_get_db
-    )
-    client = AsyncClient(app=app, base_url="http://test")
-    yield client
-    await client.aclose()
-    app.dependency_overrides.clear()
+    app.dependency_overrides[get_db_connection] = override_get_db
+    return TestClient(app)
 
 
 @pytest.fixture(scope="function")
-async def sample_user(
-    test_db_session: AsyncSession,
-) -> User:
+def sample_user(test_db_session):
     """Create a sample user for testing with a unique username."""
     unique_id = str(uuid.uuid4())[:8]
+    username = f"testuser_{unique_id}"
+    password = "test-password"
+    hashed_password = hash_user_secret(password)
+    
     user = User(
-        username=f"testuser_{unique_id}",
+        username=username,
         key_id=str(uuid.uuid4()),
-        user_secret="test-secret-hash",
+        user_secret=hashed_password,
     )
     test_db_session.add(user)
-    await test_db_session.commit()
-    await test_db_session.refresh(user)
+    test_db_session.commit()
+    test_db_session.refresh(user)
+    
+    # Add password to user object for test purposes
+    user.password = password  # type: ignore
     return user
 
 
 @pytest.fixture(scope="function")
-async def another_user(
-    test_db_session: AsyncSession,
-) -> User:
+def another_user(test_db_session):
     """Create another user for testing user isolation."""
     unique_id = str(uuid.uuid4())[:8]
+    username = f"another_user_{unique_id}"
+    password = "test-password"
+    hashed_password = hash_user_secret(password)
+    
     user = User(
-        username=f"another_user_{unique_id}",
+        username=username,
         key_id=str(uuid.uuid4()),
-        user_secret="another-test-secret-hash",
+        user_secret=hashed_password,
     )
     test_db_session.add(user)
-    await test_db_session.commit()
-    await test_db_session.refresh(user)
+    test_db_session.commit()
+    test_db_session.refresh(user)
+    
+    # Add password to user object for test purposes
+    user.password = password  # type: ignore
     return user
 
 
 @pytest.fixture(scope="function")
-async def sample_activity(
-    test_db_session: AsyncSession,
-    sample_user: User,
-) -> Activity:
+def sample_activity(test_db_session, sample_user):
     """Create a sample activity for testing."""
     activity = Activity(
-        name="test_activity",
-        description="Test activity description",
+        name="Test Activity",
+        description="Test Description",
+        user_id=sample_user.id,
         activity_schema={
             "type": "object",
             "properties": {"notes": {"type": "string"}},
             "required": ["notes"],
         },
         icon="📝",
-        color="#000000",
-        user_id=sample_user.id,
+        color="#FF0000",
     )
     test_db_session.add(activity)
-    await test_db_session.commit()
-    await test_db_session.refresh(activity)
+    test_db_session.commit()
+    test_db_session.refresh(activity)
     return activity
 
 
 @pytest.fixture(scope="function")
-async def sample_moment(
-    test_db_session: AsyncSession,
-    sample_activity: Activity,
-    sample_user: User,
-) -> Moment:
+def sample_moment(test_db_session, sample_activity, sample_user):
     """Create a sample moment for testing."""
     moment = Moment(
         activity_id=sample_activity.id,
@@ -185,6 +160,6 @@ async def sample_moment(
         timestamp=datetime.now(timezone.utc),
     )
     test_db_session.add(moment)
-    await test_db_session.commit()
-    await test_db_session.refresh(moment)
+    test_db_session.commit()
+    test_db_session.refresh(moment)
     return moment

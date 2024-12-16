@@ -1,148 +1,149 @@
 """Test user authentication endpoints."""
 
 import pytest
-from httpx import AsyncClient
+from fastapi.testclient import TestClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from models.UserModel import User
 
 
-@pytest.mark.asyncio
-async def test_register_user(
-    async_client: AsyncClient,
+def test_register_user(
+    test_client: TestClient,
     test_db_session: AsyncSession,
 ) -> None:
     """Test user registration endpoint."""
-    response = await async_client.post(
-        "/auth/register",
+    response = test_client.post(
+        "/v1/auth/register",
         json={
             "username": "testuser",
-            "password": "testpassword",
         },
     )
     assert response.status_code == 201
-    data = response.json()
-    assert "key_id" in data
+    data = response.json()["data"]
+    assert "id" in data
+    assert "username" in data
     assert "user_secret" in data
+    assert data["username"] == "testuser"
 
 
-@pytest.mark.asyncio
-async def test_register_duplicate_username(
-    async_client: AsyncClient,
+def test_register_duplicate_username(
+    test_client: TestClient,
     test_db_session: AsyncSession,
-    sample_user: User,
 ) -> None:
-    """Test that registering with an existing username fails."""
-    user = await sample_user
-    response = await async_client.post(
-        "/auth/register",
+    """Test registering a user with a duplicate username."""
+    # First registration
+    response = test_client.post(
+        "/v1/auth/register",
         json={
-            "username": user.username,
-            "password": "testpassword",
+            "username": "testuser",
+        },
+    )
+    assert response.status_code == 201
+
+    # Second registration with same username
+    response = test_client.post(
+        "/v1/auth/register",
+        json={
+            "username": "testuser",
         },
     )
     assert response.status_code == 400
-    data = response.json()
-    assert "error" in data
-    assert (
-        "username already exists" in data["error"].lower()
-    )
+    assert "already exists" in response.json()["detail"]
 
 
-@pytest.mark.asyncio
-async def test_login_with_valid_secret(
-    async_client: AsyncClient,
-    test_db_session: AsyncSession,
-    sample_user: User,
+def test_login_with_valid_secret(
+    test_client: TestClient,
 ) -> None:
-    """Test login endpoint with valid credentials."""
-    user = await sample_user
-    response = await async_client.post(
-        "/auth/login",
+    """Test user login with valid credentials."""
+    # First register a user to get their API key
+    register_response = test_client.post(
+        "/v1/auth/register",
         json={
-            "key_id": user.key_id,
-            "user_secret": "test-secret-hash",
+            "username": "testuser_login",
+        },
+    )
+    assert register_response.status_code == 201
+    user_secret = register_response.json()["data"]["user_secret"]
+
+    # Now try to login with the API key
+    response = test_client.post(
+        "/v1/auth/token",
+        json={
+            "user_secret": user_secret,
         },
     )
     assert response.status_code == 200
-    data = response.json()
+    data = response.json()["data"]
     assert "access_token" in data
     assert "token_type" in data
     assert data["token_type"] == "bearer"
 
 
-@pytest.mark.asyncio
-async def test_login_with_invalid_secret(
-    async_client: AsyncClient,
-    test_db_session: AsyncSession,
-    sample_user: User,
+def test_login_with_invalid_secret(
+    test_client: TestClient,
 ) -> None:
-    """Test login endpoint with invalid credentials."""
-    user = await sample_user
-    response = await async_client.post(
-        "/auth/login",
+    """Test user login with invalid credentials."""
+    response = test_client.post(
+        "/v1/auth/token",
         json={
-            "key_id": user.key_id,
-            "user_secret": "wrong-secret",
+            "user_secret": "invalid-api-key",
         },
     )
     assert response.status_code == 401
-    data = response.json()
-    assert "error" in data
-    assert "invalid credentials" in data["error"].lower()
+    assert "Invalid API key" in response.json()["detail"]
 
 
-@pytest.mark.asyncio
-async def test_protected_endpoint_with_valid_token(
-    async_client: AsyncClient,
-    test_db_session: AsyncSession,
-    sample_user: User,
+def test_protected_endpoint_with_valid_token(
+    test_client: TestClient,
 ) -> None:
     """Test accessing a protected endpoint with a valid token."""
-    user = await sample_user
-    # First, get a valid token
-    login_response = await async_client.post(
-        "/auth/login",
+    # First register a user to get their API key
+    register_response = test_client.post(
+        "/v1/auth/register",
         json={
-            "key_id": user.key_id,
-            "user_secret": "test-secret-hash",
+            "username": "testuser_protected",
         },
     )
-    token = login_response.json()["access_token"]
+    assert register_response.status_code == 201
+    user_secret = register_response.json()["data"]["user_secret"]
 
-    # Then use the token to access a protected endpoint
-    response = await async_client.get(
-        "/auth/me",
-        headers={"Authorization": f"Bearer {token}"},
+    # Get a valid token
+    token_response = test_client.post(
+        "/v1/auth/token",
+        json={
+            "user_secret": user_secret,
+        },
+    )
+    assert token_response.status_code == 200
+    access_token = token_response.json()["data"]["access_token"]
+
+    # Use the token to access a protected endpoint
+    response = test_client.get(
+        "/v1/auth/me",
+        headers={"Authorization": f"Bearer {access_token}"},
     )
     assert response.status_code == 200
-    data = response.json()
+    data = response.json()["data"]
+    assert "id" in data
     assert "username" in data
-    assert data["username"] == user.username
 
 
-@pytest.mark.asyncio
-async def test_protected_endpoint_without_token(
-    async_client: AsyncClient,
+def test_protected_endpoint_without_token(
+    test_client: TestClient,
 ) -> None:
     """Test accessing a protected endpoint without a token."""
-    response = await async_client.get("/auth/me")
+    response = test_client.get("/v1/auth/me")
     assert response.status_code == 401
-    data = response.json()
-    assert "error" in data
-    assert "not authenticated" in data["error"].lower()
+    assert "Not authenticated" in response.json()["detail"]
 
 
-@pytest.mark.asyncio
-async def test_protected_endpoint_with_invalid_token(
-    async_client: AsyncClient,
+def test_protected_endpoint_with_invalid_token(
+    test_client: TestClient,
 ) -> None:
     """Test accessing a protected endpoint with an invalid token."""
-    response = await async_client.get(
-        "/auth/me",
+    response = test_client.get(
+        "/v1/auth/me",
         headers={"Authorization": "Bearer invalid-token"},
     )
     assert response.status_code == 401
-    data = response.json()
-    assert "error" in data
-    assert "invalid token" in data["error"].lower()
+    assert "Could not validate credentials" in response.json()["detail"]

@@ -11,11 +11,13 @@ from schemas.pydantic.UserSchema import (
     UserRegisterResponse,
     UserLoginRequest,
     Token,
+    UserResponse,
 )
 from schemas.pydantic.CommonSchema import GenericResponse
-from utils.security import create_access_token
+from utils.security import create_access_token, get_current_user
 from utils.error_handlers import handle_exceptions
 from datetime import timedelta
+from typing import Dict
 
 router = APIRouter(prefix="/v1/auth", tags=["auth"])
 
@@ -70,4 +72,27 @@ async def login_for_access_token(
             "token_type": "bearer",
         },
         message="Login successful",
+    )
+
+
+@router.get(
+    "/me",
+    response_model=GenericResponse[UserResponse],
+)
+@handle_exceptions
+async def get_current_user(
+    db: Session = Depends(get_db_connection),
+    current_user: Dict = Depends(get_current_user),
+):
+    """Get current user information"""
+    service = UserService(db)
+    user = service.get_user_by_id(current_user["user_id"])
+    return GenericResponse(
+        data={
+            "id": user.id,
+            "username": user.username,
+            "created_at": user.created_at,
+            "updated_at": user.updated_at,
+        },
+        message="Current user retrieved successfully",
     )
