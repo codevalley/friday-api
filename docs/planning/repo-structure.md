@@ -15,6 +15,7 @@ models/
   UserModel.py
 repositories/
   ActivityRepository.py
+  BaseRepository.py
   MomentRepository.py
   RepositoryMeta.py
   UserRepository.py
@@ -41,6 +42,7 @@ schemas/
     Query.py
   pydantic/
     ActivitySchema.py
+    CommonSchema.py
     MomentSchema.py
     PaginationSchema.py
     UserSchema.py
@@ -49,6 +51,7 @@ services/
   MomentService.py
   UserService.py
 utils/
+  error_handlers.py
   json_utils.py
   security.py
 dependencies.py

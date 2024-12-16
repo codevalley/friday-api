@@ -11,7 +11,8 @@ from sqlalchemy.orm import relationship, Mapped
 from datetime import datetime, timezone
 from jsonschema import validate as validate_json_schema
 import json
-from typing import Any, Dict, cast, TYPE_CHECKING
+from typing import Any, Dict, cast, TYPE_CHECKING, Optional
+from sqlalchemy.orm import Session
 
 from models.BaseModel import EntityMeta
 
@@ -122,8 +123,12 @@ class Moment(EntityMeta):
             return data
         return cast(Dict[str, Any], data)
 
-    def validate_data(self) -> bool:
+    def validate_data(self, db: Optional[Session] = None) -> bool:
         """Validate that the moment data matches the activity's schema.
+
+        Args:
+            db: Optional SQLAlchemy session to use. If not provided,
+               will attempt to use the session from the instance state.
 
         Returns:
             True if data is valid
@@ -137,22 +142,28 @@ class Moment(EntityMeta):
                 "moment data must be a valid JSON object"
             )
 
-        if (
-            not self.activity
-            or not self.activity.activity_schema
-        ):
-            raise ValueError(
-                "moment must be linked to an activity with a valid schema"
-            )
+        # Load activity if not loaded
+        from repositories.ActivityRepository import ActivityRepository
+        from sqlalchemy.orm import Session
+
+        if not self.activity:
+            # Get activity from repository
+            session = db if db is not None else self._sa_instance_state.session
+            activity_repo = ActivityRepository(session)
+            activity = activity_repo.get_by_user(self.activity_id, self.user_id)
+            if not activity or not activity.activity_schema:
+                raise ValueError(
+                    "moment must be linked to an activity with a valid schema"
+                )
+        else:
+            activity = self.activity
 
         try:
-            schema = self.activity.activity_schema_dict
-            validate_json_schema(data, schema)
-            return True
+            validate_json_schema(data, activity.activity_schema)
         except Exception as e:
-            raise ValueError(
-                f"Invalid moment data: {str(e)}"
-            )
+            raise ValueError(f"Invalid moment data: {str(e)}")
+
+        return True
 
     def set_data(self, data: Dict[str, Any]) -> None:
         """Set moment data with validation.

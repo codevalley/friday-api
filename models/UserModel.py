@@ -2,12 +2,15 @@ from sqlalchemy import (
     Column,
     String,
     DateTime,
-    CheckConstraint,
+    text,
 )
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship, Mapped
 from uuid import uuid4
-from typing import List, TYPE_CHECKING
+from typing import List, TYPE_CHECKING, Optional
+from sqlalchemy.engine.default import DefaultDialect
+from sqlalchemy.dialects.postgresql.base import PGDialect
+import re
 
 from models.BaseModel import EntityMeta
 
@@ -34,6 +37,10 @@ class User(EntityMeta):
     """
 
     __tablename__ = "users"
+
+    # Validation patterns
+    USERNAME_PATTERN = re.compile(r'^[a-zA-Z0-9_-]+$')
+    MIN_USERNAME_LENGTH = 3
 
     # Primary key
     id: Mapped[str] = Column(
@@ -86,17 +93,35 @@ class User(EntityMeta):
         cascade="all, delete-orphan",
     )
 
-    # Constraints
-    __table_args__ = (
-        CheckConstraint(
-            "length(username) >= 3",
-            name="check_username_min_length",
-        ),
-        CheckConstraint(
-            "username ~ '^[a-zA-Z0-9_-]+$'",
-            name="check_username_format",
-        ),
-    )
+    # Remove database-specific constraints
+    __table_args__ = ()
+
+    def __init__(self, **kwargs):
+        self.validate_username(kwargs.get('username'))
+        super().__init__(**kwargs)
+
+    @classmethod
+    def validate_username(cls, username: Optional[str]) -> None:
+        """Validate the username format.
+
+        Args:
+            username: The username to validate
+
+        Raises:
+            ValueError: If username is invalid
+        """
+        if username is None:
+            raise ValueError("Username cannot be None")
+            
+        if len(username) < cls.MIN_USERNAME_LENGTH:
+            raise ValueError(
+                f"Username must be at least {cls.MIN_USERNAME_LENGTH} characters long"
+            )
+            
+        if not cls.USERNAME_PATTERN.match(username):
+            raise ValueError(
+                "Username can only contain letters, numbers, underscores, and hyphens"
+            )
 
     def __repr__(self) -> str:
         """String representation of the user.
@@ -104,9 +129,8 @@ class User(EntityMeta):
         Returns:
             String representation including id and username
         """
-        return f"<User(id={self.id}, username={self.username})>"
+        return f"<User {self.id} ({self.username})>"
 
-    @property
     def activity_count(self) -> int:
         """Get the number of activities owned by the user.
 
@@ -115,7 +139,6 @@ class User(EntityMeta):
         """
         return len(self.activities)
 
-    @property
     def moment_count(self) -> int:
         """Get the number of moments created by the user.
 

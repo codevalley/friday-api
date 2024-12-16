@@ -93,15 +93,24 @@ class BaseRepository(
 
         Returns:
             Model instance if found and authorized, None otherwise
+
+        Raises:
+            HTTPException: If database error occurs
         """
-        return (
-            self.db.query(self.model)
-            .filter(
-                self.model.id == id,
-                self.model.user_id == user_id,
+        try:
+            return (
+                self.db.query(self.model)
+                .filter(
+                    self.model.id == id,
+                    self.model.user_id == user_id,
+                )
+                .first()
             )
-            .first()
-        )
+        except SQLAlchemyError as e:
+            raise HTTPException(
+                status_code=500,
+                detail=f"Database error: {str(e)}"
+            )
 
     def list(
         self, skip: int = 0, limit: int = 100

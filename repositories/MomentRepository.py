@@ -1,7 +1,7 @@
 from typing import List, Optional, Dict, Any, Union
 from datetime import datetime
 from sqlalchemy.orm import Session, joinedload
-from sqlalchemy import desc
+from sqlalchemy import desc, func
 
 from models.MomentModel import Moment as MomentModel
 from models.ActivityModel import Activity
@@ -47,8 +47,13 @@ class MomentRepository(BaseRepository[MomentModel, int]):
 
         Returns:
             Created Moment instance
+
+        Raises:
+            ValueError: If moment data is invalid
         """
         if isinstance(instance_or_activity_id, MomentModel):
+            # Validate data before saving
+            instance_or_activity_id.validate_data(self.db)
             return super().create(instance_or_activity_id)
 
         # Create new instance from fields
@@ -58,7 +63,25 @@ class MomentRepository(BaseRepository[MomentModel, int]):
             user_id=user_id,
             timestamp=timestamp or datetime.utcnow(),
         )
+        # Validate data before saving
+        moment.validate_data(self.db)
         return super().create(moment)
+
+    def get(self, id: int) -> Optional[MomentModel]:
+        """Get a moment by ID with eagerly loaded activity
+
+        Args:
+            id: ID of the moment to get
+
+        Returns:
+            Moment if found, None otherwise
+        """
+        return (
+            self.db.query(MomentModel)
+            .options(joinedload(MomentModel.activity))
+            .filter(MomentModel.id == id)
+            .first()
+        )
 
     def get_recent_by_user(
         self, user_id: str, limit: int = 5
@@ -92,14 +115,29 @@ class MomentRepository(BaseRepository[MomentModel, int]):
         Returns:
             List of unique activities from recent moments
         """
-        return (
+        # Get the most recent moment for each activity
+        latest_moments = (
+            self.db.query(
+                MomentModel.activity_id,
+                func.max(MomentModel.timestamp).label("latest_timestamp")
+            )
+            .group_by(MomentModel.activity_id)
+            .subquery()
+        )
+
+        # Join with activities and order by latest timestamp
+        activities = (
             self.db.query(Activity)
-            .join(MomentModel)
-            .order_by(desc(MomentModel.timestamp))
-            .distinct()
+            .join(
+                latest_moments,
+                Activity.id == latest_moments.c.activity_id
+            )
+            .order_by(desc(latest_moments.c.latest_timestamp))
             .limit(limit)
             .all()
         )
+
+        return activities
 
     def get_activity_moments_count(
         self, activity_id: int
@@ -151,15 +189,10 @@ class MomentRepository(BaseRepository[MomentModel, int]):
                 joinedload(MomentModel.activity)
             )
 
-        # Always join with Activity for user filtering
-        base_query = base_query.join(
-            Activity, MomentModel.activity_id == Activity.id
-        )
-
         # Apply filters
         if user_id is not None:
             base_query = base_query.filter(
-                Activity.user_id == user_id
+                MomentModel.user_id == user_id
             )
         if activity_id is not None:
             base_query = base_query.filter(
@@ -173,49 +206,22 @@ class MomentRepository(BaseRepository[MomentModel, int]):
             base_query = base_query.filter(
                 MomentModel.timestamp <= end_time
             )
+
+        # Order by timestamp descending
+        base_query = base_query.order_by(desc(MomentModel.timestamp))
 
         # Get total count before pagination
-        count_query = self.db.query(MomentModel.id).join(
-            Activity, MomentModel.activity_id == Activity.id
-        )
-        if user_id is not None:
-            count_query = count_query.filter(
-                Activity.user_id == user_id
-            )
-        if activity_id is not None:
-            count_query = count_query.filter(
-                MomentModel.activity_id == activity_id
-            )
-        if start_time is not None:
-            count_query = count_query.filter(
-                MomentModel.timestamp >= start_time
-            )
-        if end_time is not None:
-            count_query = count_query.filter(
-                MomentModel.timestamp <= end_time
-            )
-        total = count_query.distinct().count()
+        total = base_query.count()
 
-        # Calculate pagination
-        pages = (total + size - 1) // size
-        skip = (page - 1) * size
+        # Apply pagination
+        offset = (page - 1) * size
+        items = base_query.offset(offset).limit(size).all()
 
-        # Get paginated results with ordering
-        moments = (
-            base_query.order_by(desc(MomentModel.timestamp))
-            .offset(skip)
-            .limit(size)
-            .all()
-        )
-
-        # Convert to response type
-        moment_responses = [
-            MomentResponse.from_orm(moment)
-            for moment in moments
-        ]
+        # Calculate total pages
+        pages = (total + size - 1) // size if total > 0 else 0
 
         return MomentList(
-            items=moment_responses,
+            items=items,
             total=total,
             page=page,
             size=size,
@@ -233,8 +239,31 @@ class MomentRepository(BaseRepository[MomentModel, int]):
 
         Returns:
             Updated Moment if found, None otherwise
+
+        Raises:
+            ValueError: If moment data is invalid
         """
-        return self.update(moment_id, data)
+        # Get existing moment
+        moment = self.get(moment_id)
+        if moment is None:
+            return None
+
+        # If updating data field, validate it
+        if "data" in data:
+            # Create a copy of the moment to validate the new data
+            test_moment = MomentModel(
+                user_id=moment.user_id,
+                activity_id=moment.activity_id,
+                data=data["data"]
+            )
+            test_moment.validate_data(self.db)
+
+        # Update fields
+        for key, value in data.items():
+            setattr(moment, key, value)
+
+        self.db.commit()
+        return moment
 
     def delete_moment(self, moment_id: int) -> bool:
         """Delete a moment

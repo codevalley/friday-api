@@ -1,99 +1,214 @@
+"""Test ActivityModel class."""
+
+import uuid
+from datetime import datetime, timezone
+
 import pytest
 from sqlalchemy.exc import IntegrityError
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from models.ActivityModel import Activity
 from models.MomentModel import Moment
+from models.UserModel import User
 
 
-def test_activity_model_initialization(sample_activity):
-    """Test that an activity can be created with valid data"""
-    activity = Activity(**sample_activity)
-
-    assert activity.name == sample_activity["name"]
-    assert (
-        activity.description
-        == sample_activity["description"]
+@pytest.fixture
+async def sample_user(
+    test_db_session: AsyncSession,
+) -> User:
+    """Create a sample user for testing."""
+    user = User(
+        username="testuser",
+        key_id=str(uuid.uuid4()),
+        user_secret="test-secret-hash",
     )
-    assert (
-        activity.activity_schema
-        == sample_activity["activity_schema"]
+    test_db_session.add(user)
+    await test_db_session.commit()
+    await test_db_session.refresh(user)
+    return user
+
+
+@pytest.mark.asyncio
+async def test_activity_model_initialization(
+    sample_user: User,
+) -> None:
+    """Test that an activity can be created with valid data."""
+    user = await sample_user
+    activity = Activity(
+        name="Test Activity",
+        description="Test Description",
+        user_id=user.id,
+        activity_schema={
+            "type": "object",
+            "properties": {"notes": {"type": "string"}},
+        },
+        icon="📝",
+        color="#FF0000",
     )
-    assert activity.icon == sample_activity["icon"]
-    assert activity.color == sample_activity["color"]
-    assert activity.moments == []
+
+    assert activity.name == "Test Activity"
+    assert activity.description == "Test Description"
+    assert activity.user_id == user.id
+    assert activity.activity_schema == {
+        "type": "object",
+        "properties": {"notes": {"type": "string"}},
+    }
+    assert activity.icon == "📝"
+    assert activity.color == "#FF0000"
 
 
-def test_activity_model_db_persistence(
-    db_session, sample_activity
-):
-    """Test that an activity can be persisted to the database"""
-    activity = Activity(**sample_activity)
-    db_session.add(activity)
-    db_session.commit()
-
-    saved_activity = (
-        db_session.query(Activity)
-        .filter_by(name=sample_activity["name"])
-        .first()
+@pytest.mark.asyncio
+async def test_activity_model_db_persistence(
+    test_db_session: AsyncSession,
+    sample_user: User,
+) -> None:
+    """Test that an activity can be persisted to the database."""
+    user = await sample_user
+    activity = Activity(
+        name="Test Activity",
+        description="Test Description",
+        user_id=user.id,
+        activity_schema={
+            "type": "object",
+            "properties": {"notes": {"type": "string"}},
+        },
+        icon="📝",
+        color="#FF0000",
     )
+    test_db_session.add(activity)
+    await test_db_session.commit()
+    await test_db_session.refresh(activity)
+
+    result = await test_db_session.execute(
+        Activity.__table__.select().where(
+            Activity.name == "Test Activity"
+        )
+    )
+    saved_activity = result.scalar_one()
+
     assert saved_activity is not None
-    assert saved_activity.name == sample_activity["name"]
+    assert saved_activity.name == "Test Activity"
+    assert saved_activity.description == "Test Description"
+    assert saved_activity.user_id == user.id
 
 
-def test_activity_moment_relationship(
-    db_session, sample_activity, sample_moment
-):
-    """Test the relationship between Activity and Moment models"""
-    activity = Activity(**sample_activity)
-    db_session.add(activity)
-    db_session.flush()
+@pytest.mark.asyncio
+async def test_activity_moment_relationship(
+    test_db_session: AsyncSession,
+    sample_user: User,
+) -> None:
+    """Test the relationship between Activity and Moment models."""
+    user = await sample_user
+    activity = Activity(
+        name="Test Activity",
+        description="Test Description",
+        user_id=user.id,
+        activity_schema={
+            "type": "object",
+            "properties": {"notes": {"type": "string"}},
+        },
+        icon="📝",
+        color="#FF0000",
+    )
+    test_db_session.add(activity)
+    await test_db_session.commit()
+    await test_db_session.refresh(activity)
 
     moment = Moment(
         activity_id=activity.id,
-        timestamp=sample_moment["timestamp"],
-        data=sample_moment["data"],
+        user_id=user.id,
+        data={"notes": "Test moment"},
+        timestamp=datetime.now(timezone.utc),
     )
-    db_session.add(moment)
-    db_session.commit()
+    test_db_session.add(moment)
+    await test_db_session.commit()
+    await test_db_session.refresh(moment)
 
-    # Refresh activity to get updated relationships
-    db_session.refresh(activity)
     assert len(activity.moments) == 1
-    assert activity.moments[0].data == sample_moment["data"]
+    assert activity.moments[0].data == {
+        "notes": "Test moment"
+    }
 
 
-def test_activity_name_unique_constraint(
-    db_session, sample_activity
-):
-    """Test that activity names must be unique"""
-    activity1 = Activity(**sample_activity)
-    db_session.add(activity1)
-    db_session.commit()
-
-    activity2 = Activity(**sample_activity)
-    db_session.add(activity2)
-
-    with pytest.raises(IntegrityError):
-        db_session.commit()
-
-
-def test_activity_required_fields(db_session):
-    """Test that required fields raise appropriate errors when missing"""
-    activity = Activity()  # Missing required fields
-    db_session.add(activity)
-
-    with pytest.raises(IntegrityError):
-        db_session.commit()
-
-
-def test_activity_schema_validation():
-    """Test that activity_schema must be a valid JSON object"""
-    invalid_schema_activity = Activity(
-        name="test_activity",
-        activity_schema="invalid_json",  # Should be a dict
+@pytest.mark.asyncio
+async def test_activity_name_unique_constraint(
+    test_db_session: AsyncSession,
+    sample_user: User,
+) -> None:
+    """Test that activity names must be unique per user."""
+    user = await sample_user
+    activity1 = Activity(
+        name="Test Activity",
+        description="Test Description",
+        user_id=user.id,
+        activity_schema={
+            "type": "object",
+            "properties": {"notes": {"type": "string"}},
+        },
         icon="📝",
-        color="#000000",
+        color="#FF0000",
+    )
+    test_db_session.add(activity1)
+    await test_db_session.commit()
+    await test_db_session.refresh(activity1)
+
+    # Try to create another activity with the same name for the same user
+    activity2 = Activity(
+        name="Test Activity",  # Same name
+        description="Another Description",
+        user_id=user.id,  # Same user
+        activity_schema={
+            "type": "object",
+            "properties": {"notes": {"type": "string"}},
+        },
+        icon="📝",
+        color="#00FF00",
+    )
+    test_db_session.add(activity2)
+
+    with pytest.raises(IntegrityError) as exc_info:
+        await test_db_session.commit()
+    assert "UNIQUE constraint failed" in str(exc_info.value)
+
+
+@pytest.mark.asyncio
+async def test_activity_required_fields(
+    test_db_session: AsyncSession,
+    sample_user: User,
+) -> None:
+    """Test that required fields raise appropriate errors when missing."""
+    user = await sample_user
+    activity = Activity(
+        description="Test Description",  # Missing name
+        user_id=user.id,
+        activity_schema={
+            "type": "object",
+            "properties": {"notes": {"type": "string"}},
+        },
+        icon="📝",
+        color="#FF0000",
+    )
+    test_db_session.add(activity)
+
+    with pytest.raises(IntegrityError) as exc_info:
+        await test_db_session.commit()
+    assert "NOT NULL constraint failed" in str(
+        exc_info.value
     )
 
-    with pytest.raises(ValueError):
-        invalid_schema_activity.validate_schema()
+
+@pytest.mark.asyncio
+async def test_activity_schema_validation(
+    sample_user: User,
+) -> None:
+    """Test that activity_schema must be a valid JSON object."""
+    user = await sample_user
+    with pytest.raises(ValueError, match="Invalid schema"):
+        Activity(
+            name="Test Activity",
+            description="Test Description",
+            user_id=user.id,
+            activity_schema="invalid",  # Not a JSON object
+            icon="📝",
+            color="#FF0000",
+        )

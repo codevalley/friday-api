@@ -3,11 +3,13 @@ from sqlalchemy import (
     Integer,
     String,
     JSON,
-    CheckConstraint,
     ForeignKey,
     select,
     func,
     DateTime,
+    event,
+    text,
+    CheckConstraint,
 )
 from sqlalchemy.orm import (
     relationship,
@@ -16,6 +18,7 @@ from sqlalchemy.orm import (
 )
 from jsonschema import validate as validate_json_schema
 import json
+import re
 from typing import (
     Any,
     Dict,
@@ -57,6 +60,9 @@ class Activity(EntityMeta):
     """
 
     __tablename__ = "activities"
+
+    # Regular expression for validating hex color codes
+    COLOR_PATTERN = re.compile(r'^#[0-9A-Fa-f]{6}$')
 
     # Primary key
     id: Mapped[int] = Column(
@@ -110,7 +116,7 @@ class Activity(EntityMeta):
         "User", back_populates="activities"
     )
 
-    # Constraints
+    # Constraints that are database-agnostic
     __table_args__ = (
         CheckConstraint(
             "name IS NOT NULL AND name != ''",
@@ -128,11 +134,79 @@ class Activity(EntityMeta):
             "color IS NOT NULL AND color != ''",
             name="check_color_not_empty",
         ),
-        CheckConstraint(
-            "color ~ '^#[0-9A-Fa-f]{6}$'",
-            name="check_color_format",
-        ),
     )
+
+    def __init__(self, **kwargs):
+        """Initialize an activity with validation.
+
+        Args:
+            **kwargs: Activity attributes
+
+        Raises:
+            ValueError: If any validation fails
+        """
+        # Validate required fields before initialization
+        if not kwargs.get('user_id'):
+            raise ValueError("user_id is required")
+        
+        # Validate color if provided
+        self.validate_color(kwargs.get('color'))
+        
+        # Validate schema if provided
+        schema = kwargs.get('activity_schema')
+        if schema:
+            try:
+                self.validate_schema_dict(schema)
+            except Exception as e:
+                raise ValueError(f"Invalid schema: {str(e)}")
+        
+        super().__init__(**kwargs)
+
+    @classmethod
+    def validate_color(cls, color: Optional[str]) -> None:
+        """Validate the color format.
+
+        Args:
+            color: The color value to validate
+
+        Raises:
+            ValueError: If color is invalid
+        """
+        if color is not None and not cls.COLOR_PATTERN.match(color):
+            raise ValueError(
+                "Color must be a valid hex code (e.g., #FF0000)"
+            )
+
+    @classmethod
+    def validate_schema_dict(cls, schema: Dict[str, Any]) -> bool:
+        """Validate a schema dictionary without requiring an instance.
+
+        Args:
+            schema: Schema dictionary to validate
+
+        Returns:
+            True if valid
+
+        Raises:
+            ValueError: If schema is invalid
+        """
+        if not isinstance(schema, dict):
+            raise ValueError("activity_schema must be a valid JSON object")
+
+        meta_schema = {
+            "type": "object",
+            "properties": {
+                "type": {"type": "string"},
+                "properties": {"type": "object"},
+            },
+            "required": ["type"],
+        }
+
+        try:
+            validate_json_schema(schema, meta_schema)
+            return True
+        except Exception as e:
+            raise ValueError(f"Invalid JSON Schema: {str(e)}")
 
     def __repr__(self) -> str:
         """String representation of the activity.

@@ -1,6 +1,7 @@
 from typing import List, Optional, Dict, Any, Union
 from sqlalchemy.orm import Session
 from fastapi import HTTPException, status
+from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 
 from models.ActivityModel import Activity
 from .BaseRepository import BaseRepository
@@ -20,43 +21,52 @@ class ActivityRepository(BaseRepository[Activity, int]):
     def create(
         self,
         instance_or_name: Union[Activity, str],
-        *,  # Force keyword arguments
-        description: Optional[str] = None,
-        activity_schema: Optional[dict] = None,
-        icon: Optional[str] = None,
-        color: Optional[str] = None,
-        user_id: Optional[str] = None,
+        **kwargs
     ) -> Activity:
         """Create a new activity
 
-        This method supports two ways of creating an activity:
-        1. Passing an Activity instance directly
-        2. Passing individual fields
-
         Args:
-            instance_or_name: Either an Activity instance or the activity name
-            description: Activity description (if creating by fields)
-            activity_schema: Activity schema (if creating by fields)
-            icon: Activity icon (if creating by fields)
-            color: Activity color (if creating by fields)
-            user_id: Owner's user ID (if creating by fields)
+            instance_or_name: Activity instance or name
+            **kwargs: Additional fields for activity creation
 
         Returns:
-            Created Activity instance
-        """
-        if isinstance(instance_or_name, Activity):
-            return super().create(instance_or_name)
+            Created activity
 
-        # Create new instance from fields
-        activity = Activity(
-            name=instance_or_name,
-            description=description,
-            activity_schema=activity_schema,
-            icon=icon,
-            color=color,
-            user_id=user_id,
-        )
-        return super().create(activity)
+        Raises:
+            ValueError: If validation fails
+            HTTPException: If database constraints are violated
+        """
+        try:
+            if isinstance(instance_or_name, str):
+                # Set default values for required fields
+                defaults = {
+                    "name": instance_or_name,
+                    "activity_schema": {"type": "default"},
+                    "icon": "default-icon",
+                    "color": "#000000",
+                }
+                # Override defaults with any provided kwargs
+                defaults.update(kwargs)
+                activity = Activity(**defaults)
+            else:
+                activity = instance_or_name
+
+            return super().create(activity)
+        except ValueError as e:
+            # Re-raise validation errors
+            raise
+        except IntegrityError as e:
+            self.db.rollback()
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=f"Resource already exists: {str(e)}",
+            )
+        except SQLAlchemyError as e:
+            self.db.rollback()
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Database error: {str(e)}",
+            )
 
     def get_by_user(
         self, activity_id: int, user_id: str
@@ -137,10 +147,38 @@ class ActivityRepository(BaseRepository[Activity, int]):
         Returns:
             Updated Activity if found and owned by user, None otherwise
         """
-        activity = self.get_by_user(activity_id, user_id)
-        if not activity:
-            return None
-        return self.update(activity_id, data)
+        try:
+            activity = self.get_by_user(activity_id, user_id)
+            if not activity:
+                return None
+
+            # Pre-validate any fields that require validation
+            if 'color' in data:
+                Activity.validate_color(data['color'])
+            if 'activity_schema' in data:
+                Activity.validate_schema_dict(data['activity_schema'])
+
+            for key, value in data.items():
+                setattr(activity, key, value)
+
+            self.db.commit()
+            self.db.refresh(activity)
+            return activity
+        except ValueError as e:
+            # Re-raise validation errors
+            raise
+        except IntegrityError as e:
+            self.db.rollback()
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=f"Update violates constraints: {str(e)}",
+            )
+        except SQLAlchemyError as e:
+            self.db.rollback()
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Database error: {str(e)}",
+            )
 
     def delete_activity(
         self, activity_id: int, user_id: str
