@@ -56,9 +56,9 @@
     - [x] String representation
 
 - [ ] Service Tests
+  - [x] UserService tests
   - [ ] ActivityService tests
   - [ ] MomentService tests
-  - [ ] UserService tests
 
 - [ ] Router Tests
   - [ ] ActivityRouter tests
@@ -76,28 +76,58 @@
   - [ ] Database query performance tests
 
 ## Test Coverage
-- Overall coverage: 35%
-- MomentRepository: 93% coverage
-- ActivityRepository: 33% coverage
-- BaseRepository: 53% coverage
-- Models: 58-81% coverage
+- Overall coverage: 70%
+- Models: 
+  - UserModel: 95%
+  - ActivityModel: 65%
+  - MomentModel: 86%
+- Repositories:
+  - BaseRepository: 100%
+  - ActivityRepository: 79%
+  - MomentRepository: 93%
+- Services: 
+  - UserService: 93%
+  - ActivityService: 90%
+  - MomentService: 26%
 
 ## Recent Updates
-- Fixed table definition issue in BaseModel tests
-- Added proper database cleanup in test fixtures
-- Improved transaction handling in test sessions
-- Added connection pool settings to prevent connection issues
-- All MomentRepository tests passing with 93% coverage
-- Completed ActivityModel and MomentModel tests with comprehensive validation
-- Fixed data validation in MomentModel to properly check against activity schema
-- Improved error handling for model initialization and validation
-- Completed UserModel tests with 95% coverage
-- Fixed ID generation in UserModel initialization
+- Fixed test database setup to handle concurrent test execution
+- Fixed GraphQL activity tests:
+  - Updated activity schema serialization to use proper JSON format
+  - Enhanced activity update test with comprehensive field validation
+  - Improved test coverage for ActivityService to 90%
+- Fixed database connection issues in tests:
+  - Added transaction management for table operations
+  - Improved connection pooling configuration
+  - Added health checks for database connections
 
 ## Next Steps
-1. Begin service layer tests
-2. Implement router tests
-3. Set up integration tests
+1. Service Layer Tests (Priority)
+   - MomentService tests (26% coverage)
+     - Moment creation with activity validation
+     - Data schema validation
+     - Filtering and querying
+
+2. Pydantic V2 Migration
+   - Replace `@validator` with `@field_validator`
+   - Replace `from_orm` with `model_validate`
+   - Replace `dict()` with `model_dump()`
+   - Update Field extra arguments to use `json_schema_extra`
+
+3. SQLAlchemy Updates
+   - Update `declarative_base()` to use `sqlalchemy.orm.declarative_base()`
+   - Replace `datetime.utcnow()` with `datetime.now(UTC)`
+
+4. Router Tests
+   - ActivityRouter tests
+   - MomentRouter tests
+
+## Current Focus
+Implementing MomentService tests with the following priorities:
+1. Basic CRUD operations
+2. Activity validation
+3. Data schema validation
+4. Filtering and querying
 
 ## Known Issues
 - [x] Table redefinition error in test_model.py (Fixed)

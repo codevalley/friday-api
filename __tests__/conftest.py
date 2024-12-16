@@ -26,19 +26,28 @@ TEST_SQLALCHEMY_DATABASE_URL = (
     "test_fridaystore"
 )
 
-# Create engine for operations
-engine = create_engine(
-    TEST_SQLALCHEMY_DATABASE_URL,
-    echo=True,  # Enable SQL logging for debugging
-)
 
-# Create session factory
-TestingSessionLocal = sessionmaker(
-    autocommit=False,
-    autoflush=False,
-    bind=engine,
-    expire_on_commit=False,  # Prevent expired objects after commit
-)
+@pytest.fixture(scope="session")
+def test_engine():
+    """Create test database engine."""
+    engine = create_engine(
+        TEST_SQLALCHEMY_DATABASE_URL,
+        echo=True,  # Enable SQL logging for debugging
+        pool_pre_ping=True,  # Enable connection health checks
+        pool_recycle=3600,  # Recycle connections after 1 hour
+    )
+    return engine
+
+
+@pytest.fixture(scope="session")
+def test_session_factory(test_engine):
+    """Create test session factory."""
+    return sessionmaker(
+        autocommit=False,
+        autoflush=False,
+        bind=test_engine,
+        expire_on_commit=False,  # Prevent expired objects after commit
+    )
 
 
 @pytest.fixture(scope="session")
@@ -54,19 +63,30 @@ def event_loop() -> Generator:
 
 
 @pytest.fixture(scope="function")
-def test_db_session():
+def test_db_session(test_engine, test_session_factory):
     """Create a fresh database session for a test."""
-    # Create tables
-    Base.metadata.drop_all(bind=engine)
-    Base.metadata.create_all(bind=engine)
-
-    # Create session
-    session = TestingSessionLocal()
+    # Drop and recreate tables before running any tests
+    connection = test_engine.connect()
+    transaction = connection.begin()
+    
+    try:
+        # Drop all tables in a transaction
+        Base.metadata.drop_all(bind=connection)
+        # Create all tables in the same transaction
+        Base.metadata.create_all(bind=connection)
+        transaction.commit()
+    except Exception as e:
+        transaction.rollback()
+        raise e
+    finally:
+        connection.close()
+    
+    # Create session for the test
+    session = test_session_factory()
     try:
         yield session
     finally:
         session.close()
-        Base.metadata.drop_all(bind=engine)
 
 
 @pytest.fixture(scope="function")

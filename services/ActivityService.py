@@ -289,12 +289,12 @@ class ActivityService:
 
     # GraphQL specific methods
     def create_activity_graphql(
-        self, activity_data: ActivityCreate, user_id: str
+        self, activity_data, user_id: str
     ) -> Activity:
         """Create activity for GraphQL
 
         Args:
-            activity_data: Activity data to create
+            activity_data: Activity data to create (GraphQL input type)
             user_id: ID of user creating the activity
 
         Returns:
@@ -303,15 +303,27 @@ class ActivityService:
         Raises:
             HTTPException: If validation fails
         """
+        # Convert activity_schema to dict if it's a string
+        activity_schema = activity_data.activitySchema
+        if isinstance(activity_schema, str):
+            try:
+                activity_schema = json.loads(activity_schema)
+            except json.JSONDecodeError:
+                raise HTTPException(
+                    status_code=400,
+                    detail="Invalid activity schema format: must be valid JSON",
+                )
+
+        # Validate the schema
+        self._validate_activity_schema(activity_schema)
+
         activity = self.activity_repository.create(
             name=activity_data.name,
             description=activity_data.description,
-            activity_schema=activity_data.activity_schema,
+            activity_schema=activity_schema,
             icon=activity_data.icon,
             color=activity_data.color,
-            user_id=str(
-                user_id
-            ),  # Ensure user_id is string
+            user_id=str(user_id),  # Ensure user_id is string
         )
         return Activity.from_db(activity)
 
@@ -362,14 +374,14 @@ class ActivityService:
     def update_activity_graphql(
         self,
         activity_id: int,
-        activity_data: ActivityUpdate,
+        activity_data,
         user_id: str,
     ) -> Activity:
         """Update activity for GraphQL
 
         Args:
             activity_id: ID of activity to update
-            activity_data: Updated activity data
+            activity_data: Updated activity data (GraphQL input type)
             user_id: ID of user updating the activity
 
         Returns:
@@ -378,21 +390,46 @@ class ActivityService:
         Raises:
             HTTPException: If validation fails or activity not found
         """
-        # Convert activity_schema to dict if it's a string
-        if activity_data.activity_schema and isinstance(
-            activity_data.activity_schema, str
-        ):
-            activity_data.activity_schema = json.loads(
-                activity_data.activity_schema
-            )
-
-        activity = self.update_activity(
+        # Get existing activity to ensure it exists
+        existing = self.activity_repository.get_by_id(
             activity_id,
-            activity_data,
             str(user_id),  # Ensure user_id is string
         )
-        if not activity:
+        if not existing:
             raise HTTPException(
                 status_code=404, detail="Activity not found"
             )
-        return Activity.from_db(activity)
+
+        # Convert activity_schema to dict if it's a string
+        if activity_data.activitySchema:
+            try:
+                activity_schema = json.loads(activity_data.activitySchema)
+                # Validate the schema before updating
+                self._validate_activity_schema(activity_schema)
+                activity_data.activitySchema = activity_schema
+            except json.JSONDecodeError:
+                raise HTTPException(
+                    status_code=400,
+                    detail="Invalid activity schema format: must be valid JSON",
+                )
+
+        # Create an ActivityUpdate instance with the correct field names
+        update_data = ActivityUpdate(
+            name=activity_data.name,
+            description=activity_data.description,
+            activity_schema=activity_data.activitySchema,
+            icon=activity_data.icon,
+            color=activity_data.color,
+        )
+
+        # Update the activity
+        updated = self.update_activity(
+            activity_id,
+            update_data,
+            str(user_id),  # Ensure user_id is string
+        )
+        if not updated:
+            raise HTTPException(
+                status_code=404, detail="Activity not found"
+            )
+        return Activity.from_db(updated)

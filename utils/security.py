@@ -186,7 +186,9 @@ def parse_api_key(api_key: str) -> Tuple[str, str]:
         ValueError if the API key format is invalid
     """
     try:
+        if not api_key:
+            raise ValueError("API key cannot be empty or None")
         key_id, secret = api_key.split(".", 1)
         return key_id, secret
-    except ValueError:
+    except (AttributeError, ValueError):
         raise ValueError("Invalid API key format")
