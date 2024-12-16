@@ -31,9 +31,29 @@
     - [x] Table definition
     - [x] Column validation
     - [x] Table reuse in tests
-  - [ ] ActivityModel tests
-  - [ ] MomentModel tests
-  - [ ] UserModel tests
+  - [x] ActivityModel tests
+    - [x] Basic model initialization
+    - [x] Database persistence
+    - [x] Relationship with moments
+    - [x] Name uniqueness per user
+    - [x] Required fields validation
+    - [x] Schema validation
+    - [x] Color validation
+  - [x] MomentModel tests
+    - [x] Basic model initialization
+    - [x] Database persistence
+    - [x] Relationship with activity
+    - [x] Cascade deletion
+    - [x] Data validation against schema
+    - [x] Required fields validation
+  - [x] UserModel tests
+    - [x] Basic model initialization
+    - [x] Database persistence
+    - [x] Username validation
+    - [x] Unique constraints
+    - [x] Required fields validation
+    - [x] Relationships with activities and moments
+    - [x] String representation
 
 - [ ] Service Tests
   - [ ] ActivityService tests
@@ -68,12 +88,16 @@
 - Improved transaction handling in test sessions
 - Added connection pool settings to prevent connection issues
 - All MomentRepository tests passing with 93% coverage
+- Completed ActivityModel and MomentModel tests with comprehensive validation
+- Fixed data validation in MomentModel to properly check against activity schema
+- Improved error handling for model initialization and validation
+- Completed UserModel tests with 95% coverage
+- Fixed ID generation in UserModel initialization
 
 ## Next Steps
-1. Complete UserRepository tests
-2. Improve ActivityRepository test coverage
-3. Implement remaining model tests
-4. Begin service layer tests
+1. Begin service layer tests
+2. Implement router tests
+3. Set up integration tests
 
 ## Known Issues
 - [x] Table redefinition error in test_model.py (Fixed)

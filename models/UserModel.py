@@ -43,7 +43,7 @@ class User(EntityMeta):
     id: Mapped[str] = Column(
         String(36),  # UUID length is 36 characters
         primary_key=True,
-        default=lambda: str(uuid4()),
+        default=str(uuid4()),  # Change from lambda to direct value
         index=True,
     )
 
@@ -94,6 +94,19 @@ class User(EntityMeta):
     __table_args__ = ()
 
     def __init__(self, **kwargs):
+        """Initialize a user with validation.
+
+        Args:
+            **kwargs: User attributes
+
+        Raises:
+            ValueError: If username is invalid
+        """
+        # Set default ID if not provided
+        if "id" not in kwargs:
+            kwargs["id"] = str(uuid4())
+
+        # Validate username
         self.validate_username(kwargs.get("username"))
         super().__init__(**kwargs)
 
