@@ -5,10 +5,7 @@ from sqlalchemy import desc, func
 
 from models.MomentModel import Moment as MomentModel
 from models.ActivityModel import Activity
-from schemas.pydantic.MomentSchema import (
-    MomentList,
-    MomentResponse,
-)
+from schemas.pydantic.MomentSchema import MomentList
 from .BaseRepository import BaseRepository
 
 
@@ -119,7 +116,9 @@ class MomentRepository(BaseRepository[MomentModel, int]):
         latest_moments = (
             self.db.query(
                 MomentModel.activity_id,
-                func.max(MomentModel.timestamp).label("latest_timestamp")
+                func.max(MomentModel.timestamp).label(
+                    "latest_timestamp"
+                ),
             )
             .group_by(MomentModel.activity_id)
             .subquery()
@@ -130,9 +129,11 @@ class MomentRepository(BaseRepository[MomentModel, int]):
             self.db.query(Activity)
             .join(
                 latest_moments,
-                Activity.id == latest_moments.c.activity_id
+                Activity.id == latest_moments.c.activity_id,
             )
-            .order_by(desc(latest_moments.c.latest_timestamp))
+            .order_by(
+                desc(latest_moments.c.latest_timestamp)
+            )
             .limit(limit)
             .all()
         )
@@ -208,7 +209,9 @@ class MomentRepository(BaseRepository[MomentModel, int]):
             )
 
         # Order by timestamp descending
-        base_query = base_query.order_by(desc(MomentModel.timestamp))
+        base_query = base_query.order_by(
+            desc(MomentModel.timestamp)
+        )
 
         # Get total count before pagination
         total = base_query.count()
@@ -218,7 +221,9 @@ class MomentRepository(BaseRepository[MomentModel, int]):
         items = base_query.offset(offset).limit(size).all()
 
         # Calculate total pages
-        pages = (total + size - 1) // size if total > 0 else 0
+        pages = (
+            (total + size - 1) // size if total > 0 else 0
+        )
 
         return MomentList(
             items=items,
@@ -254,7 +259,7 @@ class MomentRepository(BaseRepository[MomentModel, int]):
             test_moment = MomentModel(
                 user_id=moment.user_id,
                 activity_id=moment.activity_id,
-                data=data["data"]
+                data=data["data"],
             )
             test_moment.validate_data(self.db)
 

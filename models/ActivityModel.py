@@ -7,8 +7,6 @@ from sqlalchemy import (
     select,
     func,
     DateTime,
-    event,
-    text,
     CheckConstraint,
     UniqueConstraint,
 )
@@ -63,7 +61,7 @@ class Activity(EntityMeta):
     __tablename__ = "activities"
 
     # Regular expression for validating hex color codes
-    COLOR_PATTERN = re.compile(r'^#[0-9A-Fa-f]{6}$')
+    COLOR_PATTERN = re.compile(r"^#[0-9A-Fa-f]{6}$")
 
     # Primary key
     id: Mapped[int] = Column(
@@ -136,7 +134,8 @@ class Activity(EntityMeta):
             name="check_color_not_empty",
         ),
         UniqueConstraint(
-            "name", "user_id",
+            "name",
+            "user_id",
             name="unique_name_per_user",
         ),
     )
@@ -151,20 +150,22 @@ class Activity(EntityMeta):
             ValueError: If any validation fails
         """
         # Validate required fields before initialization
-        if not kwargs.get('user_id'):
+        if not kwargs.get("user_id"):
             raise ValueError("user_id is required")
-        
+
         # Validate color if provided
-        self.validate_color(kwargs.get('color'))
-        
+        self.validate_color(kwargs.get("color"))
+
         # Validate schema if provided
-        schema = kwargs.get('activity_schema')
+        schema = kwargs.get("activity_schema")
         if schema:
             try:
                 self.validate_schema_dict(schema)
             except Exception as e:
-                raise ValueError(f"Invalid schema: {str(e)}")
-        
+                raise ValueError(
+                    f"Invalid schema: {str(e)}"
+                )
+
         super().__init__(**kwargs)
 
     @classmethod
@@ -177,13 +178,18 @@ class Activity(EntityMeta):
         Raises:
             ValueError: If color is invalid
         """
-        if color is not None and not cls.COLOR_PATTERN.match(color):
+        if (
+            color is not None
+            and not cls.COLOR_PATTERN.match(color)
+        ):
             raise ValueError(
                 "Color must be a valid hex code (e.g., #FF0000)"
             )
 
     @classmethod
-    def validate_schema_dict(cls, schema: Dict[str, Any]) -> bool:
+    def validate_schema_dict(
+        cls, schema: Dict[str, Any]
+    ) -> bool:
         """Validate a schema dictionary without requiring an instance.
 
         Args:
@@ -196,7 +202,9 @@ class Activity(EntityMeta):
             ValueError: If schema is invalid
         """
         if not isinstance(schema, dict):
-            raise ValueError("activity_schema must be a valid JSON object")
+            raise ValueError(
+                "activity_schema must be a valid JSON object"
+            )
 
         meta_schema = {
             "type": "object",
@@ -211,7 +219,9 @@ class Activity(EntityMeta):
             validate_json_schema(schema, meta_schema)
             return True
         except Exception as e:
-            raise ValueError(f"Invalid JSON Schema: {str(e)}")
+            raise ValueError(
+                f"Invalid JSON Schema: {str(e)}"
+            )
 
     def __repr__(self) -> str:
         """String representation of the activity.

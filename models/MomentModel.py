@@ -11,8 +11,8 @@ from sqlalchemy.orm import relationship, Mapped
 from datetime import datetime, timezone
 from jsonschema import validate as validate_json_schema
 import json
-from typing import Any, Dict, cast, TYPE_CHECKING, Optional
 from sqlalchemy.orm import Session
+from typing import Any, Dict, cast, TYPE_CHECKING, Optional
 
 from models.BaseModel import EntityMeta
 
@@ -106,17 +106,19 @@ class Moment(EntityMeta):
             ValueError: If any validation fails
         """
         # Validate required fields before initialization
-        if not kwargs.get('user_id'):
+        if not kwargs.get("user_id"):
             raise ValueError("user_id is required")
-        if not kwargs.get('activity_id'):
+        if not kwargs.get("activity_id"):
             raise ValueError("activity_id is required")
-        if not kwargs.get('data'):
+        if not kwargs.get("data"):
             raise ValueError("data is required")
 
         # Validate data against activity schema
-        data = kwargs.get('data')
+        data = kwargs.get("data")
         if not isinstance(data, dict):
-            raise ValueError("moment data must be a valid JSON object")
+            raise ValueError(
+                "moment data must be a valid JSON object"
+            )
 
         super().__init__(**kwargs)
 
@@ -147,7 +149,9 @@ class Moment(EntityMeta):
             return data
         return cast(Dict[str, Any], data)
 
-    def validate_data(self, db: Optional[Session] = None) -> bool:
+    def validate_data(
+        self, db: Optional[Session] = None
+    ) -> bool:
         """Validate that the moment data matches the activity's schema.
 
         Args:
@@ -167,14 +171,21 @@ class Moment(EntityMeta):
             )
 
         # Load activity if not loaded
-        from repositories.ActivityRepository import ActivityRepository
-        from sqlalchemy.orm import Session
+        from repositories.ActivityRepository import (
+            ActivityRepository,
+        )
 
         if not self.activity:
             # Get activity from repository
-            session = db if db is not None else self._sa_instance_state.session
+            session = (
+                db
+                if db is not None
+                else self._sa_instance_state.session
+            )
             activity_repo = ActivityRepository(session)
-            activity = activity_repo.get_by_user(self.activity_id, self.user_id)
+            activity = activity_repo.get_by_user(
+                self.activity_id, self.user_id
+            )
             if not activity or not activity.activity_schema:
                 raise ValueError(
                     "moment must be linked to an activity with a valid schema"
@@ -183,9 +194,13 @@ class Moment(EntityMeta):
             activity = self.activity
 
         try:
-            validate_json_schema(data, activity.activity_schema)
+            validate_json_schema(
+                data, activity.activity_schema
+            )
         except Exception as e:
-            raise ValueError(f"Invalid moment data: {str(e)}")
+            raise ValueError(
+                f"Invalid moment data: {str(e)}"
+            )
 
         return True
 

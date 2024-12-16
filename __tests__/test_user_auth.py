@@ -1,10 +1,7 @@
 """Test user authentication endpoints."""
 
-import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy.ext.asyncio import AsyncSession
-
-from models.UserModel import User
 
 
 def test_register_user(
@@ -63,7 +60,9 @@ def test_login_with_valid_secret(
         },
     )
     assert register_response.status_code == 201
-    user_secret = register_response.json()["data"]["user_secret"]
+    user_secret = register_response.json()["data"][
+        "user_secret"
+    ]
 
     # Now try to login with the API key
     response = test_client.post(
@@ -105,7 +104,9 @@ def test_protected_endpoint_with_valid_token(
         },
     )
     assert register_response.status_code == 201
-    user_secret = register_response.json()["data"]["user_secret"]
+    user_secret = register_response.json()["data"][
+        "user_secret"
+    ]
 
     # Get a valid token
     token_response = test_client.post(
@@ -115,7 +116,9 @@ def test_protected_endpoint_with_valid_token(
         },
     )
     assert token_response.status_code == 200
-    access_token = token_response.json()["data"]["access_token"]
+    access_token = token_response.json()["data"][
+        "access_token"
+    ]
 
     # Use the token to access a protected endpoint
     response = test_client.get(
@@ -146,4 +149,7 @@ def test_protected_endpoint_with_invalid_token(
         headers={"Authorization": "Bearer invalid-token"},
     )
     assert response.status_code == 401
-    assert "Could not validate credentials" in response.json()["detail"]
+    assert (
+        "Could not validate credentials"
+        in response.json()["detail"]
+    )

@@ -2,14 +2,11 @@ from sqlalchemy import (
     Column,
     String,
     DateTime,
-    text,
 )
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship, Mapped
 from uuid import uuid4
 from typing import List, TYPE_CHECKING, Optional
-from sqlalchemy.engine.default import DefaultDialect
-from sqlalchemy.dialects.postgresql.base import PGDialect
 import re
 
 from models.BaseModel import EntityMeta
@@ -39,7 +36,7 @@ class User(EntityMeta):
     __tablename__ = "users"
 
     # Validation patterns
-    USERNAME_PATTERN = re.compile(r'^[a-zA-Z0-9_-]+$')
+    USERNAME_PATTERN = re.compile(r"^[a-zA-Z0-9_-]+$")
     MIN_USERNAME_LENGTH = 3
 
     # Primary key
@@ -97,11 +94,13 @@ class User(EntityMeta):
     __table_args__ = ()
 
     def __init__(self, **kwargs):
-        self.validate_username(kwargs.get('username'))
+        self.validate_username(kwargs.get("username"))
         super().__init__(**kwargs)
 
     @classmethod
-    def validate_username(cls, username: Optional[str]) -> None:
+    def validate_username(
+        cls, username: Optional[str]
+    ) -> None:
         """Validate the username format.
 
         Args:
@@ -112,15 +111,17 @@ class User(EntityMeta):
         """
         if username is None:
             raise ValueError("Username cannot be None")
-            
+
         if len(username) < cls.MIN_USERNAME_LENGTH:
             raise ValueError(
-                f"Username must be at least {cls.MIN_USERNAME_LENGTH} characters long"
+                "Username must be at least "
+                f"{cls.MIN_USERNAME_LENGTH} characters long"
             )
-            
+
         if not cls.USERNAME_PATTERN.match(username):
             raise ValueError(
-                "Username can only contain letters, numbers, underscores, and hyphens"
+                "Username can only contain letters, numbers, "
+                "underscores, and hyphens"
             )
 
     def __repr__(self) -> str:
