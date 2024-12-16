@@ -1,4 +1,10 @@
+"""Base schema for pagination parameters and response."""
+
+from typing import Generic, TypeVar, List
 from pydantic import BaseModel, Field, validator
+
+
+T = TypeVar("T")
 
 
 class PaginationParams(BaseModel):
@@ -33,3 +39,18 @@ class PaginationParams(BaseModel):
         if v > 100:
             raise ValueError("Page size cannot exceed 100")
         return v
+
+
+class PaginationResponse(BaseModel, Generic[T]):
+    """Base schema for paginated responses"""
+
+    items: List[T]
+    total: int = Field(description="Total number of items")
+    page: int = Field(description="Current page number")
+    size: int = Field(description="Number of items per page")
+    pages: int = Field(description="Total number of pages")
+
+    class Config:
+        """Pydantic config"""
+
+        from_attributes = True

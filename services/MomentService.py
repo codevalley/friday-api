@@ -1,13 +1,13 @@
-from typing import Optional, List, Dict, cast
+"""Service for handling moment-related operations"""
+
+from typing import Optional, List
 from fastapi import HTTPException, Depends
 from sqlalchemy.orm import Session
 from datetime import datetime, timedelta, timezone
-from pydantic import ValidationError
 
 from schemas.base.moment_schema import MomentData
 from schemas.graphql.types.Moment import Moment
 from repositories.MomentRepository import MomentRepository
-from schemas.graphql.types.Activity import Activity
 from configs.Database import get_db_connection
 from repositories.ActivityRepository import (
     ActivityRepository,
@@ -15,8 +15,10 @@ from repositories.ActivityRepository import (
 from schemas.pydantic.MomentSchema import (
     MomentCreate,
     MomentUpdate,
-    MomentList,
     MomentResponse,
+)
+from schemas.pydantic.PaginationSchema import (
+    PaginationResponse,
 )
 
 
@@ -132,68 +134,55 @@ class MomentService:
         Raises:
             HTTPException: If validation fails or activity not found
         """
-        try:
-            # Convert to domain model if needed
-            domain_data = (
-                moment_data
-                if isinstance(moment_data, MomentData)
-                else moment_data.to_domain()
+        # Convert to domain model if needed
+        domain_data = (
+            moment_data
+            if isinstance(moment_data, MomentData)
+            else moment_data.to_domain()
+        )
+
+        # Ensure timestamp has timezone info
+        if domain_data.timestamp.tzinfo is None:
+            domain_data.timestamp = (
+                domain_data.timestamp.replace(
+                    tzinfo=timezone.utc
+                )
             )
 
-            # Ensure timestamp has timezone info
-            if domain_data.timestamp.tzinfo is None:
-                domain_data.timestamp = (
-                    domain_data.timestamp.replace(
-                        tzinfo=timezone.utc
-                    )
-                )
+        # Validate activity ownership
+        self._validate_activity_ownership(
+            domain_data.activity_id, user_id
+        )
 
-            # Validate activity ownership
-            self._validate_activity_ownership(
+        # Validate timestamp
+        self._validate_timestamp(domain_data.timestamp)
+
+        # Get activity and validate data against its schema
+        activity = (
+            self.activity_repository.validate_existence(
                 domain_data.activity_id, user_id
             )
+        )
 
-            # Validate timestamp
-            self._validate_timestamp(domain_data.timestamp)
-
-            # Get activity and validate data against its schema
-            activity = (
-                self.activity_repository.validate_existence(
-                    domain_data.activity_id, user_id
-                )
-            )
-
-            # Validate moment data against activity schema
-            try:
-                activity.validate_moment_data(
-                    domain_data.data
-                )
-            except ValueError as e:
-                raise HTTPException(
-                    status_code=400,
-                    detail=f"Moment data does not match"
-                    f" activity schema: {str(e)}",
-                )
-
-            # Create the moment - validation handled by Pydantic
-            moment = self.moment_repository.create(
-                instance_or_activity_id=activity.id,  # Use validated activity
-                data=domain_data.data,
-                user_id=user_id,
-                timestamp=domain_data.timestamp,
-            )
-
-            return MomentResponse.from_orm(moment)
-        except ValidationError as e:
+        # Validate moment data against activity schema
+        try:
+            activity.validate_moment_data(domain_data.data)
+        except ValueError as e:
             raise HTTPException(
                 status_code=400,
-                detail=f"Invalid moment data: {str(e)}",
+                detail=f"Moment data does not match"
+                f" activity schema: {str(e)}",
             )
-        except Exception as e:
-            raise HTTPException(
-                status_code=500,
-                detail=f"Error creating moment: {str(e)}",
-            )
+
+        # Create the moment - validation handled by Pydantic
+        moment = self.moment_repository.create(
+            instance_or_activity_id=activity.id,  # Use validated activity
+            data=domain_data.data,
+            user_id=user_id,
+            timestamp=domain_data.timestamp,
+        )
+
+        return MomentResponse.model_validate(moment)
 
     def list_moments(
         self,
@@ -203,26 +192,27 @@ class MomentService:
         start_date: Optional[datetime] = None,
         end_date: Optional[datetime] = None,
         user_id: Optional[str] = None,
-    ) -> MomentList:
-        """List moments with filtering and pagination
+    ) -> PaginationResponse[MomentResponse]:
+        """List moments with optional filters
 
         Args:
             page: Page number (1-based)
             size: Items per page
-            activity_id: Optional activity ID to filter by
-            start_date: Optional start date to filter by
-            end_date: Optional end date to filter by
-            user_id: Optional user ID to filter by
+            activity_id: Optional activity ID filter
+            start_date: Optional start date filter
+            end_date: Optional end date filter
+            user_id: Optional user ID filter
 
         Returns:
-            List of moments with pagination metadata
+            List of moments matching filters
 
         Raises:
             HTTPException: If pagination parameters are invalid
         """
         self._validate_pagination(page, size)
 
-        return self.moment_repository.list_moments(
+        # Apply filters
+        moment_list = self.moment_repository.list_moments(
             page=page,
             size=size,
             activity_id=activity_id,
@@ -232,45 +222,67 @@ class MomentService:
             include_activity=True,
         )
 
+        # Convert to response models
+        items = [
+            MomentResponse.model_validate(m)
+            for m in moment_list.items
+        ]
+
+        return PaginationResponse[MomentResponse](
+            items=items,
+            total=moment_list.total,
+            page=moment_list.page,
+            size=moment_list.size,
+            pages=moment_list.pages,
+        )
+
     def get_moment(
         self, moment_id: int, user_id: str
     ) -> MomentResponse:
         """Get a moment by ID
 
         Args:
-            moment_id: ID of the moment to get
-            user_id: ID of the user requesting the moment
+            moment_id: ID of moment to get
+            user_id: ID of user requesting moment
 
         Returns:
-            Moment response
+            Moment if found and belongs to user
 
         Raises:
-            HTTPException: If moment not found or user not authorized
+            HTTPException: If moment not found or doesn't belong to user
         """
         moment = self.moment_repository.get(moment_id)
         if not moment or moment.activity.user_id != user_id:
             raise HTTPException(
-                status_code=404, detail="Moment not found"
+                status_code=404,
+                detail="Moment not found",
             )
-        return MomentResponse.from_orm(moment)
+
+        return MomentResponse.model_validate(moment)
 
     def get_moment_graphql(
         self, moment_id: int, user_id: str
-    ) -> Optional[Moment]:
+    ) -> Moment:
         """Get a moment by ID for GraphQL
 
         Args:
-            moment_id: ID of the moment to get
-            user_id: ID of the user requesting the moment
+            moment_id: ID of moment to get
+            user_id: ID of user requesting moment
 
         Returns:
-            Moment or None if not found
+            Moment if found and belongs to user
+
+        Raises:
+            HTTPException: If moment not found or doesn't belong to user
         """
-        try:
-            moment = self.get_moment(moment_id, user_id)
-            return Moment.from_db(moment)
-        except HTTPException:
-            return None
+        moment = self.moment_repository.get(moment_id)
+        if not moment or moment.activity.user_id != user_id:
+            raise HTTPException(
+                status_code=404,
+                detail="Moment not found",
+            )
+
+        return Moment.from_db(moment)
 
     def update_moment(
         self,
@@ -278,57 +290,60 @@ class MomentService:
         moment_data: MomentUpdate,
         user_id: str,
     ) -> MomentResponse:
-        """Update a moment
+        """Update an existing moment
 
         Args:
-            moment_id: ID of the moment to update
+            moment_id: ID of moment to update
             moment_data: New moment data
-            user_id: ID of the user updating the moment
+            user_id: ID of user updating moment
 
         Returns:
-            Updated moment response
+            Updated moment
 
         Raises:
-            HTTPException: If moment not found, user not authorized,
-            or validation fails
+            HTTPException: If moment not found or validation fails
         """
+        # Get existing moment
         moment = self.moment_repository.get(moment_id)
         if not moment or moment.activity.user_id != user_id:
             raise HTTPException(
-                status_code=404, detail="Moment not found"
+                status_code=404,
+                detail="Moment not found",
             )
 
+        # Validate new data against activity schema
         try:
-            # Validation handled by Pydantic
-            update_dict = moment_data.dict(
-                exclude_unset=True
+            moment.activity.validate_moment_data(
+                moment_data.data
             )
-            updated = self.moment_repository.update(
-                moment_id=moment_id, **update_dict
-            )
-            if not updated:
-                raise HTTPException(
-                    status_code=404,
-                    detail="Moment not found",
-                )
-            return MomentResponse.from_orm(updated)
-        except ValidationError as e:
+        except ValueError as e:
             raise HTTPException(
                 status_code=400,
-                detail=f"Invalid moment data: {str(e)}",
+                detail=f"Moment data does not match"
+                f" activity schema: {str(e)}",
             )
 
+        # Update moment
+        update_dict = moment_data.model_dump(
+            exclude_unset=True,
+            exclude_none=True,
+        )
+        updated = self.moment_repository.update(
+            moment_id, update_dict
+        )
+        return MomentResponse.model_validate(updated)
+
     def list_recent_activities(
-        self, user_id: str, limit: int = 5
-    ) -> List[Activity]:
-        """Get recently used activities for a user
+        self, user_id: str, limit: int = 10
+    ) -> List[MomentResponse]:
+        """List recent activities for a user
 
         Args:
-            user_id: ID of the user
+            user_id: ID of user to get activities for
             limit: Maximum number of activities to return
 
         Returns:
-            List of unique activities from recent moments
+            List of recent activities
 
         Raises:
             HTTPException: If limit is invalid
@@ -339,17 +354,10 @@ class MomentService:
                 detail="Limit must be between 1 and 100",
             )
 
-        recent_moments = (
-            self.moment_repository.get_recent_by_user(
-                user_id=user_id, limit=limit
-            )
+        moments = self.moment_repository.get_recent_by_user(
+            user_id, limit
         )
-        # Get unique activities from recent moments
-        activities: Dict[int, Activity] = {}
-        for moment in recent_moments:
-            activity_id = cast(int, moment.activity_id)
-            if activity_id not in activities:
-                activities[activity_id] = Activity.from_db(
-                    moment.activity
-                )
-        return list(activities.values())
+        return [
+            MomentResponse.model_validate(m)
+            for m in moments
+        ]

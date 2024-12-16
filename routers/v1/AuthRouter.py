@@ -14,7 +14,10 @@ from schemas.pydantic.UserSchema import (
     UserResponse,
 )
 from schemas.pydantic.CommonSchema import GenericResponse
-from utils.security import create_access_token, get_current_user
+from utils.security import (
+    create_access_token,
+    get_current_user,
+)
 from utils.error_handlers import handle_exceptions
 from datetime import timedelta
 from typing import Dict

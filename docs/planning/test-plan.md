@@ -57,7 +57,7 @@
 
 - [ ] Service Tests
   - [x] UserService tests
-  - [ ] ActivityService tests
+  - [x] ActivityService tests
   - [ ] MomentService tests
 
 - [ ] Router Tests

@@ -19,8 +19,8 @@ class Moment:
     @strawberry.field(
         description="Unique identifier for the moment"
     )
-    def id(self) -> int:
-        return self._id
+    def id(self) -> str:
+        return str(self._id)
 
     @strawberry.field(
         description="ID of the activity this moment belongs to"
