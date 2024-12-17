@@ -2,8 +2,11 @@ from datetime import datetime, timedelta
 from typing import Optional, Dict, Tuple
 from jose import JWTError, jwt
 import bcrypt
-from fastapi import Depends, HTTPException, status
-from fastapi.security import OAuth2PasswordBearer
+from fastapi import Depends, HTTPException, status, Request
+from fastapi.security import (
+    HTTPBearer,
+    HTTPAuthorizationCredentials,
+)
 import os
 import secrets
 from dotenv import load_dotenv
@@ -20,10 +23,26 @@ SECRET_KEY = os.getenv(
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 30
 
-# OAuth2 scheme for token authentication
-oauth2_scheme = OAuth2PasswordBearer(
-    tokenUrl="v1/auth/token"
-)
+
+# Custom bearer scheme that returns 401 for missing tokens
+class CustomHTTPBearer(HTTPBearer):
+    async def __call__(
+        self, request: Request
+    ) -> Optional[HTTPAuthorizationCredentials]:
+        try:
+            return await super().__call__(request)
+        except HTTPException as e:
+            if e.status_code == 403:
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="Not authenticated",
+                    headers={"WWW-Authenticate": "Bearer"},
+                )
+            raise e
+
+
+# Bearer token scheme for authentication
+bearer_scheme = CustomHTTPBearer()
 
 
 def create_access_token(
@@ -143,7 +162,9 @@ def decode_token(token: str) -> Dict:
 
 
 async def get_current_user(
-    token: str = Depends(oauth2_scheme),
+    token: HTTPAuthorizationCredentials = Depends(
+        bearer_scheme
+    ),
 ) -> Dict:
     """Get the current user from the JWT token"""
     credentials_exception = HTTPException(
@@ -153,11 +174,11 @@ async def get_current_user(
     )
 
     try:
-        payload = decode_token(token)
+        payload = decode_token(token.credentials)
         user_id = payload.get("sub")
         if user_id is None:
             raise credentials_exception
-        return {"user_id": user_id}
+        return {"user_id": user_id, "sub": user_id}
     except jwt.JWTError:
         raise credentials_exception
 
@@ -187,7 +208,9 @@ def parse_api_key(api_key: str) -> Tuple[str, str]:
     """
     try:
         if not api_key:
-            raise ValueError("API key cannot be empty or None")
+            raise ValueError(
+                "API key cannot be empty or None"
+            )
         key_id, secret = api_key.split(".", 1)
         return key_id, secret
     except (AttributeError, ValueError):

@@ -24,7 +24,7 @@
     - [x] List moments with filters
     - [x] Moment existence validation
     - [x] Delete operations
-  - [ ] UserRepository tests
+  - [x] UserRepository tests
 
 - [ ] Model Tests
   - [x] BaseModel tests
@@ -58,7 +58,7 @@
 - [ ] Service Tests
   - [x] UserService tests
   - [x] ActivityService tests
-  - [ ] MomentService tests
+  - [x] MomentService tests
 
 - [ ] Router Tests
   - [x] ActivityRouter tests
@@ -67,8 +67,13 @@
     - [x] Get activity
     - [x] Update activity
     - [x] Delete activity
-  - [ ] AuthRouter tests
-  - [ ] MomentRouter tests
+  - [x] AuthRouter tests
+    - [x] User registration
+    - [x] User login
+    - [x] Get current user
+    - [x] Token authentication
+    - [x] Error handling for invalid credentials
+  - [x] MomentRouter tests
 
 - [ ] Integration Tests
   - [ ] Database integration tests
@@ -81,8 +86,8 @@
   - [ ] Database query performance tests
 
 ## Test Coverage
-- Overall coverage: 75%
-- Models: 
+- Overall coverage: 76%
+- Models:
   - UserModel: 95%
   - ActivityModel: 65%
   - MomentModel: 86%
@@ -92,32 +97,14 @@
   - ActivityRepository: 79%
   - MomentRepository: 93%
   - UserRepository: 85%
-- Services: 
+- Services:
   - UserService: 93%
   - ActivityService: 90%
   - MomentService: 94%
 - Routers:
   - ActivityRouter: 100%
   - AuthRouter: 100%
-  - MomentRouter: 71%
-- Schemas:
-  - Pydantic Schemas:
-    - ActivitySchema: 84%
-    - MomentSchema: 82%
-    - UserSchema: 92%
-    - CommonSchema: 88%
-    - PaginationSchema: 89%
-  - GraphQL Schemas:
-    - Activity Types: 70%
-    - Moment Types: 76%
-    - User Types: 64%
-    - Activity Mutations: 32%
-    - Moment Mutations: 46%
-    - User Mutations: 52%
-- Utils:
-  - error_handlers: 86%
-  - json_utils: 47%
-  - security: 66%
+  - MomentRouter: 100%
 
 ## Recent Updates
 - Fixed test database setup to handle concurrent test execution
@@ -135,24 +122,44 @@
   - Improved code formatting and readability
 
 ## Next Steps
-1. Service Layer Tests (Priority)
-   - MomentService tests (26% coverage)
-     - Moment creation with activity validation
-     - Data schema validation
-     - Filtering and querying
+1. Authentication Tests
+   - [x] Basic authentication flow
+   - [x] Token handling and validation
+   - [x] Error handling for missing/invalid tokens
+   - [ ] Integration with user service
+   - [ ] Session management
 
-2. Pydantic V2 Migration
-   - Replace `@validator` with `@field_validator`
-   - Replace `from_orm` with `model_validate`
-   - Replace `dict()` with `model_dump()`
-   - Update Field extra arguments to use `json_schema_extra`
+2. Repository Tests
+   - BaseRepository: 100% coverage
+   - ActivityRepository: 79% coverage
+     - Need to improve error handling coverage
+     - Add tests for edge cases in activity validation
+   - MomentRepository: 93% coverage
+     - Add tests for concurrent operations
+   - UserRepository: 85% coverage
+     - Add tests for user secret handling
+     - Add tests for user deletion cascade
 
-3. SQLAlchemy Updates
-   - Update `declarative_base()` to use `sqlalchemy.orm.declarative_base()`
-   - Replace `datetime.utcnow()` with `datetime.now(UTC)`
+3. Service Layer Tests
+   - UserService: 93% coverage
+     - Add tests for error conditions in user operations
+   - ActivityService: 90% coverage
+     - Add tests for activity schema validation
+   - MomentService: 94% coverage
+     - Add tests for moment data validation
 
-4. Router Tests
-   - MomentRouter tests
+4. GraphQL Tests
+   - [ ] Query resolvers
+   - [ ] Mutation resolvers
+   - [ ] Schema validation
+   - [ ] Error handling
+   - [ ] Authentication integration
+
+5. Performance and Integration Tests
+   - [ ] Load testing with concurrent users
+   - [ ] Database connection pooling
+   - [ ] API endpoint response times
+   - [ ] Memory usage monitoring
 
 ## Current Focus
 Implementing MomentService tests with the following priorities:
