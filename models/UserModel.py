@@ -43,7 +43,9 @@ class User(EntityMeta):
     id: Mapped[str] = Column(
         String(36),  # UUID length is 36 characters
         primary_key=True,
-        default=str(uuid4()),  # Change from lambda to direct value
+        default=str(
+            uuid4()
+        ),  # Change from lambda to direct value
         index=True,
     )
 

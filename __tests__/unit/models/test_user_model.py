@@ -22,7 +22,9 @@ def test_user_model_initialization() -> None:
     assert user.username == "testuser"
     assert user.key_id is not None
     assert user.user_secret == "test-secret-hash"
-    assert user.id is not None  # UUID should be auto-generated
+    assert (
+        user.id is not None
+    )  # UUID should be auto-generated
 
 
 def test_user_model_db_persistence(test_db_session) -> None:

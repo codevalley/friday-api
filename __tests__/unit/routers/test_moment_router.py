@@ -5,7 +5,6 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from unittest.mock import Mock
 from fastapi.security import HTTPAuthorizationCredentials
-from sqlalchemy.orm import Session
 from datetime import datetime
 
 from routers.v1.MomentRouter import router, MomentService

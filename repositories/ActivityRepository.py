@@ -21,7 +21,7 @@ class ActivityRepository(BaseRepository[Activity, int]):
     def create(
         self,
         instance_or_name: Union[Activity, str],
-        **kwargs
+        **kwargs,
     ) -> Activity:
         """Create a new activity
 
@@ -53,6 +53,7 @@ class ActivityRepository(BaseRepository[Activity, int]):
 
             return super().create(activity)
         except ValueError as e:
+            print(e)
             # Re-raise validation errors
             raise
         except IntegrityError as e:
@@ -148,15 +149,19 @@ class ActivityRepository(BaseRepository[Activity, int]):
             Updated Activity if found and owned by user, None otherwise
         """
         try:
-            activity = self.get_by_user(activity_id, user_id)
+            activity = self.get_by_user(
+                activity_id, user_id
+            )
             if not activity:
                 return None
 
             # Pre-validate any fields that require validation
-            if 'color' in data:
-                Activity.validate_color(data['color'])
-            if 'activity_schema' in data:
-                Activity.validate_schema_dict(data['activity_schema'])
+            if "color" in data:
+                Activity.validate_color(data["color"])
+            if "activity_schema" in data:
+                Activity.validate_schema_dict(
+                    data["activity_schema"]
+                )
 
             for key, value in data.items():
                 setattr(activity, key, value)
@@ -165,6 +170,7 @@ class ActivityRepository(BaseRepository[Activity, int]):
             self.db.refresh(activity)
             return activity
         except ValueError as e:
+            print(e)
             # Re-raise validation errors
             raise
         except IntegrityError as e:

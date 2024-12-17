@@ -189,4 +189,4 @@ Common error scenarios:
 1. Invalid input data
 2. Resource not found
 3. Unauthorized access
-4. Schema validation failure 
+4. Schema validation failure

@@ -244,4 +244,4 @@ For issues:
 1. Check logs
 2. Review documentation
 3. Open GitHub issue
-4. Contact support team 
+4. Contact support team

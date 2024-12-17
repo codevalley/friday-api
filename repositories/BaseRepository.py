@@ -109,7 +109,7 @@ class BaseRepository(
         except SQLAlchemyError as e:
             raise HTTPException(
                 status_code=500,
-                detail=f"Database error: {str(e)}"
+                detail=f"Database error: {str(e)}",
             )
 
     def list(

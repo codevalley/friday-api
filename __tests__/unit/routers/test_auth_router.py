@@ -6,13 +6,7 @@ from fastapi.testclient import TestClient
 from unittest.mock import Mock, patch
 from sqlalchemy.orm import Session
 from datetime import datetime
-
 from routers.v1.AuthRouter import router
-from services.UserService import UserService
-from schemas.pydantic.UserSchema import (
-    UserResponse,
-    Token,
-)
 from models.UserModel import User
 
 
@@ -167,10 +161,10 @@ class TestAuthRouter:
         mock_db,
     ):
         """Test successful current user retrieval."""
-        current_user = {
-            "user_id": "1",
-            "sub": "1",
-        }
+        # current_user = {
+        #     "user_id": "1",
+        #     "sub": "1",
+        # }
         user = User(
             id="1",
             username="testuser",

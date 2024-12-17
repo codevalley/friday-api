@@ -13,12 +13,12 @@ The `Moment` entity represents a single moment or event in a person's life. It i
 ```python
 class MomentModel(Base):
     __tablename__ = "moments"
-    
+
     id = Column(Integer, primary_key=True, index=True)
     timestamp = Column(DateTime(timezone=True), index=True)  # Stored in UTC
     activity_id = Column(Integer, ForeignKey("activities.id"))
     data = Column(JSON)  # Flexible schema based on activity type
-    
+
     # Relationships
     activity = relationship("ActivityModel", back_populates="moments")
 ```
@@ -36,14 +36,14 @@ The `Activity` entity defines different types of activities that can be logged a
 ```python
 class ActivityModel(Base):
     __tablename__ = "activities"
-    
+
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String, unique=True, index=True)
     description = Column(String)
     activity_schema = Column(JSON)  # JSON Schema for validating moment data
     icon = Column(String)  # Icon identifier or URL
     color = Column(String)  # Color code for UI representation
-    
+
     # Relationships
     moments = relationship("MomentModel", back_populates="activity")
 ```

@@ -27,12 +27,12 @@ Example:
 # models/MomentModel.py - Core domain entity
 class MomentModel(Base):
     __tablename__ = "moments"
-    
+
     id = Column(Integer, primary_key=True, index=True)
     timestamp = Column(DateTime(timezone=True), index=True)
     activity_id = Column(Integer, ForeignKey("activities.id"))
     data = Column(JSON)  # Flexible schema for different activities
-    
+
     # Relationships
     activity = relationship("ActivityModel", back_populates="moments")
 ```
@@ -51,14 +51,14 @@ Example:
 class MomentService:
     def __init__(self, repository: MomentRepository):
         self._repository = repository
-    
+
     async def create_moment(self, moment_data: dict) -> MomentModel:
         # Validate activity type
         activity = await self._validate_activity(moment_data["activity_id"])
-        
+
         # Validate moment data against activity schema
         self._validate_moment_data(moment_data["data"], activity.activity_schema)
-        
+
         # Create and store the moment
         moment = MomentModel(
             timestamp=moment_data["timestamp"],
@@ -66,7 +66,7 @@ class MomentService:
             data=moment_data["data"]
         )
         return await self._repository.create(moment)
-    
+
     async def query_moments(self, filters: dict) -> List[MomentModel]:
         # Query moments with time range, activity, etc.
         return await self._repository.query(filters)

@@ -12,9 +12,9 @@ class UserData:
     id: Optional[str] = None
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
-    user_secret: Optional[str] = (
-        None  # Only used during registration
-    )
+    user_secret: Optional[
+        str
+    ] = None  # Only used during registration
 
     def __post_init__(self):
         """Validate data after initialization"""

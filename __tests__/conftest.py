@@ -68,7 +68,7 @@ def test_db_session(test_engine, test_session_factory):
     # Drop and recreate tables before running any tests
     connection = test_engine.connect()
     transaction = connection.begin()
-    
+
     try:
         # Drop all tables in a transaction
         Base.metadata.drop_all(bind=connection)
@@ -80,7 +80,7 @@ def test_db_session(test_engine, test_session_factory):
         raise e
     finally:
         connection.close()
-    
+
     # Create session for the test
     session = test_session_factory()
     try:
@@ -102,9 +102,9 @@ def test_client(test_db_session):
         finally:
             test_db_session.close()
 
-    app.dependency_overrides[get_db_connection] = (
-        override_get_db
-    )
+    app.dependency_overrides[
+        get_db_connection
+    ] = override_get_db
     return TestClient(app)
 
 

@@ -27,7 +27,9 @@ def activity_repo(
 
 
 @pytest.fixture
-def moment_repo(test_db_session: Session) -> MomentRepository:
+def moment_repo(
+    test_db_session: Session,
+) -> MomentRepository:
     return MomentRepository(test_db_session)
 
 
@@ -196,17 +198,23 @@ def test_get_recent_by_user(
             user_id=test_user.id,
             activity_id=test_activity.id,
             data={"note": f"Test note {i}"},
-            timestamp=base_time - timedelta(minutes=i)
+            timestamp=base_time - timedelta(minutes=i),
         )
         moments.append(moment_repo.create(moment))
 
     # Get recent moments
-    recent_moments = moment_repo.get_recent_by_user(test_user.id, limit=2)
-    
+    recent_moments = moment_repo.get_recent_by_user(
+        test_user.id, limit=2
+    )
+
     # Should return 2 most recent moments in descending order
     assert len(recent_moments) == 2
-    assert recent_moments[0].id == moments[0].id  # Most recent
-    assert recent_moments[1].id == moments[1].id  # Second most recent
+    assert (
+        recent_moments[0].id == moments[0].id
+    )  # Most recent
+    assert (
+        recent_moments[1].id == moments[1].id
+    )  # Second most recent
 
 
 def test_get_recent_activities(
@@ -218,7 +226,7 @@ def test_get_recent_activities(
     # Create multiple activities with controlled timestamps
     activities = []
     base_time = datetime.now(timezone.utc)
-    
+
     for i in range(3):
         activity = ActivityModel(
             name=f"Test Activity {i}",
@@ -233,7 +241,7 @@ def test_get_recent_activities(
             },
         )
         activities.append(activity_repo.create(activity))
-    
+
     # Create moments for each activity with increasing timestamps
     for i, activity in enumerate(activities):
         moment = MomentModel(
@@ -241,7 +249,9 @@ def test_get_recent_activities(
             activity_id=activity.id,
             data={"note": "Test note"},
             # Use controlled timestamps to ensure deterministic ordering
-            timestamp=datetime.fromtimestamp(base_time.timestamp() + i, timezone.utc)
+            timestamp=datetime.fromtimestamp(
+                base_time.timestamp() + i, timezone.utc
+            ),
         )
         moment_repo.create(moment)
 

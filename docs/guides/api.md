@@ -292,4 +292,4 @@ mutation {
 - Headers:
   - `X-RateLimit-Limit`: Rate limit ceiling
   - `X-RateLimit-Remaining`: Remaining requests
-  - `X-RateLimit-Reset`: Time until reset 
+  - `X-RateLimit-Reset`: Time until reset

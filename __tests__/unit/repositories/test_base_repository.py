@@ -1,20 +1,23 @@
-import pytest
-from fastapi import HTTPException
-from sqlalchemy.exc import IntegrityError, SQLAlchemyError
-from repositories.BaseRepository import BaseRepository
-import sys
-import os
-sys.path.append(os.path.join(os.path.dirname(__file__), "../.."))
 from fixtures.test_model import TestModel
 import pytest
 from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.exc import IntegrityError
 from fastapi import HTTPException
+from repositories.BaseRepository import BaseRepository
+import sys
+import os
+
+sys.path.append(
+    os.path.join(os.path.dirname(__file__), "../..")
+)
 
 
 @pytest.fixture
 def base_repository(test_db_session):
     """Create a BaseRepository instance for testing"""
-    return BaseRepository(db=test_db_session, model=TestModel)
+    return BaseRepository(
+        db=test_db_session, model=TestModel
+    )
 
 
 @pytest.fixture
@@ -22,7 +25,7 @@ def sample_data():
     """Create sample data for testing"""
     return {
         "name": "Test Item",
-        "description": "Test Description"
+        "description": "Test Description",
     }
 
 
@@ -36,7 +39,9 @@ def test_create_success(base_repository, sample_data):
     assert created.description == sample_data["description"]
 
 
-def test_create_duplicate_error(base_repository, sample_data):
+def test_create_duplicate_error(
+    base_repository, sample_data
+):
     """Test error handling when creating duplicate entries"""
     instance1 = TestModel(**sample_data)
     instance2 = TestModel(**sample_data)
@@ -69,7 +74,9 @@ def test_list_pagination(base_repository):
     """Test listing instances with pagination"""
     # Create multiple instances
     for i in range(5):
-        instance = TestModel(name=f"Item {i}", description=f"Description {i}")
+        instance = TestModel(
+            name=f"Item {i}", description=f"Description {i}"
+        )
         base_repository.create(instance)
 
     # Test different pagination scenarios
@@ -89,31 +96,47 @@ def test_update_success(base_repository, sample_data):
     instance = TestModel(**sample_data)
     created = base_repository.create(instance)
 
-    updated = base_repository.update(created.id, {"name": "Updated Name"})
+    updated = base_repository.update(
+        created.id, {"name": "Updated Name"}
+    )
     assert updated is not None
     assert updated.name == "Updated Name"
-    assert updated.description == sample_data["description"]  # Other fields unchanged
+    assert (
+        updated.description == sample_data["description"]
+    )  # Other fields unchanged
 
 
 def test_update_nonexistent(base_repository):
     """Test updating a non-existent instance"""
-    updated = base_repository.update(999, {"name": "Updated Name"})
+    updated = base_repository.update(
+        999, {"name": "Updated Name"}
+    )
     assert updated is None
 
 
-def test_update_integrity_error(base_repository, sample_data, mocker):
+def test_update_integrity_error(
+    base_repository, sample_data, mocker
+):
     """Test error handling when integrity error occurs during update"""
     instance = TestModel(**sample_data)
     created = base_repository.create(instance)
 
     # Mock SQLAlchemy IntegrityError
-    mock_session = mocker.patch.object(base_repository, 'db')
-    mock_session.commit.side_effect = IntegrityError("statement", "params", "orig")
+    mock_session = mocker.patch.object(
+        base_repository, "db"
+    )
+    mock_session.commit.side_effect = IntegrityError(
+        "statement", "params", "orig"
+    )
 
     with pytest.raises(HTTPException) as exc_info:
-        base_repository.update(created.id, {"name": "Updated Name"})
+        base_repository.update(
+            created.id, {"name": "Updated Name"}
+        )
     assert exc_info.value.status_code == 409
-    assert "Update violates constraints" in str(exc_info.value.detail)
+    assert "Update violates constraints" in str(
+        exc_info.value.detail
+    )
 
 
 def test_delete_success(base_repository, sample_data):
@@ -135,12 +158,16 @@ def test_delete_nonexistent(base_repository):
     assert result is False
 
 
-def test_validate_existence_success(base_repository, sample_data):
+def test_validate_existence_success(
+    base_repository, sample_data
+):
     """Test validation of existing instance"""
     instance = TestModel(**sample_data)
     created = base_repository.create(instance)
 
-    validated = base_repository.validate_existence(created.id)
+    validated = base_repository.validate_existence(
+        created.id
+    )
     assert validated is not None
     assert validated.id == created.id
 
@@ -152,13 +179,19 @@ def test_validate_existence_error(base_repository):
     assert exc_info.value.status_code == 404
 
 
-def test_create_database_error(base_repository, sample_data, mocker):
+def test_create_database_error(
+    base_repository, sample_data, mocker
+):
     """Test error handling when database error occurs during create"""
     instance = TestModel(**sample_data)
-    
+
     # Mock SQLAlchemy error
-    mock_session = mocker.patch.object(base_repository, 'db')
-    mock_session.commit.side_effect = SQLAlchemyError("Database error")
+    mock_session = mocker.patch.object(
+        base_repository, "db"
+    )
+    mock_session.commit.side_effect = SQLAlchemyError(
+        "Database error"
+    )
 
     with pytest.raises(HTTPException) as exc_info:
         base_repository.create(instance)
@@ -166,29 +199,43 @@ def test_create_database_error(base_repository, sample_data, mocker):
     assert "Database error" in str(exc_info.value.detail)
 
 
-def test_update_database_error(base_repository, sample_data, mocker):
+def test_update_database_error(
+    base_repository, sample_data, mocker
+):
     """Test error handling when database error occurs during update"""
     instance = TestModel(**sample_data)
     created = base_repository.create(instance)
 
     # Mock SQLAlchemy error
-    mock_session = mocker.patch.object(base_repository, 'db')
-    mock_session.commit.side_effect = SQLAlchemyError("Database error")
+    mock_session = mocker.patch.object(
+        base_repository, "db"
+    )
+    mock_session.commit.side_effect = SQLAlchemyError(
+        "Database error"
+    )
 
     with pytest.raises(HTTPException) as exc_info:
-        base_repository.update(created.id, {"name": "Updated Name"})
+        base_repository.update(
+            created.id, {"name": "Updated Name"}
+        )
     assert exc_info.value.status_code == 500
     assert "Database error" in str(exc_info.value.detail)
 
 
-def test_delete_database_error(base_repository, sample_data, mocker):
+def test_delete_database_error(
+    base_repository, sample_data, mocker
+):
     """Test error handling when database error occurs during delete"""
     instance = TestModel(**sample_data)
     created = base_repository.create(instance)
 
     # Mock SQLAlchemy error
-    mock_session = mocker.patch.object(base_repository, 'db')
-    mock_session.commit.side_effect = SQLAlchemyError("Database error")
+    mock_session = mocker.patch.object(
+        base_repository, "db"
+    )
+    mock_session.commit.side_effect = SQLAlchemyError(
+        "Database error"
+    )
 
     with pytest.raises(HTTPException) as exc_info:
         base_repository.delete(created.id)
@@ -199,8 +246,12 @@ def test_delete_database_error(base_repository, sample_data, mocker):
 def test_get_by_id_database_error(base_repository, mocker):
     """Test error handling when database error occurs during get_by_id"""
     # Mock SQLAlchemy error
-    mock_session = mocker.patch.object(base_repository, 'db')
-    mock_session.query.side_effect = SQLAlchemyError("Database error")
+    mock_session = mocker.patch.object(
+        base_repository, "db"
+    )
+    mock_session.query.side_effect = SQLAlchemyError(
+        "Database error"
+    )
 
     with pytest.raises(HTTPException) as exc_info:
         base_repository.get_by_id(1, 1)  # user_id=1, id=1

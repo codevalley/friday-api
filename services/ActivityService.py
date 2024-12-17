@@ -307,11 +307,13 @@ class ActivityService:
         activity_schema = activity_data.activitySchema
         if isinstance(activity_schema, str):
             try:
-                activity_schema = json.loads(activity_schema)
+                activity_schema = json.loads(
+                    activity_schema
+                )
             except json.JSONDecodeError:
                 raise HTTPException(
                     status_code=400,
-                    detail="Invalid activity schema format: must be valid JSON",
+                    detail="Invalid activity schema format: must be valid JSON",  # noqa: E501
                 )
 
         # Validate the schema
@@ -323,7 +325,9 @@ class ActivityService:
             activity_schema=activity_schema,
             icon=activity_data.icon,
             color=activity_data.color,
-            user_id=str(user_id),  # Ensure user_id is string
+            user_id=str(
+                user_id
+            ),  # Ensure user_id is string
         )
         return Activity.from_db(activity)
 
@@ -403,14 +407,20 @@ class ActivityService:
         # Convert activity_schema to dict if it's a string
         if activity_data.activitySchema:
             try:
-                activity_schema = json.loads(activity_data.activitySchema)
+                activity_schema = json.loads(
+                    activity_data.activitySchema
+                )
                 # Validate the schema before updating
-                self._validate_activity_schema(activity_schema)
-                activity_data.activitySchema = activity_schema
+                self._validate_activity_schema(
+                    activity_schema
+                )
+                activity_data.activitySchema = (
+                    activity_schema
+                )
             except json.JSONDecodeError:
                 raise HTTPException(
                     status_code=400,
-                    detail="Invalid activity schema format: must be valid JSON",
+                    detail="Invalid activity schema format: must be valid JSON",  # noqa: E501
                 )
 
         # Create an ActivityUpdate instance with the correct field names

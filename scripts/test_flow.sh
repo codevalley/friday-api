@@ -15,19 +15,19 @@ BASE_URL="http://localhost:8000/v1"
 extract_json_value() {
     local response=$1
     local field=$2
-    
+
     # First try to extract from data field (GenericResponse format)
     # This handles nested fields like data.id, data.items, etc.
     value=$(echo "$response" | grep -o "\"data\":{[^}]*\"$field\":[[:space:]]*[^,}]*" | grep -o "\"$field\":[[:space:]]*[^,}]*" | sed -E "s/\"$field\":[[:space:]]*//;s/\"//g")
-    
+
     # If not found in data field, try direct field (for backward compatibility)
     if [ -z "$value" ]; then
         value=$(echo "$response" | grep -o "\"$field\":[[:space:]]*[^,}]*" | sed -E "s/\"$field\":[[:space:]]*//;s/\"//g")
     fi
-    
+
     # Trim any whitespace
     value=$(echo "$value" | sed -E 's/^[[:space:]]*|[[:space:]]*$//g')
-    
+
     echo "$value"
 }
 
@@ -272,4 +272,3 @@ echo "Moment Response: $MOMENT_RESPONSE"
 check_api_response "$MOMENT_RESPONSE" "Getting specific moment"
 
 echo -e "\n${GREEN}Test flow completed!${NC}"
-  

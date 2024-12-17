@@ -16,7 +16,7 @@ T = TypeVar('T')
 
 class RepositoryMeta(Generic[T]):
     """Base repository with common CRUD operations"""
-    
+
     def create(self, **data) -> T:
         """Create a new entity"""
         pass

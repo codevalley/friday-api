@@ -14,13 +14,13 @@ BASE_URL="http://localhost:8000"
 extract_json_value() {
     local response=$1
     local field=$2
-    
+
     # Try using jq if available
     if command -v jq &> /dev/null; then
         echo "$response" | jq -r ".$field"
         return
     fi
-    
+
     # Fallback: basic string manipulation
     # Handle both string and number values
     value=$(echo "$response" | grep -o "\"$field\":[[:space:]]*[\"0-9][^,}]*" | sed -E "s/\"$field\":[[:space:]]*//;s/\"//g")
@@ -46,13 +46,13 @@ check_api_response() {
 extract_graphql_value() {
     local response=$1
     local field=$2
-    
+
     # Try using jq if available
     if command -v jq &> /dev/null; then
         echo "$response" | jq -r ".data.$field.id"
         return
     fi
-    
+
     # Fallback: basic string manipulation for GraphQL response
     value=$(echo "$response" | grep -o "\"id\":[[:space:]]*[0-9][^,}]*" | head -n1 | sed -E "s/\"id\":[[:space:]]*//")
     echo "$value"
@@ -241,4 +241,4 @@ MOMENT_RESPONSE=$(curl -s -X POST "$BASE_URL/graphql" \
 echo "Moment Response: $MOMENT_RESPONSE"
 check_api_response "$MOMENT_RESPONSE" "Getting specific moment"
 
-echo -e "\n${GREEN}GraphQL test flow completed!${NC}" 
+echo -e "\n${GREEN}GraphQL test flow completed!${NC}"

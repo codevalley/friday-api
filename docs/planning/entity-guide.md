@@ -270,4 +270,3 @@ def test_get_location():
 ### Conclusion
 
 Following this guide ensures a consistent approach to adding new entities, maintaining the clean architecture principles.
-

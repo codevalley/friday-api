@@ -91,7 +91,7 @@
   - [x] Repositories Layer
   - [x] Routers Layer
   - [x] Models Layer
-  - [x] GraphQL Layer 
+  - [x] GraphQL Layer
 
 ## Next Steps:
 
