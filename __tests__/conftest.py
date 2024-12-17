@@ -1,6 +1,16 @@
 """Test configuration and fixtures."""
 
+from configs.Database import get_db_connection
+from main import app
+from models.ActivityModel import Activity
+from models.BaseModel import Base
+from models.MomentModel import Moment
+from models.UserModel import User
+from utils.security import hash_user_secret
+
 import asyncio
+import os
+import sys
 import uuid
 from datetime import datetime, timezone
 from typing import Generator
@@ -10,13 +20,11 @@ from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
-from configs.Database import get_db_connection
-from main import app
-from models.ActivityModel import Activity
-from models.BaseModel import Base
-from models.MomentModel import Moment
-from models.UserModel import User
-from utils.security import hash_user_secret
+# Add project root to Python path
+project_root = os.path.dirname(
+    os.path.dirname(os.path.abspath(__file__))
+)
+sys.path.insert(0, project_root)
 
 
 # Use test MySQL database
