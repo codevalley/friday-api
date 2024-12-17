@@ -61,7 +61,12 @@
   - [ ] MomentService tests
 
 - [ ] Router Tests
-  - [ ] ActivityRouter tests
+  - [x] ActivityRouter tests
+    - [x] Create activity
+    - [x] List activities
+    - [x] Get activity
+    - [x] Update activity
+    - [x] Delete activity
   - [ ] AuthRouter tests
   - [ ] MomentRouter tests
 
@@ -76,19 +81,43 @@
   - [ ] Database query performance tests
 
 ## Test Coverage
-- Overall coverage: 70%
+- Overall coverage: 75%
 - Models: 
   - UserModel: 95%
   - ActivityModel: 65%
   - MomentModel: 86%
+  - BaseModel: 58%
 - Repositories:
   - BaseRepository: 100%
   - ActivityRepository: 79%
   - MomentRepository: 93%
+  - UserRepository: 85%
 - Services: 
   - UserService: 93%
   - ActivityService: 90%
-  - MomentService: 26%
+  - MomentService: 94%
+- Routers:
+  - ActivityRouter: 100%
+  - AuthRouter: 100%
+  - MomentRouter: 71%
+- Schemas:
+  - Pydantic Schemas:
+    - ActivitySchema: 84%
+    - MomentSchema: 82%
+    - UserSchema: 92%
+    - CommonSchema: 88%
+    - PaginationSchema: 89%
+  - GraphQL Schemas:
+    - Activity Types: 70%
+    - Moment Types: 76%
+    - User Types: 64%
+    - Activity Mutations: 32%
+    - Moment Mutations: 46%
+    - User Mutations: 52%
+- Utils:
+  - error_handlers: 86%
+  - json_utils: 47%
+  - security: 66%
 
 ## Recent Updates
 - Fixed test database setup to handle concurrent test execution
@@ -99,7 +128,11 @@
 - Fixed database connection issues in tests:
   - Added transaction management for table operations
   - Improved connection pooling configuration
-  - Added health checks for database connections
+- Completed ActivityRouter tests:
+  - Implemented all CRUD operation tests
+  - Added proper mocking for ActivityService
+  - Removed unused test code
+  - Improved code formatting and readability
 
 ## Next Steps
 1. Service Layer Tests (Priority)
@@ -119,7 +152,6 @@
    - Replace `datetime.utcnow()` with `datetime.now(UTC)`
 
 4. Router Tests
-   - ActivityRouter tests
    - MomentRouter tests
 
 ## Current Focus
