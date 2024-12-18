@@ -2,10 +2,10 @@
 
 from configs.Database import get_db_connection
 from main import app
-from models.ActivityModel import Activity
-from models.BaseModel import Base
-from models.MomentModel import Moment
-from models.UserModel import User
+from orm.ActivityModel import Activity
+from orm.BaseModel import Base
+from orm.MomentModel import Moment
+from orm.UserModel import User
 from utils.security import hash_user_secret
 
 import asyncio

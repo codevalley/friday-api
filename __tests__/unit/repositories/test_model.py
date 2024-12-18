@@ -1,5 +1,5 @@
 from sqlalchemy import Column, String, Integer
-from models.BaseModel import EntityMeta
+from orm.BaseModel import EntityMeta
 
 
 class TestModel(EntityMeta):

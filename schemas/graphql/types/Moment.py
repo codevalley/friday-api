@@ -2,7 +2,7 @@ import strawberry
 from typing import Optional, Dict, Any, List
 from datetime import datetime
 
-from models.MomentModel import Moment as MomentModel
+from orm.MomentModel import Moment as MomentModel
 from schemas.base.moment_schema import MomentData
 from utils.json_utils import ensure_dict
 

@@ -80,7 +80,7 @@ def mock_activity():
 @pytest.fixture
 def test_user(test_db_session):
     """Create a test user in the database."""
-    from models.UserModel import User
+    from orm.UserModel import User
 
     user = User(
         id="test_user",

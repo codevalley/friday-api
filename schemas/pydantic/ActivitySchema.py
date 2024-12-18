@@ -3,7 +3,7 @@ from typing import Dict, Any, Optional, List
 
 from pydantic import BaseModel, Field, ConfigDict
 
-from domain.models.activity import ActivityData, MomentData
+from domain.activity import ActivityData, MomentData
 from schemas.pydantic.PaginationSchema import (
     PaginationResponse,
 )

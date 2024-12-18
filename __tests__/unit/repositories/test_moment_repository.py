@@ -9,9 +9,9 @@ from repositories.ActivityRepository import (
     ActivityRepository,
 )
 from repositories.UserRepository import UserRepository
-from models.MomentModel import Moment as MomentModel
-from models.ActivityModel import Activity as ActivityModel
-from models.UserModel import User as UserModel
+from orm.MomentModel import Moment as MomentModel
+from orm.ActivityModel import Activity as ActivityModel
+from orm.UserModel import User as UserModel
 
 
 @pytest.fixture

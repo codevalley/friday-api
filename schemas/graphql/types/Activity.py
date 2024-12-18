@@ -5,7 +5,7 @@ from typing import List, Optional, Any
 import json
 import strawberry
 
-from domain.models.activity import ActivityData
+from domain.activity import ActivityData
 from schemas.graphql.types.Moment import Moment
 
 

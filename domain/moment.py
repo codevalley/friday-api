@@ -1,27 +1,41 @@
 """Domain model for Moment."""
 
 from dataclasses import dataclass
-from datetime import datetime
-from typing import Dict, Any, Optional
+from datetime import datetime, timezone, timedelta
+from typing import Dict, Any, Optional, TypeVar, Type
 
 from utils.validation import validate_moment_data
+
+# Type variable for the class itself
+T = TypeVar("T", bound="MomentData")
 
 
 @dataclass
 class MomentData:
     """Domain model for Moment.
 
-    This class represents a moment in time when a user records an activity.
+    This class represents a single moment or event recorded for an activity.
     It contains all the business logic and validation rules for moments.
 
+    Data Flow and Conversions:
+    1. API Layer: Incoming data is validated by Pydantic schemas
+       (MomentCreate/MomentUpdate)
+    2. Domain Layer: Data is converted to MomentData using to_domain()
+       methods
+    3. Database Layer: MomentData is converted to ORM models
+       using from_dict()
+    4. Response: ORM models are converted back to MomentData using from_orm()
+    5. API Response: MomentData is converted to response schemas
+       using from_domain()
+
     Attributes:
-        id: Unique identifier for the moment
         activity_id: ID of the activity this moment belongs to
         user_id: ID of the user who created this moment
-        data: Activity-specific data that must conform to the activity's schema
-        timestamp: When this moment occurred (in UTC)
-        created_at: When this record was created
-        updated_at: When this record was last updated
+        data: JSON data specific to the activity type
+        timestamp: When this moment occurred
+        id: Unique identifier for the moment (optional)
+        created_at: When this record was created (optional)
+        updated_at: When this record was last updated (optional)
     """
 
     activity_id: int
@@ -32,12 +46,15 @@ class MomentData:
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         """Validate the moment data after initialization."""
         self.validate()
 
     def validate(self) -> None:
         """Validate the moment data.
+
+        This method performs comprehensive validation of all fields
+        to ensure data integrity and consistency.
 
         Raises:
             ValueError: If any validation fails
@@ -60,9 +77,38 @@ class MomentData:
         if not isinstance(self.data, dict):
             raise ValueError("data must be a dictionary")
 
+        # Validate data structure
+        try:
+            self._validate_nested_data(self.data)
+        except ValueError as e:
+            raise ValueError(f"Invalid data structure: {e}")
+
         if not isinstance(self.timestamp, datetime):
             raise ValueError(
                 "timestamp must be a datetime object"
+            )
+
+        # Validate timezone awareness
+        if self.timestamp.tzinfo is None:
+            raise ValueError(
+                "timestamp must be timezone-aware"
+            )
+
+        # Validate timestamp range
+        now = datetime.now(timezone.utc)
+        if self.timestamp > now + timedelta(hours=1):
+            raise ValueError(
+                "timestamp cannot be in the future"
+            )
+        if self.timestamp < now - timedelta(days=365 * 10):
+            raise ValueError(
+                "timestamp cannot be more than 10 years in the past"
+            )
+
+        # Validate microsecond precision
+        if self.timestamp.microsecond >= 1000000:
+            raise ValueError(
+                "microsecond must be in 0..999999"
             )
 
         if self.id is not None and (
@@ -85,6 +131,34 @@ class MomentData:
             raise ValueError(
                 "updated_at must be a datetime object"
             )
+
+    def _validate_nested_data(
+        self, data: Dict[str, Any], depth: int = 0
+    ) -> None:
+        """Validate nested data structures.
+
+        Args:
+            data: Data to validate
+            depth: Current recursion depth
+
+        Raises:
+            ValueError: If validation fails
+        """
+        if depth > 10:
+            raise ValueError("circular reference detected")
+
+        if isinstance(data, dict):
+            for key, value in data.items():
+                if isinstance(value, (dict, list)):
+                    self._validate_nested_data(
+                        value, depth + 1
+                    )
+        elif isinstance(data, list):
+            for item in data:
+                if isinstance(item, (dict, list)):
+                    self._validate_nested_data(
+                        item, depth + 1
+                    )
 
     def validate_against_schema(
         self, activity_schema: Dict[str, Any]
@@ -142,10 +216,10 @@ class MomentData:
 
     @classmethod
     def from_dict(
-        cls,
+        cls: Type[T],
         data: Dict[str, Any],
         user_id: Optional[str] = None,
-    ) -> "MomentData":
+    ) -> T:
         """Create a MomentData instance from a dictionary.
 
         Args:
@@ -153,7 +227,7 @@ class MomentData:
             user_id: Optional user ID to use if not present in data
 
         Returns:
-            MomentData: New instance
+            MomentData: New instance with validated data
 
         Raises:
             ValueError: If required fields are missing or invalid
@@ -195,14 +269,14 @@ class MomentData:
         )
 
     @classmethod
-    def from_orm(cls, orm_model: Any) -> "MomentData":
+    def from_orm(cls: Type[T], orm_model: Any) -> T:
         """Create a MomentData instance from an ORM model.
 
         Args:
             orm_model: SQLAlchemy model instance
 
         Returns:
-            MomentData: New instance
+            MomentData: New instance with validated data from the database
         """
         return cls(
             id=orm_model.id,

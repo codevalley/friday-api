@@ -7,7 +7,7 @@ from unittest.mock import Mock, patch
 from sqlalchemy.orm import Session
 from datetime import datetime
 from routers.v1.AuthRouter import router
-from models.UserModel import User
+from orm.UserModel import User
 
 
 @pytest.fixture

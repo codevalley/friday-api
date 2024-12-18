@@ -1,6 +1,6 @@
 from typing import Optional
 from sqlalchemy.orm import Session
-from models.UserModel import User
+from orm.UserModel import User
 from fastapi import HTTPException, status
 
 from .BaseRepository import BaseRepository

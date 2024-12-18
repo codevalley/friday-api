@@ -3,8 +3,9 @@
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Dict, Any, List, Optional
+import re
 
-from domain.models.moment import MomentData
+from domain.moment import MomentData
 
 
 @dataclass
@@ -13,6 +14,17 @@ class ActivityData:
 
     This class represents an activity type that can be tracked through moments.
     It contains all the business logic and validation rules for activities.
+
+    Data Flow and Conversions:
+    1. API Layer: Incoming data is validated by Pydantic schemas
+       (ActivityCreate/ActivityUpdate)
+    2. Domain Layer: Data is converted to ActivityData using to_domain()
+       methods
+    3. Database Layer: ActivityData is converted to ORM models
+       using from_dict()
+    4. Response: ORM models are converted back to ActivityData using from_orm()
+    5. API Response: ActivityData is converted to response schemas
+       using from_domain()
 
     Attributes:
         id: Unique identifier for the activity
@@ -79,6 +91,11 @@ class ActivityData:
                 "color must be a non-empty string"
             )
 
+        if not re.match(r"^#[0-9A-Fa-f]{6}$", self.color):
+            raise ValueError(
+                "color must be a valid hex code (e.g., #FF0000)"
+            )
+
         if not self.user_id or not isinstance(
             self.user_id, str
         ):
@@ -101,12 +118,22 @@ class ActivityData:
                 "moment_count must be a non-negative integer"
             )
 
-        if self.moments is not None and not isinstance(
-            self.moments, list
-        ):
-            raise ValueError(
-                "moments must be a list or None"
-            )
+        if self.moments is not None:
+            if not isinstance(self.moments, list):
+                raise ValueError(
+                    "moments must be a list or None"
+                )
+
+            for moment in self.moments:
+                if not isinstance(moment, MomentData):
+                    raise ValueError(
+                        "invalid moment data in list"
+                    )
+
+            if self.moment_count != len(self.moments):
+                raise ValueError(
+                    "moment count mismatch: count does not match list length"
+                )
 
         if self.created_at is not None and not isinstance(
             self.created_at, datetime
@@ -125,8 +152,12 @@ class ActivityData:
     def to_dict(self) -> Dict[str, Any]:
         """Convert the activity data to a dictionary.
 
+        This method is used when we need to serialize the domain model,
+        typically for API responses or database operations.
+
         Returns:
-            Dict[str, Any]: Dictionary representation of the activity
+            Dict[str, Any]: Dictionary representation of the activity,
+                           with all fields properly serialized
         """
         data = {
             "id": self.id,
@@ -148,18 +179,40 @@ class ActivityData:
 
     @classmethod
     def from_dict(
-        cls, data: Dict[str, Any]
+        cls,
+        data: Dict[str, Any],
     ) -> "ActivityData":
         """Create an ActivityData instance from a dictionary.
 
+        This method is used when we receive data from an API request
+        or need to reconstruct the domain model from stored data.
+
+        The method handles moment_count in the following ways:
+        1. If moment_count is provided in the data, use that value
+        2. If moments list provided but no moment_count, use length of moments
+        3. If neither is provided, default to 0
+
         Args:
-            data: Dictionary containing activity data
+            data: Dictionary containing activity data with the fields:
+                - name: Display name of the activity (required)
+                - description: Detailed description (required)
+                - activity_schema: JSON Schema for validating moment data
+                  (required)
+                - icon: Display icon (required)
+                - color: Hex color code for UI (required)
+                - user_id: ID of the user who created this activity (required)
+                - id: Unique identifier for the activity (optional)
+                - moment_count: Number of moments (optional)
+                - moments: List of moment data (optional)
+                - created_at: Creation timestamp (optional)
+                - updated_at: Last update timestamp (optional)
 
         Returns:
-            ActivityData: New instance
+            ActivityData: New instance with validated data
 
         Raises:
             ValueError: If required fields are missing or invalid
+            ValueError: If moment_count doesn't match moments list length
         """
         moments_data = data.get("moments", [])
         moments = (
@@ -167,6 +220,11 @@ class ActivityData:
             if moments_data
             else None
         )
+
+        # Set moment_count based on moments list if not provided
+        moment_count = data.get("moment_count")
+        if moments is not None and moment_count is None:
+            moment_count = len(moments)
 
         return cls(
             id=data.get("id"),
@@ -176,7 +234,7 @@ class ActivityData:
             icon=data["icon"],
             color=data["color"],
             user_id=data["user_id"],
-            moment_count=data.get("moment_count", 0),
+            moment_count=moment_count or 0,
             moments=moments,
             created_at=data.get("created_at"),
             updated_at=data.get("updated_at"),
@@ -186,11 +244,15 @@ class ActivityData:
     def from_orm(cls, orm_model: Any) -> "ActivityData":
         """Create an ActivityData instance from an ORM model.
 
+        This method is the bridge between the database layer and domain layer.
+        It ensures that data from the database is properly
+        validated before use.
+
         Args:
             orm_model: SQLAlchemy model instance
 
         Returns:
-            ActivityData: New instance
+            ActivityData: New instance with validated data from the database
         """
         moments = None
         if (

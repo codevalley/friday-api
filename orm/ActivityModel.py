@@ -28,11 +28,11 @@ from typing import (
 )
 from datetime import datetime
 
-from models.BaseModel import EntityMeta
-from models.MomentModel import Moment
+from orm.BaseModel import EntityMeta
+from orm.MomentModel import Moment
 
 if TYPE_CHECKING:
-    from models.UserModel import User
+    from orm.UserModel import User
 
 
 class Activity(EntityMeta):

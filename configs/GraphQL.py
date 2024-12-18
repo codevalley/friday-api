@@ -7,7 +7,7 @@ from services.ActivityService import ActivityService
 from services.MomentService import MomentService
 from configs.Database import get_db_connection
 from dependencies import get_optional_user
-from models.UserModel import User
+from orm.UserModel import User
 
 
 # GraphQL Dependency Context

@@ -5,7 +5,7 @@ from configs.Database import get_db_connection
 from configs.OpenAPI import security
 from repositories.UserRepository import UserRepository
 from utils.security import verify_token
-from models.UserModel import User
+from orm.UserModel import User
 from fastapi.security import HTTPAuthorizationCredentials
 
 

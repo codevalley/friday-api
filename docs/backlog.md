@@ -91,6 +91,9 @@ Below is a more detailed and prescriptive breakdown of the suggested improvement
 1. ~~**Domain Models Creation and Updates:**~~
    - [x] ~~Create and implement `ActivityData` domain model~~
    - [x] ~~Create and implement `UserData` domain model~~
+     - [x] ~~Add validation for username, key_id, and user_secret~~
+     - [x] ~~Implement conversion methods (to_dict, from_dict, from_orm)~~
+     - [x] ~~Add comprehensive test coverage~~
    - [x] ~~Create and implement `MomentData` domain model~~
    - [x] ~~Add validation methods to domain models~~
    - [x] ~~Ensure consistent field naming across domain models~~

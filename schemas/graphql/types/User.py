@@ -1,95 +1,129 @@
-from datetime import datetime
-import strawberry
-from typing import Optional
+"""GraphQL types for User-related data."""
 
-from models.UserModel import User as UserModel
-from schemas.base.user_schema import UserData
+from datetime import datetime
+from typing import Any, Optional
+import strawberry
+
+from domain.user import UserData
 
 
 @strawberry.type
 class User:
-    """User type for GraphQL queries.
+    """GraphQL type for User."""
 
-    Represents a registered user in the system.
-    Each user can have multiple activities and moments
-    associated with them.
-    """
+    @strawberry.field
+    def id(self) -> int:
+        """User ID."""
+        return self._domain.id
 
-    @strawberry.field(
-        description="Unique identifier for the user"
-    )
-    def id(self) -> str:
-        return self._id
-
-    @strawberry.field(description="User's unique username")
+    @strawberry.field
     def username(self) -> str:
-        return self._username
+        """User's username."""
+        return self._domain.username
 
-    @strawberry.field(
-        description="When the user was created"
-    )
-    def createdAt(self) -> datetime:
-        return self._created_at
+    @strawberry.field
+    def key_id(self) -> str:
+        """User's public key identifier."""
+        return self._domain.key_id
 
-    @strawberry.field(
-        description="When the user was last updated"
-    )
-    def updatedAt(self) -> Optional[datetime]:
-        return self._updated_at
+    @strawberry.field
+    def created_at(self) -> Optional[datetime]:
+        """When the user was created."""
+        return self._domain.created_at
 
-    def __init__(
-        self,
-        id: str,
-        username: str,
-        createdAt: datetime,
-        updatedAt: Optional[datetime] = None,
-    ):
-        """Initialize User type.
+    @strawberry.field
+    def updated_at(self) -> Optional[datetime]:
+        """When the user was last updated."""
+        return self._domain.updated_at
 
-        Args:
-            id: Unique identifier (UUID)
-            username: User's unique username
-            createdAt: When the user was created
-            updatedAt: When the user was last updated
-        """
-        self._id = id
-        self._username = username
-        self._created_at = createdAt
-        self._updated_at = updatedAt
+    def __init__(self, domain: UserData):
+        """Initialize with domain model."""
+        self._domain = domain
 
     @classmethod
-    def from_domain(cls, user: UserData) -> "User":
-        """Create from domain model.
+    def from_domain(cls, domain: UserData) -> "User":
+        """Create from domain model."""
+        return cls(domain)
 
-        Args:
-            user: Domain model instance to convert
+    @classmethod
+    def from_db(cls, db_model: Any) -> "User":
+        """Create from database model."""
+        return cls(UserData.from_orm(db_model))
 
-        Returns:
-            User: GraphQL type instance
-        """
-        user_dict = user.to_dict(graphql=True)
-        return cls(
-            id=user_dict["id"],
-            username=user_dict["username"],
-            createdAt=user_dict["createdAt"],
-            updatedAt=user_dict["updatedAt"],
+
+@strawberry.input
+class UserCreateInput:
+    """GraphQL input type for creating a User."""
+
+    username: str = strawberry.field(
+        description="Unique username for the user"
+    )
+    key_id: str = strawberry.field(
+        description="Public key identifier for API access"
+    )
+    user_secret: str = strawberry.field(
+        description="Hashed secret for API authentication"
+    )
+
+    def to_domain(self) -> UserData:
+        """Convert to domain model."""
+        return UserData(
+            username=self.username,
+            key_id=self.key_id,
+            user_secret=self.user_secret,
         )
 
-    @classmethod
-    def from_db(cls, db_user: UserModel) -> "User":
-        """Create from database model.
 
-        Args:
-            db_user: SQLAlchemy model instance
+@strawberry.input
+class UserUpdateInput:
+    """GraphQL input type for updating a User."""
 
-        Returns:
-            User: GraphQL type instance
-        """
-        return cls(
-            id=db_user.id,
-            username=db_user.username,
-            createdAt=db_user.created_at,
-            updatedAt=db_user.updated_at,
+    username: Optional[str] = strawberry.field(
+        default=None,
+        description="New username for the user",
+    )
+    key_id: Optional[str] = strawberry.field(
+        default=None,
+        description="New public key identifier",
+    )
+    user_secret: Optional[str] = strawberry.field(
+        default=None,
+        description="New hashed secret",
+    )
+
+    def to_domain(self, existing: UserData) -> UserData:
+        """Convert to domain model, using existing data for missing fields."""
+        return UserData(
+            id=existing.id,
+            username=self.username or existing.username,
+            key_id=self.key_id or existing.key_id,
+            user_secret=self.user_secret
+            or existing.user_secret,
+            created_at=existing.created_at,
+            updated_at=datetime.now(),
+        )
+
+
+@strawberry.input
+class UserLoginInput:
+    """GraphQL input type for user login."""
+
+    username: str = strawberry.field(
+        description="Username to login with"
+    )
+    key_id: str = strawberry.field(
+        description="Public key identifier for API access"
+    )
+    user_secret: str = strawberry.field(
+        description="Hashed secret for authentication"
+    )
+
+    def to_domain(self) -> UserData:
+        """Convert to domain model."""
+        return UserData(
+            username=self.username,
+            key_id=self.key_id,
+            user_secret=self.user_secret,
         )
 
 
@@ -104,114 +138,53 @@ class UserRegisterResponse:
     @strawberry.field(
         description="Unique identifier for the user"
     )
-    def id(self) -> str:
-        return self._id
+    def id(self) -> int:
+        """Get user ID."""
+        return self._domain.id
 
     @strawberry.field(description="User's unique username")
     def username(self) -> str:
-        return self._username
+        """Get username."""
+        return self._domain.username
 
     @strawberry.field(
-        description="Secret key for authentication (provided in registration)"
+        description="Public key identifier for API access"
     )
-    def userSecret(self) -> str:
-        return self._user_secret
+    def key_id(self) -> str:
+        """Get key ID."""
+        return self._domain.key_id
+
+    @strawberry.field(
+        description="Secret key for authentication"
+    )
+    def user_secret(self) -> str:
+        """Get user secret."""
+        return self._domain.user_secret
 
     @strawberry.field(
         description="When the user was created"
     )
-    def createdAt(self) -> datetime:
-        return self._created_at
+    def created_at(self) -> datetime:
+        """Get creation timestamp."""
+        return self._domain.created_at
 
     @strawberry.field(
         description="When the user was last updated"
     )
-    def updatedAt(self) -> Optional[datetime]:
-        return self._updated_at
+    def updated_at(self) -> Optional[datetime]:
+        """Get update timestamp."""
+        return self._domain.updated_at
 
-    def __init__(
-        self,
-        id: str,
-        username: str,
-        userSecret: str,
-        createdAt: datetime,
-        updatedAt: Optional[datetime] = None,
-    ):
-        """Initialize UserRegisterResponse type.
-
-        Args:
-            id: Unique identifier (UUID)
-            username: User's unique username
-            userSecret: Secret key for API authentication
-            createdAt: When the user was created
-            updatedAt: When the user was last updated
-        """
-        self._id = id
-        self._username = username
-        self._user_secret = userSecret
-        self._created_at = createdAt
-        self._updated_at = updatedAt
+    def __init__(self, domain: UserData):
+        """Initialize with domain model."""
+        self._domain = domain
 
     @classmethod
     def from_domain(
-        cls, user: UserData
+        cls, domain: UserData
     ) -> "UserRegisterResponse":
-        """Create from domain model.
-
-        Args:
-            user: Domain model instance to convert
-
-        Returns:
-            UserRegisterResponse: GraphQL type instance
-        """
-        user_dict = user.to_dict(
-            graphql=True, include_secret=True
-        )
-        return cls(
-            id=user_dict["id"],
-            username=user_dict["username"],
-            userSecret=user_dict["userSecret"],
-            createdAt=user_dict["createdAt"],
-            updatedAt=user_dict["updatedAt"],
-        )
-
-
-@strawberry.input
-class UserCreateInput:
-    """Input type for creating a new user.
-
-    Defines the structure for user registration mutations.
-    Username must follow specific format requirements.
-    """
-
-    username: str = strawberry.field(
-        description=(
-            "Username must be 3-50 characters and contain only "
-            "letters, numbers, underscores, and hyphens"
-        )
-    )
-
-    def to_domain(self) -> UserData:
-        """Convert to domain model.
-
-        Returns:
-            UserData: Domain model instance
-        """
-        return UserData.from_dict(
-            {"username": self.username}
-        )
-
-
-@strawberry.input
-class UserLoginInput:
-    """Input type for user login.
-
-    Defines the structure for user authentication mutations.
-    """
-
-    userSecret: str = strawberry.field(
-        description="User's secret key for authentication"
-    )
+        """Create from domain model."""
+        return cls(domain)
 
 
 @strawberry.type
@@ -222,25 +195,27 @@ class Token:
     """
 
     @strawberry.field(description="JWT access token")
-    def accessToken(self) -> str:
+    def access_token(self) -> str:
+        """Get access token."""
         return self._access_token
 
     @strawberry.field(
         description="Token type (always 'bearer')"
     )
-    def tokenType(self) -> str:
+    def token_type(self) -> str:
+        """Get token type."""
         return self._token_type
 
     def __init__(
         self,
-        accessToken: str,
-        tokenType: str = "bearer",
+        access_token: str,
+        token_type: str = "bearer",
     ):
         """Initialize Token type.
 
         Args:
-            accessToken: JWT access token string
-            tokenType: Token type (defaults to 'bearer')
+            access_token: JWT access token string
+            token_type: Token type (defaults to 'bearer')
         """
-        self._access_token = accessToken
-        self._token_type = tokenType
+        self._access_token = access_token
+        self._token_type = token_type

@@ -1,5 +1,5 @@
-from models.ActivityModel import Activity
-from models.UserModel import User
+from orm.ActivityModel import Activity
+from orm.UserModel import User
 from repositories.ActivityRepository import (
     ActivityRepository,
 )

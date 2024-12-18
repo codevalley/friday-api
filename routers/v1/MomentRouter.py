@@ -18,7 +18,7 @@ from schemas.pydantic.CommonSchema import (
 )
 from services.MomentService import MomentService
 from dependencies import get_current_user
-from models.UserModel import User
+from orm.UserModel import User
 from utils.error_handlers import handle_exceptions
 
 router = APIRouter(prefix="/v1/moments", tags=["moments"])

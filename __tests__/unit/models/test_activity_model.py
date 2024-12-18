@@ -6,9 +6,9 @@ from datetime import datetime, timezone
 import pytest
 from sqlalchemy.exc import IntegrityError
 
-from models.ActivityModel import Activity
-from models.MomentModel import Moment
-from models.UserModel import User
+from orm.ActivityModel import Activity
+from orm.MomentModel import Moment
+from orm.UserModel import User
 
 
 @pytest.fixture

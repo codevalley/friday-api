@@ -3,7 +3,7 @@ from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
 from services.UserService import UserService
-from models.UserModel import User
+from orm.UserModel import User
 from utils.security import hash_secret, parse_api_key
 
 

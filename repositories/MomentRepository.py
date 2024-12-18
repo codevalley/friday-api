@@ -3,8 +3,8 @@ from datetime import datetime
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import desc, func
 
-from models.MomentModel import Moment as MomentModel
-from models.ActivityModel import Activity
+from orm.MomentModel import Moment as MomentModel
+from orm.ActivityModel import Activity
 from schemas.pydantic.MomentSchema import MomentList
 from .BaseRepository import BaseRepository
 

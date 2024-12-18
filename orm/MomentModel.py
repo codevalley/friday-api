@@ -14,11 +14,11 @@ import json
 from sqlalchemy.orm import Session
 from typing import Any, Dict, cast, TYPE_CHECKING, Optional
 
-from models.BaseModel import EntityMeta
+from orm.BaseModel import EntityMeta
 
 if TYPE_CHECKING:
-    from models.UserModel import User
-    from models.ActivityModel import Activity
+    from orm.UserModel import User
+    from orm.ActivityModel import Activity
 
 
 class Moment(EntityMeta):

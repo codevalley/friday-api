@@ -19,7 +19,7 @@ from schemas.pydantic.ActivitySchema import (
     ActivityResponse,
     ActivityList,
 )
-from models.UserModel import User
+from orm.UserModel import User
 from dependencies import get_current_user
 
 

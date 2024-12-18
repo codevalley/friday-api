@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 from fastapi import HTTPException, status
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 
-from models.ActivityModel import Activity
+from orm.ActivityModel import Activity
 from .BaseRepository import BaseRepository
 
 

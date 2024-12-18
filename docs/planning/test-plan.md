@@ -31,6 +31,57 @@
     - [x] Table definition
     - [x] Column validation
     - [x] Table reuse in tests
+  - [x] Domain Model Tests
+    - [x] ActivityData tests
+      - [x] Data flow validation
+      - [x] Conversion methods (to_domain, from_domain)
+      - [x] Type hints validation
+      - [x] Schema validation
+        - [x] Basic schema validation
+        - [x] Complex nested schemas
+        - [x] Schema references and dependencies
+        - [x] Pattern properties
+      - [x] Color validation
+        - [x] Valid hex colors
+        - [x] Invalid formats
+      - [x] Relationship handling
+        - [x] Empty moment lists
+        - [x] Invalid moments
+        - [x] Count validation
+      - [x] Error handling in conversion methods
+    - [x] MomentData tests
+      - [x] Data flow validation
+      - [x] Conversion methods (to_domain, from_domain)
+      - [x] Type hints validation
+      - [x] Activity schema validation
+      - [x] Timestamp handling
+        - [x] Timezone awareness
+        - [x] Future/past validation
+        - [x] Precision handling
+      - [x] Nested data validation
+        - [x] Complex nested structures
+        - [x] Array handling
+        - [x] Circular references
+      - [x] Error handling in conversion methods
+    - [x] UserData tests
+      - [x] Data flow validation
+      - [x] Conversion methods (to_dict, from_dict, from_orm)
+      - [x] Type hints validation
+      - [x] Schema validation
+        - [x] Username format validation
+        - [x] Key ID format validation
+        - [x] User secret format validation
+        - [x] ID validation
+        - [x] Datetime fields validation
+      - [x] Error handling
+        - [x] Invalid input data
+        - [x] Missing required fields
+        - [x] Type mismatches
+        - [x] Validation failures
+      - [x] Empty field handling
+        - [x] Empty key_id and user_secret
+        - [x] Optional fields (id, created_at, updated_at)
+
   - [x] ActivityModel tests
     - [x] Basic model initialization
     - [x] Database persistence
@@ -120,6 +171,11 @@
   - Added proper mocking for ActivityService
   - Removed unused test code
   - Improved code formatting and readability
+- Added comprehensive UserData domain model tests:
+  - Implemented validation tests for all fields
+  - Added conversion method tests
+  - Improved error handling coverage
+  - Fixed line length violations in test file
 
 ## Next Steps
 1. Authentication Tests
@@ -148,12 +204,25 @@
    - MomentService: 94% coverage
      - Add tests for moment data validation
 
-4. GraphQL Tests
-   - [ ] Query resolvers
-   - [ ] Mutation resolvers
-   - [ ] Schema validation
-   - [ ] Error handling
-   - [ ] Authentication integration
+4. Domain Model Tests (New)
+   - [x] Test data flow and conversion methods
+     - [x] API to domain model conversion
+     - [x] Domain to database model conversion
+     - [x] Database to domain model conversion
+     - [x] Domain to response model conversion
+   - [x] Test type hints
+     - [x] Validate type annotations
+     - [x] Test generic type parameters
+     - [x] Test optional fields handling
+   - [x] Test validation methods
+     - [x] Schema validation
+     - [x] Data type validation
+     - [x] Required fields validation
+   - [x] Test error handling
+     - [x] Invalid input data
+     - [x] Missing required fields
+     - [x] Type mismatches
+     - [x] Schema validation failures
 
 5. Performance and Integration Tests
    - [ ] Load testing with concurrent users

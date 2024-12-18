@@ -11,7 +11,7 @@ from schemas.pydantic.UserSchema import (
     UserRegisterResponse,
     UserLoginRequest,
     Token,
-    UserResponse,
+    UserInfoResponse,
 )
 from schemas.pydantic.CommonSchema import GenericResponse
 from utils.security import (
@@ -40,12 +40,11 @@ async def register_user(
     user, user_secret = service.register_user(
         username=request.username
     )
+    response = UserRegisterResponse.from_domain(
+        user, user_secret
+    )
     return GenericResponse(
-        data={
-            "id": user.id,
-            "username": user.username,
-            "user_secret": user_secret,  # Return the plain user_secret
-        },
+        data=response,
         message="User registered successfully",
     )
 
@@ -69,18 +68,20 @@ async def login_for_access_token(
         expires_delta=timedelta(minutes=30),
     )
 
+    token = Token(
+        access_token=access_token,
+        token_type="bearer",
+    )
+
     return GenericResponse(
-        data={
-            "access_token": access_token,
-            "token_type": "bearer",
-        },
+        data=token,
         message="Login successful",
     )
 
 
 @router.get(
     "/me",
-    response_model=GenericResponse[UserResponse],
+    response_model=GenericResponse[UserInfoResponse],
 )
 @handle_exceptions
 async def get_current_user_info(
@@ -90,12 +91,8 @@ async def get_current_user_info(
     """Get current user information"""
     service = UserService(db)
     user = service.get_user_by_id(current_user["user_id"])
+    response = UserInfoResponse.from_domain(user)
     return GenericResponse(
-        data={
-            "id": user.id,
-            "username": user.username,
-            "created_at": user.created_at,
-            "updated_at": user.updated_at,
-        },
+        data=response,
         message="Current user retrieved successfully",
     )

@@ -5,7 +5,7 @@ import re
 
 from configs.Database import get_db_connection
 from repositories.UserRepository import UserRepository
-from models.UserModel import User
+from orm.UserModel import User
 from utils.security import (
     generate_api_key,
     hash_secret,

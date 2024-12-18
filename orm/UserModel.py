@@ -9,11 +9,11 @@ from uuid import uuid4
 from typing import List, TYPE_CHECKING, Optional
 import re
 
-from models.BaseModel import EntityMeta
+from orm.BaseModel import EntityMeta
 
 if TYPE_CHECKING:
-    from models.ActivityModel import Activity
-    from models.MomentModel import Moment
+    from orm.ActivityModel import Activity
+    from orm.MomentModel import Moment
 
 
 class User(EntityMeta):
