@@ -1,7 +1,7 @@
 """Base schema for pagination parameters and response."""
 
 from typing import Generic, TypeVar, List
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field, field_validator
 
 
 T = TypeVar("T")
@@ -22,7 +22,7 @@ class PaginationParams(BaseModel):
         description="Number of items per page (max 100)",
     )
 
-    @validator("page")
+    @field_validator("page")
     @classmethod
     def validate_page(cls, v: int) -> int:
         """Ensure page number is positive"""
@@ -30,7 +30,7 @@ class PaginationParams(BaseModel):
             raise ValueError("Page number must be positive")
         return v
 
-    @validator("size")
+    @field_validator("size")
     @classmethod
     def validate_size(cls, v: int) -> int:
         """Ensure page size is within bounds"""

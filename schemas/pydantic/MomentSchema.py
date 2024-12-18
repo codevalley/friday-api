@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Any, Dict, Optional
 
-from pydantic import Field, validator, ConfigDict
+from pydantic import Field, field_validator, ConfigDict
 
 from schemas.base.moment_schema import MomentData
 from schemas.pydantic.ActivitySchema import ActivityResponse
@@ -45,7 +45,7 @@ class MomentBase(BaseSchema):
 
     model_config = model_config
 
-    @validator("timestamp")
+    @field_validator("timestamp")
     @classmethod
     def default_timestamp(
         cls, v: Optional[datetime]

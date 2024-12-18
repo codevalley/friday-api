@@ -2,11 +2,15 @@ from typing import (
     TypeVar,
     Generic,
     Optional,
-    Dict,
-    Any,
     Union,
 )
-from pydantic import BaseModel, Field, validator, ConfigDict
+from pydantic import (
+    BaseModel,
+    Field,
+    field_validator,
+    ConfigDict,
+    ValidationInfo,
+)
 from datetime import datetime
 import re
 
@@ -16,7 +20,7 @@ T = TypeVar("T")
 class BaseSchema(BaseModel):
     """Base schema with common validation methods"""
 
-    @validator("id", check_fields=False)
+    @field_validator("id", check_fields=False)
     @classmethod
     def validate_id(
         cls, v: Optional[Union[int, str]]
@@ -41,7 +45,7 @@ class BaseSchema(BaseModel):
             raise ValueError("String ID cannot be empty")
         return v
 
-    @validator("user_id", check_fields=False)
+    @field_validator("user_id", check_fields=False)
     @classmethod
     def validate_user_id(
         cls, v: Optional[str]
@@ -63,7 +67,7 @@ class BaseSchema(BaseModel):
             )
         return v
 
-    @validator("timestamp", check_fields=False)
+    @field_validator("timestamp", check_fields=False)
     @classmethod
     def validate_timestamp(
         cls, v: Optional[datetime]
@@ -85,7 +89,7 @@ class BaseSchema(BaseModel):
             )
         return v
 
-    @validator("color", check_fields=False)
+    @field_validator("color", check_fields=False)
     @classmethod
     def validate_color(
         cls, v: Optional[str]
@@ -177,22 +181,23 @@ class PaginatedResponse(BaseModel, Generic[T]):
         from_attributes=True,
     )
 
-    @validator("pages", pre=True)
+    @field_validator("pages", mode="before")
     @classmethod
     def calculate_pages(
-        cls, v: int, values: Dict[str, Any]
+        cls, v: int, info: ValidationInfo
     ) -> int:
         """Calculate total pages based on total items and page size.
 
         Args:
             v: The current pages value
-            values: Dictionary of field values
+            info: Validation context information
 
         Returns:
             The calculated number of pages
         """
-        if "total" in values and "size" in values:
+        data = info.data
+        if "total" in data and "size" in data:
             return (
-                values["total"] + values["size"] - 1
-            ) // values["size"]
+                data["total"] + data["size"] - 1
+            ) // data["size"]
         return v
