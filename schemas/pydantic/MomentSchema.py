@@ -3,7 +3,7 @@ from typing import Any, Dict, Optional
 
 from pydantic import Field, field_validator, ConfigDict
 
-from schemas.base.moment_schema import MomentData
+from domain.moment import MomentData
 from schemas.pydantic.ActivitySchema import ActivityResponse
 from schemas.pydantic.CommonSchema import (
     BaseSchema,

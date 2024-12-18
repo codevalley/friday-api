@@ -50,6 +50,35 @@ class MomentData:
         """Validate the moment data after initialization."""
         self.validate()
 
+    def validate_timestamp(self) -> None:
+        """Validate timestamp constraints.
+
+        Ensures the timestamp is:
+        1. Not more than 1 day in the future
+        2. Not more than 10 years in the past
+        3. Timezone-aware
+
+        Raises:
+            ValueError: If timestamp validation fails
+        """
+        if self.timestamp.tzinfo is None:
+            raise ValueError(
+                "timestamp must be timezone-aware"
+            )
+
+        now = datetime.now(timezone.utc)
+        max_future = now + timedelta(days=1)
+        min_past = now - timedelta(days=365 * 10)
+
+        if self.timestamp > max_future:
+            raise ValueError(
+                "timestamp cannot be more than 1 day in the future"
+            )
+        if self.timestamp < min_past:
+            raise ValueError(
+                "timestamp cannot be more than 10 years in the past"
+            )
+
     def validate(self) -> None:
         """Validate the moment data.
 
@@ -88,22 +117,8 @@ class MomentData:
                 "timestamp must be a datetime object"
             )
 
-        # Validate timezone awareness
-        if self.timestamp.tzinfo is None:
-            raise ValueError(
-                "timestamp must be timezone-aware"
-            )
-
-        # Validate timestamp range
-        now = datetime.now(timezone.utc)
-        if self.timestamp > now + timedelta(hours=1):
-            raise ValueError(
-                "timestamp cannot be in the future"
-            )
-        if self.timestamp < now - timedelta(days=365 * 10):
-            raise ValueError(
-                "timestamp cannot be more than 10 years in the past"
-            )
+        # Validate timestamp constraints
+        self.validate_timestamp()
 
         # Validate microsecond precision
         if self.timestamp.microsecond >= 1000000:

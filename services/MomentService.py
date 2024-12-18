@@ -3,9 +3,9 @@
 from typing import Optional, List
 from fastapi import HTTPException, Depends
 from sqlalchemy.orm import Session
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 
-from schemas.base.moment_schema import MomentData
+from domain.moment import MomentData
 from schemas.graphql.types.Moment import Moment
 from repositories.MomentRepository import MomentRepository
 from configs.Database import get_db_connection
@@ -63,7 +63,7 @@ class MomentService:
     def _validate_timestamp(
         self, timestamp: datetime
     ) -> None:
-        """Validate moment timestamp
+        """Validate moment timestamp using domain model validation.
 
         Args:
             timestamp: Moment timestamp to validate
@@ -71,29 +71,19 @@ class MomentService:
         Raises:
             HTTPException: If timestamp is invalid
         """
-        # Convert naive datetime to UTC if needed
-        if timestamp.tzinfo is None:
-            timestamp = timestamp.replace(
-                tzinfo=timezone.utc
+        # Create a temporary domain model to validate timestamp
+        try:
+            moment = MomentData(
+                activity_id=1,  # Dummy value for validation
+                user_id="temp",  # Dummy value for validation
+                data={},  # Dummy value for validation
+                timestamp=timestamp,
             )
-
-        now = datetime.now(timezone.utc)
-        max_future = now + timedelta(
-            days=1
-        )  # Allow up to 1 day in future
-        min_past = now - timedelta(
-            days=365 * 10
-        )  # Allow up to 10 years in past
-
-        if timestamp > max_future:
+            moment.validate_timestamp()
+        except ValueError as e:
             raise HTTPException(
                 status_code=400,
-                detail="Timestamp cannot be more than 1 day in the future",
-            )
-        if timestamp < min_past:
-            raise HTTPException(
-                status_code=400,
-                detail="Timestamp cannot be more than 10 years in the past",
+                detail=str(e),
             )
 
     def _validate_activity_ownership(

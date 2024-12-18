@@ -3,7 +3,7 @@ from typing import Optional, Dict, Any, List
 from datetime import datetime
 
 from orm.MomentModel import Moment as MomentModel
-from schemas.base.moment_schema import MomentData
+from domain.moment import MomentData
 from utils.json_utils import ensure_dict
 
 

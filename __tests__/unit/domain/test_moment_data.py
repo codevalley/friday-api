@@ -317,8 +317,9 @@ class TestMomentDataTimestamps:
         valid_moment_dict["timestamp"] = future
         with pytest.raises(ValueError) as exc:
             MomentData(**valid_moment_dict)
-        assert "timestamp cannot be in the future" in str(
-            exc.value
+        assert (
+            "timestamp cannot be more than 1 day in the future"
+            in str(exc.value)
         )
 
     def test_past_timestamp(self, valid_moment_dict):
