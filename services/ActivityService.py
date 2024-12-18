@@ -1,11 +1,6 @@
 from typing import List, Optional
 from fastapi import HTTPException, Depends
 from sqlalchemy.orm import Session
-from jsonschema import (
-    ValidationError,
-    validate as validate_schema,
-)
-import re
 import logging
 
 from configs.Database import get_db_connection
@@ -20,6 +15,11 @@ from schemas.pydantic.ActivitySchema import (
     ActivityResponse,
 )
 from schemas.graphql.types.Activity import Activity
+from utils.validation import (
+    validate_pagination as validate_pagination_util,
+    validate_color as validate_color_util,
+    validate_activity_schema as validate_activity_schema_util,
+)
 import json
 
 # Add at the top of the file
@@ -45,73 +45,18 @@ class ActivityService:
     def _validate_pagination(
         self, page: int, size: int
     ) -> None:
-        """Validate pagination parameters
-
-        Args:
-            page: Page number (1-based)
-            size: Items per page
-
-        Raises:
-            HTTPException: If parameters are invalid
-        """
-        if page < 1:
-            raise HTTPException(
-                status_code=400,
-                detail="Page number must be positive",
-            )
-        if size < 1 or size > 100:
-            raise HTTPException(
-                status_code=400,
-                detail="Page size must be between 1 and 100",
-            )
+        """Validate pagination parameters using centralized validation."""
+        validate_pagination_util(page, size)
 
     def _validate_color(self, color: str) -> None:
-        """Validate hex color code format
-
-        Args:
-            color: Color code to validate
-
-        Raises:
-            HTTPException: If color format is invalid
-        """
-        if not re.match("^#[0-9A-Fa-f]{6}$", color):
-            raise HTTPException(
-                status_code=400,
-                detail="Color must be a valid hex code (e.g. #FF0000)",
-            )
+        """Validate color format using centralized validation."""
+        validate_color_util(color)
 
     def _validate_activity_schema(
         self, schema: dict
     ) -> None:
-        """Validate activity schema format
-
-        Args:
-            schema: JSON schema to validate
-
-        Raises:
-            HTTPException: If schema is invalid
-        """
-        try:
-            # Basic JSON Schema validation
-            meta_schema = {
-                "type": "object",
-                "required": ["type", "properties"],
-                "properties": {
-                    "type": {
-                        "type": "string",
-                        "enum": ["object"],
-                    },
-                    "properties": {"type": "object"},
-                },
-            }
-            validate_schema(
-                instance=schema, schema=meta_schema
-            )
-        except ValidationError as e:
-            raise HTTPException(
-                status_code=400,
-                detail=f"Invalid activity schema format: {str(e)}",
-            )
+        """Validate activity schema using centralized validation."""
+        validate_activity_schema_util(schema)
 
     def create_activity(
         self, activity_data: ActivityCreate, user_id: str
@@ -250,14 +195,11 @@ class ActivityService:
 
         Args:
             activity_id: ID of activity to update
-            activity_data: Updated activity data
+            activity_data: New activity data
             user_id: ID of user updating the activity
 
         Returns:
             Updated activity response if found, None otherwise
-
-        Raises:
-            HTTPException: If schema validation fails
         """
         # Get existing activity
         activity = self.activity_repository.get_by_id(
@@ -267,26 +209,26 @@ class ActivityService:
         if not activity:
             return None
 
-        try:
-            # Update fields - validation handled by Pydantic
-            update_data = activity_data.dict(
-                exclude_unset=True
+        # Validate color if provided
+        if activity_data.color:
+            self._validate_color(activity_data.color)
+
+        # Validate schema if provided
+        if activity_data.activity_schema:
+            self._validate_activity_schema(
+                activity_data.activity_schema
             )
-            updated = self.activity_repository.update(
-                activity_id=activity_id,
-                user_id=str(
-                    user_id
-                ),  # Ensure user_id is string
-                **update_data,
-            )
-            if not updated:
-                return None
-            return ActivityResponse.from_orm(updated)
-        except ValidationError as e:
-            raise HTTPException(
-                status_code=400,
-                detail=f"Invalid activity data: {str(e)}",
-            )
+
+        # Update activity
+        updated = self.activity_repository.update(
+            activity_id,
+            str(user_id),  # Ensure user_id is string
+            activity_data.model_dump(exclude_unset=True),
+        )
+        if not updated:
+            return None
+
+        return ActivityResponse.from_orm(updated)
 
     def delete_activity(
         self, activity_id: int, user_id: str
@@ -403,49 +345,38 @@ class ActivityService:
 
         Args:
             activity_id: ID of activity to update
-            activity_data: Updated activity data (GraphQL input type)
+            activity_data: New activity data (GraphQL input type)
             user_id: ID of user updating the activity
 
         Returns:
             Updated activity in GraphQL format
 
         Raises:
-            HTTPException: If validation fails or activity not found
+            HTTPException: If activity not found or validation fails
         """
-        # Get existing activity to ensure it exists
-        existing = self.activity_repository.get_by_id(
-            activity_id,
-            str(user_id),  # Ensure user_id is string
-        )
-        if not existing:
-            raise HTTPException(
-                status_code=404, detail="Activity not found"
-            )
-
         # Convert activity_schema to dict if it's a string
         if activity_data.activitySchema:
             try:
                 activity_schema = json.loads(
                     activity_data.activitySchema
                 )
-                # Validate the schema before updating
-                self._validate_activity_schema(
-                    activity_schema
-                )
-                activity_data.activitySchema = (
-                    activity_schema
-                )
             except json.JSONDecodeError:
                 raise HTTPException(
                     status_code=400,
                     detail="Invalid activity schema format: must be valid JSON",  # noqa: E501
                 )
+            # Validate schema
+            self._validate_activity_schema(activity_schema)
 
         # Create an ActivityUpdate instance with the correct field names
         update_data = ActivityUpdate(
             name=activity_data.name,
             description=activity_data.description,
-            activity_schema=activity_data.activitySchema,
+            activity_schema=(
+                activity_schema
+                if activity_data.activitySchema
+                else None
+            ),
             icon=activity_data.icon,
             color=activity_data.color,
         )
