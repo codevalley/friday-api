@@ -83,12 +83,12 @@ def app(mock_current_user, mock_activity_service):
     async def mock_get_current_user():
         return mock_current_user
 
-    app.dependency_overrides[
-        get_current_user
-    ] = mock_get_current_user
-    app.dependency_overrides[
-        ActivityService
-    ] = lambda: mock_activity_service
+    app.dependency_overrides[get_current_user] = (
+        mock_get_current_user
+    )
+    app.dependency_overrides[ActivityService] = (
+        lambda: mock_activity_service
+    )
     app.include_router(router)
     return app
 

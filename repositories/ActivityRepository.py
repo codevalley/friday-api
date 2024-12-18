@@ -69,27 +69,6 @@ class ActivityRepository(BaseRepository[Activity, int]):
                 detail=f"Database error: {str(e)}",
             )
 
-    def get_by_user(
-        self, activity_id: int, user_id: str
-    ) -> Optional[Activity]:
-        """Get an activity by ID and verify ownership
-
-        Args:
-            activity_id: Activity ID
-            user_id: User ID to verify ownership
-
-        Returns:
-            Activity if found and owned by user, None otherwise
-        """
-        return (
-            self.db.query(Activity)
-            .filter(
-                Activity.id == activity_id,
-                Activity.user_id == user_id,
-            )
-            .first()
-        )
-
     def get_by_name(
         self, name: str, user_id: str
     ) -> Optional[Activity]:

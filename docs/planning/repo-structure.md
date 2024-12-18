@@ -1,58 +1,46 @@
 ================================================================
 Repository Structure
 ================================================================
-configs/
-  Database.py
-  Environment.py
-  GraphQL.py
-  OpenAPI.py
-metadata/
-  Tags.py
-models/
-  ActivityModel.py
-  BaseModel.py
-  MomentModel.py
-  UserModel.py
-repositories/
-  ActivityRepository.py
-  BaseRepository.py
-  MomentRepository.py
-  RepositoryMeta.py
-  UserRepository.py
-routers/
-  v1/
-    ActivityRouter.py
-    AuthRouter.py
-    MomentRouter.py
-schemas/
-  base/
-    activity_schema.py
-    moment_schema.py
-    user_schema.py
-  graphql/
-    mutations/
-      ActivityMutation.py
-      MomentMutation.py
-      UserMutation.py
-    types/
-      Activity.py
-      Moment.py
-      User.py
-    Mutation.py
-    Query.py
-  pydantic/
-    ActivitySchema.py
-    CommonSchema.py
-    MomentSchema.py
-    PaginationSchema.py
-    UserSchema.py
-services/
-  ActivityService.py
-  MomentService.py
-  UserService.py
-utils/
-  error_handlers.py
-  json_utils.py
-  security.py
+configs/Database.py
+configs/Environment.py
+configs/GraphQL.py
+configs/OpenAPI.py
 dependencies.py
 main.py
+metadata/Tags.py
+models/ActivityModel.py
+models/BaseModel.py
+models/MomentModel.py
+models/UserModel.py
+repositories/ActivityRepository.py
+repositories/BaseRepository.py
+repositories/MomentRepository.py
+repositories/RepositoryMeta.py
+repositories/UserRepository.py
+routers/v1/ActivityRouter.py
+routers/v1/AuthRouter.py
+routers/v1/MomentRouter.py
+schemas/base/activity_schema.py
+schemas/base/moment_schema.py
+schemas/base/user_schema.py
+schemas/graphql/Mutation.py
+schemas/graphql/mutations/ActivityMutation.py
+schemas/graphql/mutations/MomentMutation.py
+schemas/graphql/mutations/UserMutation.py
+schemas/graphql/Query.py
+schemas/graphql/types/Activity.py
+schemas/graphql/types/Moment.py
+schemas/graphql/types/User.py
+schemas/pydantic/ActivitySchema.py
+schemas/pydantic/CommonSchema.py
+schemas/pydantic/MomentSchema.py
+schemas/pydantic/PaginationSchema.py
+schemas/pydantic/UserSchema.py
+services/ActivityService.py
+services/MomentService.py
+services/UserService.py
+setup.py
+utils/__init__.py
+utils/error_handlers.py
+utils/json_utils.py
+utils/security.py

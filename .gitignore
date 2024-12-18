@@ -38,6 +38,9 @@ MANIFEST
 pip-log.txt
 pip-delete-this-directory.txt
 repomix-output.txt
+codebase.txt
+tests.txt
+docs.txt
 
 # Unit test / coverage reports
 htmlcov/

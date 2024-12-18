@@ -172,16 +172,16 @@ class MomentRepository(BaseRepository[MomentModel, int]):
         Args:
             page: Page number (1-based)
             size: Page size
-            activity_id: Optional activity ID filter
-            start_time: Optional start time filter
-            end_time: Optional end time filter
-            user_id: Optional user ID filter
+            activity_id: Optional activity ID to filter by
+            start_time: Optional start time to filter by
+            end_time: Optional end time to filter by
+            user_id: Optional user ID to filter by
             include_activity: Whether to eager load activities
 
         Returns:
-            MomentList with pagination metadata
+            MomentList containing paginated moments and metadata
         """
-        # Build base query
+        # Start with base query
         base_query = self.db.query(MomentModel)
 
         # Add eager loading if requested
@@ -191,13 +191,13 @@ class MomentRepository(BaseRepository[MomentModel, int]):
             )
 
         # Apply filters
-        if user_id is not None:
-            base_query = base_query.filter(
-                MomentModel.user_id == user_id
-            )
         if activity_id is not None:
             base_query = base_query.filter(
                 MomentModel.activity_id == activity_id
+            )
+        if user_id is not None:
+            base_query = base_query.filter(
+                MomentModel.user_id == user_id
             )
         if start_time is not None:
             base_query = base_query.filter(

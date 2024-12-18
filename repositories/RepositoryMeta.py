@@ -1,5 +1,12 @@
 from abc import abstractmethod
-from typing import Generic, List, TypeVar
+from typing import (
+    Generic,
+    List,
+    TypeVar,
+    Optional,
+    Dict,
+    Any,
+)
 
 # Type definition for Model
 M = TypeVar("M")
@@ -19,20 +26,24 @@ class RepositoryMeta(Generic[M, K]):
 
     # Delete an existing instance of the Model
     @abstractmethod
-    def delete(self, id: K) -> None:
+    def delete(self, id: K) -> bool:
         pass
 
     # Fetch an existing instance of the Model by it's unique Id
     @abstractmethod
-    def get(self, id: K) -> M:
+    def get(self, id: K) -> Optional[M]:
         pass
 
     # Lists all existing instance of the Model
     @abstractmethod
-    def list(self, limit: int, start: int) -> List[M]:
+    def list(
+        self, skip: int = 0, limit: int = 100
+    ) -> List[M]:
         pass
 
     # Updates an existing instance of the Model
     @abstractmethod
-    def update(self, id: K, instance: M) -> M:
+    def update(
+        self, id: K, data: Dict[str, Any]
+    ) -> Optional[M]:
         pass

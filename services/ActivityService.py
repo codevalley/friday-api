@@ -6,6 +6,7 @@ from jsonschema import (
     validate as validate_schema,
 )
 import re
+import logging
 
 from configs.Database import get_db_connection
 from repositories.ActivityRepository import (
@@ -21,6 +22,9 @@ from schemas.pydantic.ActivitySchema import (
 from schemas.graphql.types.Activity import Activity
 import json
 
+# Add at the top of the file
+logger = logging.getLogger(__name__)
+
 
 class ActivityService:
     def __init__(
@@ -34,6 +38,9 @@ class ActivityService:
         self.db = db
         self.activity_repository = ActivityRepository(db)
         self.moment_repository = MomentRepository(db)
+        logger.info(
+            "ActivityService initialized with database session"
+        )
 
     def _validate_pagination(
         self, page: int, size: int
@@ -122,6 +129,11 @@ class ActivityService:
             HTTPException: If schema validation fails
         """
         try:
+            logger.info(
+                f"Creating activity for user {user_id}"
+            )
+            logger.debug(f"Activity data: {activity_data}")
+
             # Convert to domain model
             domain_data = activity_data.to_domain()
             domain_data.user_id = str(
@@ -130,11 +142,13 @@ class ActivityService:
 
             # Validate color format
             self._validate_color(domain_data.color)
+            logger.debug("Color validation passed")
 
             # Validate activity schema
             self._validate_activity_schema(
                 domain_data.activity_schema
             )
+            logger.debug("Schema validation passed")
 
             # Create activity
             activity = self.activity_repository.create(
@@ -145,14 +159,18 @@ class ActivityService:
                 color=domain_data.color,
                 user_id=domain_data.user_id,
             )
+            logger.info(
+                f"Activity created with ID: {activity.id}"
+            )
 
             # Convert back to response model
             return ActivityResponse.from_orm(activity)
-        except ValidationError as e:
-            raise HTTPException(
-                status_code=400,
-                detail=f"Invalid activity data: {str(e)}",
+        except Exception as e:
+            logger.error(
+                f"Error creating activity: {str(e)}",
+                exc_info=True,
             )
+            raise
 
     def get_activity(
         self, activity_id: int, user_id: str

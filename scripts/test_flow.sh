@@ -6,6 +6,10 @@ RED='\033[0;31m'
 NC='\033[0m' # No Color
 BLUE='\033[0;34m'
 
+# Create a log file
+LOG_FILE="test_flow.log"
+echo "Starting test flow at $(date)" > $LOG_FILE
+
 echo -e "${BLUE}Starting test flow...${NC}"
 
 BASE_URL="http://localhost:8000/v1"
@@ -88,11 +92,11 @@ CODING_SCHEMA='{
 
 # 1. Create first user
 echo -e "\n${BLUE}1. Creating first user (user1)...${NC}"
-USER1_RESPONSE=$(curl -s -X POST "$BASE_URL/auth/register" \
+USER1_RESPONSE=$(curl -s -S -X POST "$BASE_URL/auth/register" \
     -H "Content-Type: application/json" \
     -d '{
         "username": "user1"
-    }')
+    }' 2>> $LOG_FILE)
 USER1_API_KEY=$(extract_json_value "$USER1_RESPONSE" "user_secret")
 echo "User1 Response: $USER1_RESPONSE"
 echo "User1 API Key: $USER1_API_KEY"
@@ -272,3 +276,5 @@ echo "Moment Response: $MOMENT_RESPONSE"
 check_api_response "$MOMENT_RESPONSE" "Getting specific moment"
 
 echo -e "\n${GREEN}Test flow completed!${NC}"
+
+echo -e "\n${BLUE}Test logs have been saved to $LOG_FILE${NC}"

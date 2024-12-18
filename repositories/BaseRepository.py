@@ -6,11 +6,16 @@ from typing import (
     TypeVar,
     Any,
 )
-from sqlalchemy.orm import Session
+import logging
+from sqlalchemy.orm import Session, selectinload
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from fastapi import HTTPException, status
 
 from .RepositoryMeta import RepositoryMeta
+
+# Set up repository logger
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.DEBUG)
 
 # Type variables with better constraints
 ModelType = TypeVar("ModelType")
@@ -33,34 +38,49 @@ class BaseRepository(
             db: SQLAlchemy database session
             model: SQLAlchemy model class
         """
+        logger.debug(
+            f"Initializing {self.__class__.__name__}"
+            f" with model {model.__name__}"
+        )
         self.db = db
         self.model = model
 
     def create(self, instance: ModelType) -> ModelType:
-        """Create a new instance in the database
-
-        Args:
-            instance: Model instance to create
-
-        Returns:
-            Created model instance
-
-        Raises:
-            HTTPException: If database constraints are violated
-            or other errors occur
-        """
+        """Create a new instance in the database"""
+        logger.debug(
+            f"Creating new {self.model.__name__} instance: {instance}"
+        )
         try:
             self.db.add(instance)
+            logger.debug("Added instance to session")
             self.db.commit()
+            logger.debug("Committed transaction")
+
+            # Refresh with the relationships we know we'll need
             self.db.refresh(instance)
+            logger.debug("Refreshed instance")
+
+            # Execute any pending loads within the same session
+            self.db.execute(
+                self.db.query(self.model)
+                .filter(self.model.id == instance.id)
+                .options(selectinload("*"))
+            )
+            logger.debug("Loaded relationships")
             return instance
         except IntegrityError as e:
+            logger.error(
+                f"Integrity error during create: {str(e)}"
+            )
             self.db.rollback()
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
                 detail=f"Resource already exists: {str(e)}",
             )
         except SQLAlchemyError as e:
+            logger.error(
+                f"Database error during create: {str(e)}"
+            )
             self.db.rollback()
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -68,37 +88,39 @@ class BaseRepository(
             )
 
     def get(self, id: KeyType) -> Optional[ModelType]:
-        """Get a single instance by ID
-
-        Args:
-            id: Primary key value
-
-        Returns:
-            Model instance if found, None otherwise
-        """
-        return (
-            self.db.query(self.model)
-            .filter(self.model.id == id)
-            .first()
+        """Get a single instance by ID"""
+        logger.debug(
+            f"Getting {self.model.__name__} instance with id: {id}"
         )
+        try:
+            instance = (
+                self.db.query(self.model)
+                .filter(self.model.id == id)
+                .first()
+            )
+            logger.debug(
+                f"Found instance: {instance is not None}"
+            )
+            return instance
+        except SQLAlchemyError as e:
+            logger.error(
+                f"Database error during get: {str(e)}"
+            )
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Database error: {str(e)}",
+            )
 
     def get_by_id(
         self, id: KeyType, user_id: str
     ) -> Optional[ModelType]:
-        """Get a single instance by ID and user_id for authorization
-
-        Args:
-            id: Primary key value
-            user_id: User ID for authorization
-
-        Returns:
-            Model instance if found and authorized, None otherwise
-
-        Raises:
-            HTTPException: If database error occurs
-        """
+        """Get a single instance by ID and user_id for authorization"""
+        logger.debug(
+            f"Getting {self.model.__name__} instance with id: "
+            f"{id} for user: {user_id}"
+        )
         try:
-            return (
+            instance = (
                 self.db.query(self.model)
                 .filter(
                     self.model.id == id,
@@ -106,7 +128,14 @@ class BaseRepository(
                 )
                 .first()
             )
+            logger.debug(
+                f"Found instance: {instance is not None}"
+            )
+            return instance
         except SQLAlchemyError as e:
+            logger.error(
+                f"Database error during get_by_id: {str(e)}"
+            )
             raise HTTPException(
                 status_code=500,
                 detail=f"Database error: {str(e)}",
@@ -115,56 +144,66 @@ class BaseRepository(
     def list(
         self, skip: int = 0, limit: int = 100
     ) -> List[ModelType]:
-        """List instances with pagination
-
-        Args:
-            skip: Number of records to skip
-            limit: Maximum number of records to return
-
-        Returns:
-            List of model instances
-        """
-        return (
-            self.db.query(self.model)
-            .offset(skip)
-            .limit(limit)
-            .all()
+        """List instances with pagination"""
+        logger.debug(
+            f"Listing {self.model.__name__} instances with "
+            f"skip: {skip}, limit: {limit}"
         )
+        try:
+            instances = (
+                self.db.query(self.model)
+                .offset(skip)
+                .limit(limit)
+                .all()
+            )
+            logger.debug(
+                f"Found {len(instances)} instances"
+            )
+            return instances
+        except SQLAlchemyError as e:
+            logger.error(
+                f"Database error during list: {str(e)}"
+            )
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Database error: {str(e)}",
+            )
 
     def update(
         self, id: KeyType, data: dict[str, Any]
     ) -> Optional[ModelType]:
-        """Update an instance by ID
-
-        Args:
-            id: Primary key value
-            data: Dictionary of fields to update
-
-        Returns:
-            Updated model instance if found, None otherwise
-
-        Raises:
-            HTTPException: If database constraints are violated
-            or other errors occur
-        """
+        """Update an instance by ID"""
+        logger.debug(
+            f"Updating {self.model.__name__} instance with "
+            f"id: {id}, data: {data}"
+        )
         try:
             instance = self.get(id)
             if not instance:
+                logger.debug("Instance not found")
                 return None
 
             for key, value in data.items():
                 setattr(instance, key, value)
 
             self.db.commit()
+            logger.debug("Committed update")
             self.db.refresh(instance)
+            logger.debug("Refreshed instance")
             return instance
         except IntegrityError as e:
+            logger.error(
+                f"Integrity error during update: {str(e)}"
+            )
             self.db.rollback()
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
                 detail=f"Update violates constraints: {str(e)}",
             )
         except SQLAlchemyError as e:
+            logger.error(
+                f"Database error during update: {str(e)}"
+            )
             self.db.rollback()
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -172,26 +211,24 @@ class BaseRepository(
             )
 
     def delete(self, id: KeyType) -> bool:
-        """Delete an instance by ID
-
-        Args:
-            id: Primary key value
-
-        Returns:
-            True if instance was deleted, False if not found
-
-        Raises:
-            HTTPException: If database error occurs
-        """
+        """Delete an instance by ID"""
+        logger.debug(
+            f"Deleting {self.model.__name__} instance with id: {id}"
+        )
         try:
             instance = self.get(id)
             if not instance:
+                logger.debug("Instance not found")
                 return False
 
             self.db.delete(instance)
             self.db.commit()
+            logger.debug("Deleted instance")
             return True
         except SQLAlchemyError as e:
+            logger.error(
+                f"Database error during delete: {str(e)}"
+            )
             self.db.rollback()
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -203,22 +240,45 @@ class BaseRepository(
         id: KeyType,
         error_message: str = "Resource not found",
     ) -> ModelType:
-        """Validate that a resource exists and raise HTTPException if not
-
-        Args:
-            id: Primary key value
-            error_message: Custom error message to use
-
-        Returns:
-            Model instance if found
-
-        Raises:
-            HTTPException: If resource not found
-        """
+        """Validate that a resource exists"""
+        logger.debug(
+            f"Validating existence of {self.model.__name__} with id: {id}"
+        )
         instance = self.get(id)
         if not instance:
+            logger.debug("Instance not found")
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=error_message,
             )
         return instance
+
+    def get_by_user(
+        self, id: KeyType, user_id: str
+    ) -> Optional[ModelType]:
+        """Get a single instance by ID and verify ownership"""
+        logger.debug(
+            f"Getting {self.model.__name__} instance with "
+            f"id: {id} for user: {user_id}"
+        )
+        try:
+            instance = (
+                self.db.query(self.model)
+                .filter(
+                    self.model.id == id,
+                    self.model.user_id == user_id,
+                )
+                .first()
+            )
+            logger.debug(
+                f"Found instance: {instance is not None}"
+            )
+            return instance
+        except SQLAlchemyError as e:
+            logger.error(
+                f"Database error during get_by_user: {str(e)}"
+            )
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Database error: {str(e)}",
+            )

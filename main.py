@@ -46,6 +46,6 @@ schema = Schema(query=Query, mutation=Mutation)
 graphql = GraphQLRouter(
     schema,
     context_getter=get_graphql_context,
-    graphiql=True,
+    graphql_ide="graphiql",
 )
 app.include_router(graphql, prefix="/graphql")

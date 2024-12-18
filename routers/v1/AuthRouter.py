@@ -83,7 +83,7 @@ async def login_for_access_token(
     response_model=GenericResponse[UserResponse],
 )
 @handle_exceptions
-async def get_current_user(
+async def get_current_user_info(
     db: Session = Depends(get_db_connection),
     current_user: Dict = Depends(get_current_user),
 ):

@@ -30,7 +30,7 @@ sys.path.insert(0, project_root)
 # Use test MySQL database
 TEST_SQLALCHEMY_DATABASE_URL = (
     "mysql+pymysql://"
-    "root:1234567890@localhost:3306/"
+    "root:root1234@localhost:3306/"
     "test_fridaystore"
 )
 
@@ -110,9 +110,9 @@ def test_client(test_db_session):
         finally:
             test_db_session.close()
 
-    app.dependency_overrides[
-        get_db_connection
-    ] = override_get_db
+    app.dependency_overrides[get_db_connection] = (
+        override_get_db
+    )
     return TestClient(app)
 
 

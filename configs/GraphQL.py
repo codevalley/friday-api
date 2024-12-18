@@ -11,7 +11,7 @@ from models.UserModel import User
 
 
 # GraphQL Dependency Context
-async def get_graphql_context(
+def get_graphql_context(
     request: Request,
     activity_service: ActivityService = Depends(),
     moment_service: MomentService = Depends(),
