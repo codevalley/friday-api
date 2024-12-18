@@ -138,7 +138,7 @@ class MomentService:
         domain_data = (
             moment_data
             if isinstance(moment_data, MomentData)
-            else moment_data.to_domain()
+            else moment_data.to_domain(user_id)
         )
 
         # Ensure timestamp has timezone info
@@ -282,7 +282,12 @@ class MomentService:
                 detail="Moment not found",
             )
 
-        return Moment.from_db(moment)
+        # Convert to domain model with user_id
+        domain_data = MomentData.from_orm(moment)
+        domain_data.user_id = (
+            user_id  # Ensure user_id is set
+        )
+        return Moment.from_domain(domain_data)
 
     def update_moment(
         self,

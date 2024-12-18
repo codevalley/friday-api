@@ -80,119 +80,65 @@ Below is a more detailed and prescriptive breakdown of the suggested improvement
 
 ~~**Goal:** Avoid scattered validation logic. Put common checks in `utils/validation.py` so developers know where to add or update validations.~~
 
-~~### Detailed Suggestions & Code Snippets~~
-
-~~1. **Common Validation Module:**~~
-   ~~- Create `utils/validation.py` and define functions like `validate_pagination`, `validate_color`, `validate_activity_schema`.~~
-   ~~- Services and repositories call these utilities.~~
-
-   ~~**Example (`utils/validation.py`):**~~
-   ```python
-   import re
-   from fastapi import HTTPException
-
-   def validate_pagination(page: int, size: int):
-       if page < 1:
-           raise HTTPException(status_code=400, detail="Page number must be ≥ 1")
-       if size < 1 or size > 100:
-           raise HTTPException(status_code=400, detail="Page size must be between 1 and 100")
-
-   def validate_color(color: str):
-       if not re.match(r"^#[0-9A-Fa-f]{6}$", color):
-           raise HTTPException(status_code=400, detail="Invalid hex color")
-
-   def validate_activity_schema(schema: dict):
-       # Perform JSON schema validation here
-       # Raise HTTPException if invalid
-       pass
-   ```
-
-   ~~Then in `services/ActivityService.py`, replace inline validation with:~~
-   ```python
-   from utils.validation import validate_pagination, validate_color, validate_activity_schema
-
-   def _validate_pagination(self, page: int, size: int):
-       validate_pagination(page, size)
-
-   def _validate_color(self, color: str):
-       validate_color(color)
-
-   def _validate_activity_schema(self, schema: dict):
-       validate_activity_schema(schema)
-   ```
-
-   ~~Eventually, you can remove `_validate_pagination`, `_validate_color`, `_validate_activity_schema` from `ActivityService` and directly call `validate_pagination(...)` and so forth.~~
-
-~~2. **Unified JSON Schema Validation:**~~
-   ~~- Instead of validating activity schemas in models and services both, pick one place.~~
-   ~~- For example, always validate on creation/update in the service layer.~~
-   ~~- If the model constructor also validates, consider removing that to avoid double validation.~~
-
 ---
 
-## Epic 3: Symmetric Design Across Schemas (REST & GraphQL)
+## ~~Epic 3: Symmetric Design Across Schemas (REST & GraphQL)~~ ✅
 
-**Goal:** Have a single domain schema and convert to REST/GraphQL as needed. Reduce the complexity of multiple schema layers with different fields.
+~~**Goal:** Have a single domain schema and convert to REST/GraphQL as needed. Reduce the complexity of multiple schema layers with different fields.~~
 
-### Detailed Suggestions & Code Snippets
+### ~~Tasks & Progress~~
 
-1. **Domain-Centric Schemas:**
-   - Use `ActivityData`, `MomentData`, `UserData` as single sources of truth.
-   - In REST endpoints, convert `Pydantic` models to/from `ActivityData`.
-   - In GraphQL resolvers, also convert `ActivityData` to GraphQL `Activity`.
+1. ~~**Domain Models Creation and Updates:**~~
+   - [x] ~~Create and implement `ActivityData` domain model~~
+   - [x] ~~Create and implement `UserData` domain model~~
+   - [x] ~~Create and implement `MomentData` domain model~~
+   - [x] ~~Add validation methods to domain models~~
+   - [x] ~~Ensure consistent field naming across domain models~~
 
-   **Example:**
-   ```python
-   # Domain model (already present)
-   class ActivityData:
-       # Your domain fields and validation here
+2. ~~**Service Layer Updates:**~~
+   - [x] ~~Update `ActivityService` to work with domain models~~
+   - [x] ~~Update `MomentService` to work with domain models~~
+   - [x] ~~Update `UserService` to work with domain models~~
+   - [x] ~~Add proper error handling and validation in services~~
+   - [x] ~~Implement consistent conversion between domain and DB models~~
 
-   # In REST (ActivityCreate -> domain -> save -> domain -> ActivityResponse)
-   activity_data = activity_create.to_domain()
-   created_activity = activity_service.create_activity(activity_data)
-   return ActivityResponse.from_domain(created_activity)
+3. ~~**Schema Standardization:**~~
+   - [x] ~~Implement consistent field naming in REST schemas~~
+   - [x] ~~Implement consistent field naming in GraphQL schemas~~
+   - [x] ~~Create conversion utilities between REST/GraphQL and domain models~~
+   - [x] ~~Remove redundant validation in REST/GraphQL schemas~~
 
-   # In GraphQL, do similarly:
-   @strawberry.mutation
-   def create_activity(self, activity: ActivityInput) -> Activity:
-       domain_activity = activity.to_domain()  # from ActivityInput to ActivityData
-       db_activity = service.create_activity_graphql(domain_activity, user_id)
-       return Activity.from_domain(db_activity)  # Convert domain to GraphQL
-   ```
-
-2. **Consistent Naming:**
-   - If `activity_schema` is the domain name, always use `activity_schema` in the domain model. In GraphQL, if it's currently `activitySchema`, convert during `to_domain()` or `from_domain()`:
-
-   **Example Conversion:**
-   ```python
-   class ActivityInput:
-       activitySchema: str
-       # ...
-       def to_domain(self) -> ActivityData:
-           return ActivityData(
-               name=self.name,
-               description=self.description,
-               activity_schema=json.loads(self.activitySchema),  # convert camelCase to snake_case
-               icon=self.icon,
-               color=self.color
-           )
-   ```
-
-3. **Remove Redundant Validation in Schemas:**
-   - If `ActivityData` ensures validity, remove extra validation from `ActivityCreate` or `ActivityUpdate`.
-   - Instead, trust the domain validation and just do `to_domain()` which raises if invalid.
-
-   **Example:**
-   ```python
-   # In ActivityCreate pydantic model, remove custom validators if ActivityData already checks them.
-   # Just rely on ActivityData.from_dict().
-   ```
+4. ~~**Pagination Implementation:**~~
+   - [x] ~~Create a common pagination domain model~~
+   - [x] ~~Implement consistent pagination in REST endpoints~~
+   - [x] ~~Implement consistent pagination in GraphQL queries~~
+   - [x] ~~Add pagination metadata to all list responses~~
 
 ---
 
 ## Epic 4: Error Handling & Logging
 
 **Goal:** Standardize error handling so that junior devs know exactly where to handle errors.
+
+### Tasks & Progress
+
+1. **Error Handler Implementation:**
+   - [ ] Create a centralized error handling module
+   - [ ] Define standard error types and messages
+   - [ ] Implement error handler decorators
+   - [ ] Add proper logging configuration
+
+2. **Logging Standardization:**
+   - [ ] Set up structured logging
+   - [ ] Define log levels for different scenarios
+   - [ ] Add request/response logging
+   - [ ] Implement audit logging for important operations
+
+3. **Error Response Format:**
+   - [ ] Define standard error response format
+   - [ ] Implement error response serialization
+   - [ ] Add error codes and documentation
+   - [ ] Create error handling utilities
 
 ### Detailed Suggestions & Code Snippets
 
@@ -223,6 +169,26 @@ Below is a more detailed and prescriptive breakdown of the suggested improvement
 ## Epic 5: Code Cleanup & Refactoring
 
 **Goal:** Improve readability, remove unused code, and ensure good performance.
+
+### Tasks & Progress
+
+1. **Code Organization:**
+   - [ ] Review and clean up imports
+   - [ ] Remove dead code and unused functions
+   - [ ] Organize modules logically
+   - [ ] Add proper docstrings and comments
+
+2. **Performance Optimization:**
+   - [ ] Optimize database queries
+   - [ ] Add appropriate indexes
+   - [ ] Implement caching where needed
+   - [ ] Profile and optimize slow operations
+
+3. **Testing Improvements:**
+   - [ ] Increase test coverage
+   - [ ] Add integration tests
+   - [ ] Improve test fixtures
+   - [ ] Add performance tests
 
 ### Detailed Suggestions & Code Snippets
 
@@ -270,6 +236,14 @@ Below is a more detailed and prescriptive breakdown of the suggested improvement
 
 ---
 
-## Conclusion
+## Next Steps
 
-By following these expanded instructions and code snippets, your junior developers can more easily understand what to change and how. This approach breaks down large conceptual changes into smaller, more tangible steps, each with explicit instructions. Over time, these changes will produce a cleaner, more maintainable codebase.
+Based on the completed epics and remaining work, I recommend focusing on Epic 4: Error Handling & Logging next. This is a critical area that will improve the robustness and maintainability of the codebase. The tasks are well-defined and will have immediate benefits for debugging and monitoring the application in production.
+
+Key tasks to start with:
+1. Create a centralized error handling module
+2. Set up structured logging with proper configuration
+3. Implement standard error response formats
+4. Add request/response logging for better debugging
+
+Would you like to start with any of these tasks?

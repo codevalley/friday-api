@@ -1,291 +1,124 @@
-import strawberry
-from typing import List, Optional, Dict, Any
+"""Activity GraphQL types."""
 
-from models.ActivityModel import Activity as ActivityModel
-from schemas.base.activity_schema import ActivityData
-from utils.json_utils import ensure_dict
-from .Moment import Moment
+from datetime import datetime
+from typing import List, Optional, Any
+import json
+import strawberry
+
+from domain.models.activity import ActivityData
+from schemas.graphql.types.Moment import Moment
 
 
 @strawberry.type
 class Activity:
-    """Activity type for GraphQL queries.
+    """GraphQL type for Activity."""
 
-    Represents an activity that can be logged with moments.
-    Each activity has its own schema for validating moment data.
-    """
-
-    @strawberry.field(
-        description="Unique identifier for the activity"
-    )
+    @strawberry.field
     def id(self) -> int:
-        return self._id
+        """Activity ID."""
+        return self._domain.id
 
-    @strawberry.field(description="Name of the activity")
+    @strawberry.field
     def name(self) -> str:
-        return self._name
+        """Activity name."""
+        return self._domain.name
 
-    @strawberry.field(
-        description="Detailed description of the activity"
-    )
+    @strawberry.field
     def description(self) -> str:
-        return self._description
+        """Activity description."""
+        return self._domain.description
 
-    @strawberry.field(
-        description="JSON Schema defining the structure of moment data"
-    )
-    def activitySchema(self) -> str:
-        return self._activity_schema
+    @strawberry.field
+    def activity_schema(self) -> str:
+        """Activity schema as JSON string."""
+        return json.dumps(self._domain.activity_schema)
 
-    @strawberry.field(
-        description="Icon identifier for the activity"
-    )
+    @strawberry.field
     def icon(self) -> str:
-        return self._icon
+        """Activity icon."""
+        return self._domain.icon
 
-    @strawberry.field(
-        description="Color code for the activity (hex format)"
-    )
+    @strawberry.field
     def color(self) -> str:
-        return self._color
+        """Activity color."""
+        return self._domain.color
 
-    @strawberry.field(
-        description="Number of moments using this activity",
-    )
-    def momentCount(self) -> int:
-        return self._moment_count
+    @strawberry.field
+    def user_id(self) -> str:
+        """ID of the user who created the activity."""
+        return self._domain.user_id
 
-    @strawberry.field(
-        description="Moments using this activity",
-    )
-    def moments(self) -> List[Moment]:
-        return self._moments
+    @strawberry.field
+    def moment_count(self) -> int:
+        """Number of moments using this activity."""
+        return self._domain.moment_count
 
-    def __init__(
-        self,
-        id: int,
-        name: str,
-        description: str,
-        activitySchema: str,
-        icon: str,
-        color: str,
-        momentCount: int = 0,
-        moments: Optional[List[Moment]] = None,
-    ):
-        """Initialize Activity type.
+    @strawberry.field
+    def moments(self) -> Optional[List[Moment]]:
+        """List of moments using this activity."""
+        if not self._domain.moments:
+            return None
+        return [
+            Moment.from_domain(m)
+            for m in self._domain.moments
+        ]
 
-        Args:
-            id: Unique identifier
-            name: Display name
-            description: Detailed description
-            activitySchema: JSON Schema for moment data
-            icon: Display icon (emoji)
-            color: Display color (hex code)
-            momentCount: Number of moments using this activity
-            moments: List of moments using this activity
-        """
-        self._id = id
-        self._name = name
-        self._description = description
-        self._activity_schema = activitySchema
-        self._icon = icon
-        self._color = color
-        self._moment_count = momentCount
-        self._moments = moments or []
+    @strawberry.field
+    def created_at(self) -> datetime:
+        """When the activity was created."""
+        return self._domain.created_at
+
+    @strawberry.field
+    def updated_at(self) -> Optional[datetime]:
+        """When the activity was last updated."""
+        return self._domain.updated_at
+
+    def __init__(self, domain: ActivityData):
+        """Initialize with domain model."""
+        self._domain = domain
 
     @classmethod
     def from_domain(
-        cls, activity: ActivityData
+        cls, domain: ActivityData
     ) -> "Activity":
-        """Create from domain model.
-
-        Args:
-            activity: Domain model instance to convert
-
-        Returns:
-            Activity: GraphQL type instance
-        """
-        activity_dict = activity.to_json_dict(graphql=True)
-        return cls(
-            id=activity_dict["id"],
-            name=activity_dict["name"],
-            description=activity_dict["description"],
-            activitySchema=activity_dict["activitySchema"],
-            icon=activity_dict["icon"],
-            color=activity_dict["color"],
-            momentCount=activity_dict["momentCount"],
-            moments=[],  # Lazy load moments
-        )
+        """Create from domain model."""
+        return cls(domain)
 
     @classmethod
-    def from_db(
-        cls, db_activity: ActivityModel
-    ) -> "Activity":
-        """Create from database model.
-
-        Args:
-            db_activity: SQLAlchemy model instance
-
-        Returns:
-            Activity: GraphQL type instance
-        """
-        return cls.from_domain(
-            ActivityData.from_dict(
-                {
-                    "id": db_activity.id,
-                    "name": db_activity.name,
-                    "description": db_activity.description,
-                    "activity_schema": db_activity.activity_schema,
-                    "icon": db_activity.icon,
-                    "color": db_activity.color,
-                    "moment_count": getattr(
-                        db_activity, "moment_count", 0
-                    ),
-                }
-            )
-        )
-
-
-@strawberry.input
-class ActivityInput:
-    """Input type for creating a new activity.
-
-    Defines the structure for activity creation mutations.
-    """
-
-    name: str = strawberry.field(
-        description="Name of the activity (1-255 characters)"
-    )
-    description: str = strawberry.field(
-        description="Detailed description (1-1000 characters)"
-    )
-    activitySchema: str = strawberry.field(
-        description="JSON Schema defining the structure of moment data"
-    )
-    icon: str = strawberry.field(
-        description="Icon identifier (1-255 characters)"
-    )
-    color: str = strawberry.field(
-        description="Color code in hex format (e.g., #4A90E2)"
-    )
-
-    def to_dict(self) -> Dict[str, Any]:
-        """Convert to dictionary for Pydantic model creation.
-
-        Returns:
-            Dict[str, Any]: Dictionary representation
-        """
-        return {
-            "name": self.name,
-            "description": self.description,
-            "activity_schema": ensure_dict(
-                self.activitySchema
-            ),
-            "icon": self.icon,
-            "color": self.color,
-        }
-
-    def to_domain(self) -> ActivityData:
-        """Convert to domain model.
-
-        Returns:
-            ActivityData: Domain model instance
-        """
-        return ActivityData.from_dict(self.to_dict())
-
-
-@strawberry.input
-class ActivityUpdateInput:
-    """Input type for updating an activity.
-
-    All fields are optional since this is used for partial updates.
-    """
-
-    name: Optional[str] = strawberry.field(
-        default=None,
-        description="Name of the activity (1-255 characters)",
-    )
-    description: Optional[str] = strawberry.field(
-        default=None,
-        description="Detailed description (1-1000 characters)",
-    )
-    activitySchema: Optional[str] = strawberry.field(
-        default=None,
-        description="JSON Schema defining the structure of moment data",
-    )
-    icon: Optional[str] = strawberry.field(
-        default=None,
-        description="Icon identifier (1-255 characters)",
-    )
-    color: Optional[str] = strawberry.field(
-        default=None,
-        description="Color code in hex format (e.g., #4A90E2)",
-    )
-
-    def to_dict(self) -> Dict[str, Any]:
-        """Convert to dictionary for Pydantic model creation.
-
-        Returns:
-            Dict[str, Any]: Dictionary with only set fields
-        """
-        update_dict: Dict[str, Any] = {}
-        if self.name is not None:
-            update_dict["name"] = self.name
-        if self.description is not None:
-            update_dict["description"] = self.description
-        if self.activitySchema is not None:
-            update_dict["activity_schema"] = ensure_dict(
-                self.activitySchema
-            )
-        if self.icon is not None:
-            update_dict["icon"] = self.icon
-        if self.color is not None:
-            update_dict["color"] = self.color
-        return update_dict
-
-    def to_domain(
-        self, existing: ActivityData
-    ) -> ActivityData:
-        """Convert to domain model, preserving existing data.
-
-        Args:
-            existing: Existing activity data to update
-
-        Returns:
-            ActivityData: Updated domain model instance
-        """
-        existing_dict = existing.to_dict()
-        existing_dict.update(self.to_dict())
-        return ActivityData.from_dict(existing_dict)
+    def from_db(cls, db_model: Any) -> "Activity":
+        """Create from database model."""
+        return cls(ActivityData.from_orm(db_model))
 
 
 @strawberry.type
 class ActivityConnection:
-    """Type for paginated activity lists.
-
-    Implements cursor-based pagination for activities.
-    """
+    """Type for paginated activity lists."""
 
     @strawberry.field(description="List of activities")
     def items(self) -> List[Activity]:
+        """Get list of activities."""
         return self._items
 
     @strawberry.field(description="Total number of items")
     def total(self) -> int:
+        """Get total number of items."""
         return self._total
 
     @strawberry.field(description="Current page number")
     def page(self) -> int:
+        """Get current page number."""
         return self._page
 
     @strawberry.field(
         description="Number of items per page"
     )
     def size(self) -> int:
+        """Get number of items per page."""
         return self._size
 
     @strawberry.field(description="Total number of pages")
     def pages(self) -> int:
+        """Get total number of pages."""
         return (self._total + self._size - 1) // self._size
 
     def __init__(
@@ -309,23 +142,73 @@ class ActivityConnection:
         self._size = size
 
     @classmethod
-    def from_pydantic(
-        cls, activity_list: ActivityData
+    def from_domain(
+        cls, items: List[ActivityData], page: int, size: int
     ) -> "ActivityConnection":
-        """Convert pydantic ActivityList to GraphQL ActivityConnection.
-
-        Args:
-            activity_list: Pydantic model instance
-
-        Returns:
-            ActivityConnection: GraphQL type instance
-        """
+        """Create from domain models."""
         return cls(
             items=[
-                Activity.from_db(item)
-                for item in activity_list.items
+                Activity.from_domain(item) for item in items
             ],
-            total=activity_list.total,
-            page=activity_list.page,
-            size=activity_list.size,
+            total=len(items),
+            page=page,
+            size=size,
+        )
+
+
+@strawberry.input
+class ActivityInput:
+    """GraphQL input type for creating an Activity."""
+
+    name: str
+    description: str
+    activitySchema: str
+    icon: str
+    color: str
+
+    def to_domain(self) -> ActivityData:
+        """Convert to domain model."""
+        return ActivityData(
+            name=self.name,
+            description=self.description,
+            activity_schema=json.loads(self.activitySchema),
+            icon=self.icon,
+            color=self.color,
+            user_id="",  # Will be set by the service
+        )
+
+
+@strawberry.input
+class ActivityUpdateInput:
+    """GraphQL input type for updating an Activity."""
+
+    name: Optional[str] = None
+    description: Optional[str] = None
+    activitySchema: Optional[str] = None
+    icon: Optional[str] = None
+    color: Optional[str] = None
+
+    def to_domain(
+        self, existing: ActivityData
+    ) -> ActivityData:
+        """Convert to domain model, using existing data for missing fields."""
+        activity_schema = (
+            json.loads(self.activitySchema)
+            if self.activitySchema is not None
+            else existing.activity_schema
+        )
+
+        return ActivityData(
+            id=existing.id,
+            name=self.name or existing.name,
+            description=self.description
+            or existing.description,
+            activity_schema=activity_schema,
+            icon=self.icon or existing.icon,
+            color=self.color or existing.color,
+            user_id=existing.user_id,
+            moment_count=existing.moment_count,
+            moments=existing.moments,
+            created_at=existing.created_at,
+            updated_at=datetime.now(),
         )

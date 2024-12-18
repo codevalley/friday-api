@@ -1,237 +1,183 @@
 from datetime import datetime
-from typing import Any, Dict, Optional
+from typing import Dict, Any, Optional, List
 
-from pydantic import Field, validator, ConfigDict
+from pydantic import BaseModel, Field, ConfigDict
 
-from schemas.base.activity_schema import ActivityData
-from schemas.pydantic.CommonSchema import (
-    BaseSchema,
-    PaginatedResponse,
+from domain.models.activity import ActivityData, MomentData
+from schemas.pydantic.PaginationSchema import (
+    PaginationResponse,
 )
 
 
-# Common model configuration
-model_config = ConfigDict(
-    from_attributes=True,  # Enable ORM mode
-    json_encoders={
-        datetime: lambda v: v.isoformat()  # Format datetime as ISO string
-    },
-)
-
-
-class ActivityBase(BaseSchema):
-    """Base schema for Activity with common attributes.
-
-    Attributes:
-        name: Display name of the activity
-        description: Detailed description of what this activity represents
-        activity_schema: JSON Schema for validating moment data
-        icon: Visual representation identifier (emoji)
-        color: Color code for UI consistency (hex format: #RRGGBB)
-    """
+class ActivityBase(BaseModel):
+    """Base schema for Activity."""
 
     name: str = Field(
-        ...,
-        min_length=1,
-        max_length=255,
-        description="Display name of the activity",
+        ..., description="Name of the activity"
     )
     description: str = Field(
-        ...,
-        min_length=1,
-        max_length=1000,
-        description="Detailed description of what this activity represents",
+        ..., description="Description of the activity"
     )
     activity_schema: Dict[str, Any] = Field(
-        ...,
-        description=(
-            "JSON Schema that defines the structure and validation rules "
-            "for moment data"
-        ),
+        ..., description="JSON schema for activity data"
     )
     icon: str = Field(
-        ...,
-        min_length=1,
-        max_length=255,
-        description="Visual representation identifier (emoji)",
+        ..., description="Icon for the activity"
     )
     color: str = Field(
-        ...,
-        min_length=7,
-        max_length=7,
-        description="Color code for UI consistency (hex format: #RRGGBB)",
-        example="#4A90E2",
+        ..., description="Color for the activity"
     )
 
-    model_config = model_config
 
-    @validator("activity_schema")
-    def validate_activity_schema(
-        cls, v: Dict[str, Any]
-    ) -> Dict[str, Any]:
-        """Validate that activity_schema is a valid JSON Schema.
+class ActivityCreate(ActivityBase):
+    """Schema for creating an Activity."""
+
+    def to_domain(self, user_id: str) -> ActivityData:
+        """Convert to domain model.
 
         Args:
-            v: The activity schema to validate
-
-        Returns:
-            The validated activity schema
-
-        Raises:
-            ValueError: If schema is invalid
-        """
-        if not isinstance(v, dict):
-            raise ValueError(
-                "Activity schema must be a valid JSON object"
-            )
-
-        # Basic schema validation
-        required_fields = {"type", "properties"}
-        if not all(field in v for field in required_fields):
-            raise ValueError(
-                f"Activity schema must contain: {required_fields}"
-            )
-
-        if v.get("type") != "object":
-            raise ValueError(
-                "Activity schema root type must be 'object'"
-            )
-
-        return v
-
-    def to_domain(self) -> ActivityData:
-        """Convert to domain model.
+            user_id: ID of the user creating the activity
 
         Returns:
             ActivityData: Domain model instance with validated data
         """
-        return ActivityData.from_dict(self.model_dump())
+        data = self.model_dump()
+        data["user_id"] = user_id
+        return ActivityData.from_dict(data)
 
 
-class ActivityCreate(ActivityBase):
-    """Schema for creating a new Activity.
-
-    Attributes:
-        user_id: Optional ID of the user creating the activity
-    """
-
-    user_id: Optional[str] = Field(
-        None,
-        description="ID of the user creating the activity",
-    )
-
-
-class ActivityUpdate(BaseSchema):
-    """Schema for updating an existing Activity.
-
-    All fields are optional since this is used for partial updates.
-
-    Attributes:
-        name: Optional new name for the activity
-        description: Optional new description
-        activity_schema: Optional new JSON Schema
-        icon: Optional new icon
-        color: Optional new color code
-    """
+class ActivityUpdate(BaseModel):
+    """Schema for updating an Activity."""
 
     name: Optional[str] = Field(
-        None,
-        min_length=1,
-        max_length=255,
-        description="Display name of the activity",
+        None, description="Name of the activity"
     )
     description: Optional[str] = Field(
-        None,
-        min_length=1,
-        max_length=1000,
-        description="Detailed description of what this activity represents",
+        None, description="Description of the activity"
     )
     activity_schema: Optional[Dict[str, Any]] = Field(
-        None,
-        description="JSON Schema that defines the structure of moment data",
+        None, description="JSON schema for activity data"
     )
     icon: Optional[str] = Field(
-        None,
-        min_length=1,
-        max_length=255,
-        description="Visual representation identifier",
+        None, description="Icon for the activity"
     )
     color: Optional[str] = Field(
-        None,
-        min_length=7,
-        max_length=7,
-        description="Color code for UI consistency (hex format: #RRGGBB)",
+        None, description="Color for the activity"
     )
-
-    model_config = model_config
 
     def to_domain(
         self, existing: ActivityData
     ) -> ActivityData:
-        """Convert to domain model, preserving existing data.
+        """Convert to domain model, using existing data for missing fields."""
+        return ActivityData(
+            id=existing.id,
+            name=self.name or existing.name,
+            description=self.description
+            or existing.description,
+            activity_schema=self.activity_schema
+            or existing.activity_schema,
+            icon=self.icon or existing.icon,
+            color=self.color or existing.color,
+            user_id=existing.user_id,
+            moment_count=existing.moment_count,
+            moments=existing.moments,
+            created_at=existing.created_at,
+            updated_at=datetime.now(),
+        )
 
-        Args:
-            existing: Existing activity data to update
 
-        Returns:
-            ActivityData: Updated domain model instance
-        """
-        update_dict = self.model_dump(exclude_unset=True)
-        existing_dict = existing.to_dict()
-        existing_dict.update(update_dict)
-        return ActivityData.from_dict(existing_dict)
+class MomentResponse(BaseModel):
+    """Response schema for Moment."""
 
-
-class ActivityResponse(ActivityBase):
-    """Full activity response model with all fields.
-
-    Attributes:
-        id: Unique identifier for the activity
-        user_id: ID of the user who created the activity
-        moment_count: Number of moments using this activity
-        created_at: When the activity was created
-        updated_at: When the activity was last updated
-    """
-
-    id: int = Field(
-        ...,
-        description="Unique identifier for the activity",
-    )
-    user_id: str = Field(
-        ...,
-        description="ID of the user who created the activity",
-    )
-    moment_count: int = Field(
-        0,
-        ge=0,
-        description="Number of moments using this activity",
-    )
-    created_at: datetime = Field(
-        ..., description="When the activity was created"
-    )
-    updated_at: Optional[datetime] = Field(
-        None,
-        description="When the activity was last updated",
-    )
-
-    model_config = model_config
+    id: int
+    activity_id: int
+    data: Dict[str, Any]
+    timestamp: datetime
+    user_id: str
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
 
     @classmethod
     def from_domain(
-        cls, activity: ActivityData
+        cls, domain: MomentData
+    ) -> "MomentResponse":
+        """Create from domain model."""
+        return cls(
+            id=domain.id,
+            activity_id=domain.activity_id,
+            data=domain.data,
+            timestamp=domain.timestamp,
+            user_id=domain.user_id,
+            created_at=domain.created_at,
+            updated_at=domain.updated_at,
+        )
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class ActivityResponse(BaseModel):
+    """Response schema for Activity."""
+
+    id: int
+    name: str
+    description: str
+    activity_schema: Dict[str, Any]
+    icon: str
+    color: str
+    user_id: str
+    moment_count: int = 0
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+    moments: Optional[List[MomentResponse]] = None
+
+    @classmethod
+    def from_domain(
+        cls, domain: ActivityData
     ) -> "ActivityResponse":
-        """Create from domain model.
+        """Create from domain model."""
+        data = {
+            "id": domain.id,
+            "name": domain.name,
+            "description": domain.description,
+            "activity_schema": domain.activity_schema,
+            "icon": domain.icon,
+            "color": domain.color,
+            "user_id": domain.user_id,
+            "moment_count": domain.moment_count,
+            "created_at": domain.created_at,
+            "updated_at": domain.updated_at,
+        }
+        if domain.moments and len(domain.moments) > 0:
+            data["moments"] = [
+                MomentResponse.from_domain(m)
+                for m in domain.moments
+            ]
+        return cls(**data)
 
-        Args:
-            activity: Domain model instance to convert
-
-        Returns:
-            ActivityResponse: Response model instance
-        """
-        return cls(**activity.to_dict())
+    model_config = ConfigDict(
+        from_attributes=True,
+        json_encoders={datetime: lambda v: v.isoformat()},
+        exclude_none=True,
+    )
 
 
-class ActivityList(PaginatedResponse[ActivityResponse]):
-    """Paginated list of activities."""
+class ActivityList(PaginationResponse):
+    """Response schema for list of Activities."""
 
-    model_config = model_config
+    items: List[ActivityResponse]
+
+    @classmethod
+    def from_domain(
+        cls, items: List[ActivityData], page: int, size: int
+    ) -> "ActivityList":
+        """Create from domain models."""
+        return cls(
+            items=[
+                ActivityResponse.from_domain(item)
+                for item in items
+            ],
+            total=len(items),
+            page=page,
+            size=size,
+            pages=(len(items) + size - 1) // size,
+        )

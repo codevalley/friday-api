@@ -413,6 +413,7 @@ class TestMomentRouter:
                 "moment_count": 0,
                 "created_at": "2024-12-16T18:41:00.140952",
                 "updated_at": "2024-12-16T18:41:00.140952",
+                "moments": None,
             }
         ]
         mock_moment_service.list_recent_activities.assert_called_once_with(

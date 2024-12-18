@@ -79,11 +79,10 @@ class ActivityService:
             )
             logger.debug(f"Activity data: {activity_data}")
 
-            # Convert to domain model
-            domain_data = activity_data.to_domain()
-            domain_data.user_id = str(
-                user_id
-            )  # Ensure user_id is string
+            # Convert to domain model with user_id
+            domain_data = activity_data.to_domain(
+                str(user_id)
+            )
 
             # Validate color format
             self._validate_color(domain_data.color)

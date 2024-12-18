@@ -2,7 +2,7 @@
 
 import pytest
 from datetime import datetime, timezone, timedelta
-from unittest.mock import Mock
+from unittest.mock import Mock, PropertyMock
 from fastapi import HTTPException
 
 from services.MomentService import MomentService
@@ -51,6 +51,11 @@ def mock_activity():
         "properties": {"test_field": {"type": "string"}},
     }
     activity.validate_moment_data = Mock()
+
+    # Mock the moments property to return an empty list
+    moments_property = PropertyMock(return_value=[])
+    type(activity).moments = moments_property
+
     return activity
 
 
@@ -60,8 +65,11 @@ def mock_moment(mock_activity):
     moment = Mock()
     moment.id = 1
     moment.activity_id = 1
+    moment.user_id = "test_user"
     moment.data = {"test_field": "test value"}
     moment.timestamp = datetime.now(timezone.utc)
+    moment.created_at = datetime.now(timezone.utc)
+    moment.updated_at = datetime.now(timezone.utc)
     moment.activity = mock_activity
     return moment
 

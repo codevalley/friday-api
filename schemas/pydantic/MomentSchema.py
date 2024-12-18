@@ -60,13 +60,21 @@ class MomentBase(BaseSchema):
         """
         return v or datetime.utcnow()
 
-    def to_domain(self) -> MomentData:
+    def to_domain(
+        self, user_id: Optional[str] = None
+    ) -> MomentData:
         """Convert to domain model.
+
+        Args:
+            user_id: Optional user ID to use when creating the domain model
 
         Returns:
             MomentData: Domain model instance with validated data
         """
-        return MomentData.from_dict(self.model_dump())
+        data = self.model_dump()
+        if user_id:
+            data["user_id"] = user_id
+        return MomentData.from_dict(data, user_id=user_id)
 
 
 class MomentCreate(MomentBase):
@@ -75,7 +83,18 @@ class MomentCreate(MomentBase):
     Inherits all fields from MomentBase.
     """
 
-    pass
+    def to_domain(self, user_id: str) -> MomentData:
+        """Convert to domain model.
+
+        Args:
+            user_id: ID of the user creating the moment
+
+        Returns:
+            MomentData: Domain model instance with validated data
+        """
+        data = self.model_dump()
+        data["user_id"] = user_id
+        return MomentData.from_dict(data)
 
 
 class MomentUpdate(BaseSchema):
