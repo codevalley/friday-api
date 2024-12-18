@@ -1,10 +1,15 @@
 from typing import List, Optional, Dict, Any, Union
+import logging
 from sqlalchemy.orm import Session
 from fastapi import HTTPException, status
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 
 from orm.ActivityModel import Activity
 from .BaseRepository import BaseRepository
+
+# Set up module logger
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.DEBUG)
 
 
 class ActivityRepository(BaseRepository[Activity, int]):
@@ -53,16 +58,22 @@ class ActivityRepository(BaseRepository[Activity, int]):
 
             return super().create(activity)
         except ValueError as e:
-            print(e)
+            logger.error(f"Validation error: {str(e)}")
             # Re-raise validation errors
             raise
         except IntegrityError as e:
+            logger.error(
+                f"Integrity error during create: {str(e)}"
+            )
             self.db.rollback()
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
                 detail=f"Resource already exists: {str(e)}",
             )
         except SQLAlchemyError as e:
+            logger.error(
+                f"Database error during create: {str(e)}"
+            )
             self.db.rollback()
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -126,9 +137,13 @@ class ActivityRepository(BaseRepository[Activity, int]):
 
         Returns:
             Updated Activity if found and owned by user, None otherwise
+
+        Raises:
+            ValueError: If validation fails
+            HTTPException: If database constraints are violated
         """
         try:
-            activity = self.get_by_user(
+            activity = self.get_by_owner(
                 activity_id, user_id
             )
             if not activity:
@@ -149,16 +164,22 @@ class ActivityRepository(BaseRepository[Activity, int]):
             self.db.refresh(activity)
             return activity
         except ValueError as e:
-            print(e)
+            logger.error(f"Validation error: {str(e)}")
             # Re-raise validation errors
             raise
         except IntegrityError as e:
+            logger.error(
+                f"Integrity error during update: {str(e)}"
+            )
             self.db.rollback()
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
                 detail=f"Update violates constraints: {str(e)}",
             )
         except SQLAlchemyError as e:
+            logger.error(
+                f"Database error during update: {str(e)}"
+            )
             self.db.rollback()
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -178,7 +199,7 @@ class ActivityRepository(BaseRepository[Activity, int]):
             True if activity was deleted,
             False if not found or not owned by user
         """
-        activity = self.get_by_user(activity_id, user_id)
+        activity = self.get_by_owner(activity_id, user_id)
         if not activity:
             return False
         return self.delete(activity_id)
@@ -198,7 +219,7 @@ class ActivityRepository(BaseRepository[Activity, int]):
         Raises:
             HTTPException: If activity not found or access denied
         """
-        activity = self.get_by_user(activity_id, user_id)
+        activity = self.get_by_owner(activity_id, user_id)
         if not activity:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,

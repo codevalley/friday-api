@@ -7,6 +7,7 @@ from orm.MomentModel import Moment as MomentModel
 from orm.ActivityModel import Activity
 from schemas.pydantic.MomentSchema import MomentList
 from .BaseRepository import BaseRepository
+from utils.pagination import page_to_skip, calculate_pages
 
 
 class MomentRepository(BaseRepository[MomentModel, int]):
@@ -167,24 +168,25 @@ class MomentRepository(BaseRepository[MomentModel, int]):
         user_id: Optional[str] = None,
         include_activity: bool = True,
     ) -> MomentList:
-        """List moments with filtering and pagination
+        """List moments with pagination and filtering
 
         Args:
             page: Page number (1-based)
-            size: Page size
+            size: Items per page
             activity_id: Optional activity ID to filter by
-            start_time: Optional start time to filter by
-            end_time: Optional end time to filter by
-            user_id: Optional user ID to filter by
-            include_activity: Whether to eager load activities
+            start_time: Optional start time filter
+            end_time: Optional end time filter
+            user_id: Optional user ID filter
+            include_activity: Whether to include activity data
 
         Returns:
-            MomentList containing paginated moments and metadata
+            MomentList with items and pagination info
         """
-        # Start with base query
-        base_query = self.db.query(MomentModel)
+        # Convert page/size to skip/limit
+        skip, limit = page_to_skip(page, size)
 
-        # Add eager loading if requested
+        # Build base query
+        base_query = self.db.query(MomentModel)
         if include_activity:
             base_query = base_query.options(
                 joinedload(MomentModel.activity)
@@ -216,14 +218,11 @@ class MomentRepository(BaseRepository[MomentModel, int]):
         # Get total count before pagination
         total = base_query.count()
 
-        # Apply pagination
-        offset = (page - 1) * size
-        items = base_query.offset(offset).limit(size).all()
+        # Apply pagination using skip/limit
+        items = base_query.offset(skip).limit(limit).all()
 
         # Calculate total pages
-        pages = (
-            (total + size - 1) // size if total > 0 else 0
-        )
+        pages = calculate_pages(total, size)
 
         return MomentList(
             items=items,

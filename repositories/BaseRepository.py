@@ -12,6 +12,7 @@ from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from fastapi import HTTPException, status
 
 from .RepositoryMeta import RepositoryMeta
+from utils.validation.validation import validate_existence
 
 # Set up repository logger
 logger = logging.getLogger(__name__)
@@ -111,36 +112,6 @@ class BaseRepository(
                 detail=f"Database error: {str(e)}",
             )
 
-    def get_by_id(
-        self, id: KeyType, user_id: str
-    ) -> Optional[ModelType]:
-        """Get a single instance by ID and user_id for authorization"""
-        logger.debug(
-            f"Getting {self.model.__name__} instance with id: "
-            f"{id} for user: {user_id}"
-        )
-        try:
-            instance = (
-                self.db.query(self.model)
-                .filter(
-                    self.model.id == id,
-                    self.model.user_id == user_id,
-                )
-                .first()
-            )
-            logger.debug(
-                f"Found instance: {instance is not None}"
-            )
-            return instance
-        except SQLAlchemyError as e:
-            logger.error(
-                f"Database error during get_by_id: {str(e)}"
-            )
-            raise HTTPException(
-                status_code=500,
-                detail=f"Database error: {str(e)}",
-            )
-
     def list(
         self, skip: int = 0, limit: int = 100
     ) -> List[ModelType]:
@@ -169,6 +140,61 @@ class BaseRepository(
                 detail=f"Database error: {str(e)}",
             )
 
+    def get_by_id(
+        self, id: KeyType, user_id: str
+    ) -> Optional[ModelType]:
+        """Get a single instance by ID and verify ownership
+           (alias for get_by_owner)
+
+        Args:
+            id: Instance ID
+            user_id: Owner's user ID
+
+        Returns:
+            Instance if found and owned by user, None otherwise
+        """
+        return self.get_by_owner(id, user_id)
+
+    def get_by_user(
+        self, id: KeyType, user_id: str
+    ) -> Optional[ModelType]:
+        """Get a single instance by ID and verify ownership
+           (alias for get_by_owner)
+
+        Args:
+            id: Instance ID
+            user_id: Owner's user ID
+
+        Returns:
+            Instance if found and owned by user, None otherwise
+        """
+        return self.get_by_owner(id, user_id)
+
+    def validate_existence(
+        self,
+        id: KeyType,
+        error_message: str = None,
+    ) -> ModelType:
+        """Validate that a resource exists
+
+        Args:
+            id: Resource ID
+            error_message: Optional custom error message
+
+        Returns:
+            Instance if found
+
+        Raises:
+            HTTPException: If resource not found
+        """
+        if error_message is None:
+            error_message = (
+                f"{self.model.__name__} not found"
+            )
+        return validate_existence(
+            self.db, self.model, id, error_message
+        )
+
     def update(
         self, id: KeyType, data: dict[str, Any]
     ) -> Optional[ModelType]:
@@ -180,7 +206,6 @@ class BaseRepository(
         try:
             instance = self.get(id)
             if not instance:
-                logger.debug("Instance not found")
                 return None
 
             for key, value in data.items():
@@ -218,7 +243,6 @@ class BaseRepository(
         try:
             instance = self.get(id)
             if not instance:
-                logger.debug("Instance not found")
                 return False
 
             self.db.delete(instance)
@@ -235,28 +259,18 @@ class BaseRepository(
                 detail=f"Database error: {str(e)}",
             )
 
-    def validate_existence(
-        self,
-        id: KeyType,
-        error_message: str = "Resource not found",
-    ) -> ModelType:
-        """Validate that a resource exists"""
-        logger.debug(
-            f"Validating existence of {self.model.__name__} with id: {id}"
-        )
-        instance = self.get(id)
-        if not instance:
-            logger.debug("Instance not found")
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=error_message,
-            )
-        return instance
-
-    def get_by_user(
+    def get_by_owner(
         self, id: KeyType, user_id: str
     ) -> Optional[ModelType]:
-        """Get a single instance by ID and verify ownership"""
+        """Get a single instance by ID and verify ownership
+
+        Args:
+            id: Instance ID
+            user_id: Owner's user ID
+
+        Returns:
+            Instance if found and owned by user, None otherwise
+        """
         logger.debug(
             f"Getting {self.model.__name__} instance with "
             f"id: {id} for user: {user_id}"
@@ -276,7 +290,7 @@ class BaseRepository(
             return instance
         except SQLAlchemyError as e:
             logger.error(
-                f"Database error during get_by_user: {str(e)}"
+                f"Database error during get_by_owner: {str(e)}"
             )
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,

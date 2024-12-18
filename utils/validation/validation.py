@@ -1,10 +1,59 @@
+"""Validation utilities for common operations across the application.
+
+This module provides a set of validation functions that can be used
+to validate various types of data and ensure consistency across
+the application. Each function raises appropriate HTTP exceptions
+when validation fails.
+"""
+
 import re
-from typing import Dict, Any
-from fastapi import HTTPException
+import logging
+from typing import Dict, Any, TypeVar, Type
+from fastapi import HTTPException, status
+from sqlalchemy.orm import Session
 from jsonschema import (
     validate as validate_json_schema,
     ValidationError,
 )
+
+from orm.BaseModel import EntityMeta
+
+# Set up module logger
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.DEBUG)
+
+M = TypeVar("M", bound=EntityMeta)
+
+
+def validate_existence(
+    db: Session,
+    model: Type[M],
+    id: any,
+    error_message: str = "Resource not found",
+) -> M:
+    """Validate that a resource exists in the database
+
+    Args:
+        db: SQLAlchemy database session
+        model: Model class to query
+        id: Resource ID
+        error_message: Custom error message if not found
+
+    Returns:
+        Instance if found
+
+    Raises:
+        HTTPException: If resource not found
+    """
+    instance = (
+        db.query(model).filter(model.id == id).first()
+    )
+    if not instance:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=error_message,
+        )
+    return instance
 
 
 def validate_pagination(page: int, size: int) -> None:

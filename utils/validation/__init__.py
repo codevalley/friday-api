@@ -7,6 +7,7 @@ from .validation import (
     validate_activity_schema,
     validate_moment_data,
     validate_username,
+    validate_existence,
 )
 
 __all__ = [
@@ -16,4 +17,5 @@ __all__ = [
     "validate_activity_schema",
     "validate_moment_data",
     "validate_username",
+    "validate_existence",
 ]
