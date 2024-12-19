@@ -46,7 +46,12 @@ class ActivityRepository(BaseRepository[Activity, int]):
                 # Set default values for required fields
                 defaults = {
                     "name": instance_or_name,
-                    "activity_schema": {"type": "default"},
+                    "activity_schema": {
+                        "type": "object",
+                        "properties": {
+                            "note": {"type": "string"}
+                        },
+                    },
                     "icon": "default-icon",
                     "color": "#000000",
                 }

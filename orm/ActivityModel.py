@@ -212,12 +212,18 @@ class Activity(EntityMeta):
                 "type": {"type": "string"},
                 "properties": {"type": "object"},
             },
-            "required": ["type"],
+            "required": ["type", "properties"],
         }
 
         try:
             validate_json_schema(schema, meta_schema)
+            if schema.get("type") != "object":
+                raise ValueError(
+                    "activity_schema must be a valid JSON object"
+                )
             return True
+        except ValueError as e:
+            raise e
         except Exception as e:
             raise ValueError(
                 f"Invalid JSON Schema: {str(e)}"
@@ -229,9 +235,8 @@ class Activity(EntityMeta):
         Returns:
             String representation including id and name
         """
-        return (
-            f"<Activity(id={self.id}, name='{self.name}')>"
-        )
+        escaped_name = self.name.replace("'", "\\'")
+        return f"<Activity(id={self.id}, name='{escaped_name}')>"
 
     @property
     def activity_schema_dict(self) -> Dict[str, Any]:

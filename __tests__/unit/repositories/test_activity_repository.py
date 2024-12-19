@@ -39,7 +39,10 @@ def sample_activity_data(test_user):
     return {
         "name": "Test Activity",
         "description": "Test Description",
-        "activity_schema": {"type": "test"},
+        "activity_schema": {
+            "type": "object",
+            "properties": {"note": {"type": "string"}},
+        },
         "icon": "test-icon",
         "color": "#000000",
         "user_id": test_user.id,
