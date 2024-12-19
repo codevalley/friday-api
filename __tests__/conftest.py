@@ -1,6 +1,7 @@
 """Test configuration and fixtures."""
 
 from configs.Database import get_db_connection
+from configs.Logging import configure_logging
 from main import app
 from orm.ActivityModel import Activity
 from orm.BaseModel import Base
@@ -30,7 +31,7 @@ sys.path.insert(0, project_root)
 # Use test MySQL database
 TEST_SQLALCHEMY_DATABASE_URL = (
     "mysql+pymysql://"
-    "root:1234567890@localhost:3306/"
+    "root:root1234@localhost:3306/"
     "test_fridaystore"
 )
 
@@ -110,9 +111,9 @@ def test_client(test_db_session):
         finally:
             test_db_session.close()
 
-    app.dependency_overrides[
-        get_db_connection
-    ] = override_get_db
+    app.dependency_overrides[get_db_connection] = (
+        override_get_db
+    )
     return TestClient(app)
 
 
@@ -190,3 +191,10 @@ def sample_moment(
     test_db_session.commit()
     test_db_session.refresh(moment)
     return moment
+
+
+@pytest.fixture(scope="session", autouse=True)
+def setup_logging():
+    """Configure logging for all tests."""
+    configure_logging(is_test=True)
+    yield

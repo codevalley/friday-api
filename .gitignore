@@ -41,6 +41,8 @@ repomix-output.txt
 codebase.txt
 tests.txt
 docs.txt
+logs/
+*.log
 
 # Unit test / coverage reports
 htmlcov/

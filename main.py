@@ -5,6 +5,7 @@ from strawberry.fastapi import GraphQLRouter
 
 from configs.Environment import get_environment_variables
 from configs.GraphQL import get_graphql_context
+from configs.Logging import configure_logging
 from metadata.Tags import Tags
 from routers.v1.ActivityRouter import (
     router as ActivityRouter,
@@ -13,6 +14,12 @@ from routers.v1.MomentRouter import router as MomentRouter
 from routers.v1.AuthRouter import router as AuthRouter
 from schemas.graphql.Query import Query
 from schemas.graphql.Mutation import Mutation
+from utils.middleware.request_logging import (
+    RequestLoggingMiddleware,
+)
+
+# Configure logging
+configure_logging(is_test=False)
 
 # Application Environment Configuration
 env = get_environment_variables()
@@ -35,6 +42,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Request Logging Configuration
+app.add_middleware(RequestLoggingMiddleware)
 
 # REST API Configuration
 app.include_router(ActivityRouter)

@@ -20,6 +20,7 @@ types-sqlalchemy = "*"
 pytest = "*"
 aiosqlite = "*"
 pymysql = "*"
+collections = {abc = "*"}
 
 [dev-packages]
 pre-commit = ">=2.18.1"
