@@ -10,6 +10,7 @@ from schemas.pydantic.ActivitySchema import (
     ActivityUpdate,
     ActivityResponse,
 )
+from utils.errors.exceptions import ValidationError
 
 
 @pytest.fixture
@@ -96,6 +97,9 @@ def test_user(test_db_session):
 class TestActivityService:
     """Test suite for ActivityService."""
 
+    def setup_method(self):
+        self.service = ActivityService()
+
     def test_validate_pagination_valid(
         self, activity_service
     ):
@@ -134,12 +138,11 @@ class TestActivityService:
 
     def test_validate_color_invalid(self, activity_service):
         """Test color validation with invalid hex code."""
-        with pytest.raises(HTTPException) as exc:
-            activity_service._validate_color("invalid")
-        assert exc.value.status_code == 400
-        assert "Color must be a valid hex code" in str(
-            exc.value.detail
-        )
+        with pytest.raises(
+            ValidationError,
+            match="Invalid color format: invalid. Must be in #RRGGBB format",
+        ):
+            activity_service.validate({"color": "invalid"})
 
     def test_validate_activity_schema_valid(
         self, activity_service
@@ -157,15 +160,17 @@ class TestActivityService:
         self, activity_service
     ):
         """Test activity schema validation with invalid schema."""
-        invalid_schema = {"invalid": "schema"}
-        with pytest.raises(HTTPException) as exc:
-            activity_service._validate_activity_schema(
-                invalid_schema
+        invalid_schema = {"invalid_field": "value"}
+        with pytest.raises(
+            ValidationError,
+            match=(
+                "Activity schema must contain "
+                "'type' and 'properties' fields"
+            ),
+        ):
+            activity_service.validate(
+                {"schema": invalid_schema}
             )
-        assert exc.value.status_code == 400
-        assert "Invalid activity schema format" in str(
-            exc.value.detail
-        )
 
     def test_create_activity_success(
         self,

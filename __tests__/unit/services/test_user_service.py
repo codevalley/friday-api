@@ -1,10 +1,10 @@
 import pytest
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
+from unittest.mock import Mock, patch
+import bcrypt
 
 from services.UserService import UserService
-from orm.UserModel import User
-from utils.security import hash_secret, parse_api_key
 
 
 @pytest.fixture
@@ -14,23 +14,62 @@ def user_service(test_db_session: Session) -> UserService:
 
 
 class TestUserService:
-    def test_register_user_success(
-        self, user_service: UserService
-    ):
-        """Test successful user registration"""
-        username = "testuser123"
-        user, api_key = user_service.register_user(username)
+    def test_register_user_success_bcrypt(self):
+        """Test user registration with bcrypt password hashing"""
+        # Mock dependencies
+        mock_db = Mock()
+        mock_repository = Mock()
 
-        assert isinstance(user, User)
-        assert user.username == username
-        assert user.id is not None
-        assert user.key_id is not None
-        assert user.user_secret is not None
+        # Create service instance with mocked repository
+        service = UserService(mock_db)
+        service.user_repository = mock_repository
 
-        # Verify API key format and components
-        key_id, secret = parse_api_key(api_key)
-        assert user.key_id == key_id
-        assert user.user_secret == hash_secret(secret)
+        # Test data
+        test_username = "testuser"
+        test_key_id = "key123"
+        test_secret = "secret456"
+        test_api_key = f"{test_key_id}.{test_secret}"
+
+        # Mock generate_api_key to return known values
+        with patch(
+            "services.UserService.generate_api_key",
+            return_value=(
+                test_key_id,
+                test_secret,
+                test_api_key,
+            ),
+        ):
+            # Call register_user
+            user, api_key = service.register_user(
+                test_username
+            )
+
+            # Verify API key
+            assert api_key == test_api_key
+
+            # Get the args that were passed to create_user
+            create_user_args = (
+                mock_repository.create_user.call_args[1]
+            )
+
+            # Verify username and key_id
+            assert (
+                create_user_args["username"]
+                == test_username
+            )
+            assert create_user_args["key_id"] == test_key_id
+
+            # Verify the hashed secret is a valid bcrypt hash
+            hashed_secret = create_user_args["user_secret"]
+            assert hashed_secret.startswith(
+                "$2b$"
+            )  # bcrypt hash prefix
+
+            # Verify the hash actually works with the original secret
+            assert bcrypt.checkpw(
+                test_secret.encode("utf-8"),
+                hashed_secret.encode("utf-8"),
+            )
 
     @pytest.mark.parametrize(
         "invalid_username,expected_error",

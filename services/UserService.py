@@ -2,13 +2,14 @@ from typing import Tuple
 from fastapi import Depends, HTTPException, status
 from sqlalchemy.orm import Session
 import re
+import bcrypt
+import secrets
 
 from configs.Database import get_db_connection
 from repositories.UserRepository import UserRepository
 from orm.UserModel import User
 from utils.security import (
     generate_api_key,
-    hash_secret,
     parse_api_key,
 )
 
@@ -97,7 +98,7 @@ class UserService:
 
         # Generate API key components
         key_id, secret, full_key = generate_api_key()
-        hashed_secret = hash_secret(secret)
+        hashed_secret = self.hash_secret(secret)
 
         # Create the user with key_id and hashed secret
         try:
@@ -134,7 +135,9 @@ class UserService:
                 )
 
             # Verify the secret
-            if user.user_secret != hash_secret(secret):
+            if not self.verify_secret(
+                secret, user.user_secret
+            ):
                 raise HTTPException(
                     status_code=status.HTTP_401_UNAUTHORIZED,
                     detail="Invalid API key",
@@ -166,3 +169,52 @@ class UserService:
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail=f"Error getting user: {str(e)}",
             )
+
+    def hash_secret(self, secret: str) -> str:
+        """Hash a secret using bcrypt with salt.
+
+        Args:
+            secret: The secret string to hash
+
+        Returns:
+            str: The securely hashed secret
+        """
+        # Generate a random salt
+        salt = bcrypt.gensalt(
+            rounds=12
+        )  # Work factor of 12
+
+        # Hash the secret with the salt
+        hashed = bcrypt.hashpw(secret.encode("utf-8"), salt)
+
+        return hashed.decode("utf-8")
+
+    def verify_secret(
+        self, plain_secret: str, hashed_secret: str
+    ) -> bool:
+        """Verify a plain secret against its hash.
+
+        Args:
+            plain_secret: The plain secret to verify
+            hashed_secret: The hashed secret to check against
+
+        Returns:
+            bool: True if the secret matches, False otherwise
+        """
+        return bcrypt.checkpw(
+            plain_secret.encode("utf-8"),
+            hashed_secret.encode("utf-8"),
+        )
+
+    def generate_secure_token(
+        self, length: int = 32
+    ) -> str:
+        """Generate a cryptographically secure random token.
+
+        Args:
+            length: Length of the token in bytes
+
+        Returns:
+            str: A secure random token
+        """
+        return secrets.token_urlsafe(length)

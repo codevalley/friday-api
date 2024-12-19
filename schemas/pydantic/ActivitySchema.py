@@ -154,11 +154,7 @@ class ActivityResponse(BaseModel):
             ]
         return cls(**data)
 
-    model_config = ConfigDict(
-        from_attributes=True,
-        json_encoders={datetime: lambda v: v.isoformat()},
-        exclude_none=True,
-    )
+    model_config = ConfigDict(from_attributes=True)
 
 
 class ActivityList(PaginationResponse):

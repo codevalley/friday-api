@@ -1,9 +1,11 @@
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
+import json
+import logging
 from fastapi import HTTPException, Depends
 from sqlalchemy.orm import Session
-import logging
 
 from configs.Database import get_db_connection
+from domain.activity import ActivityData
 from repositories.ActivityRepository import (
     ActivityRepository,
 )
@@ -20,9 +22,9 @@ from utils.validation import (
     validate_color as validate_color_util,
     validate_activity_schema as validate_activity_schema_util,
 )
-import json
+from utils.errors.exceptions import ValidationError
 
-# Add at the top of the file
+# Set up module logger
 logger = logging.getLogger(__name__)
 
 
@@ -30,10 +32,10 @@ class ActivityService:
     def __init__(
         self, db: Session = Depends(get_db_connection)
     ):
-        """Initialize the service with database session
+        """Initialize the service with database session.
 
         Args:
-            db: SQLAlchemy database session
+            db (Session): SQLAlchemy database session
         """
         self.db = db
         self.activity_repository = ActivityRepository(db)
@@ -45,17 +47,30 @@ class ActivityService:
     def _validate_pagination(
         self, page: int, size: int
     ) -> None:
-        """Validate pagination parameters using centralized validation."""
+        """Validate pagination parameters using centralized validation.
+
+        Args:
+            page (int): Page number to validate
+            size (int): Page size to validate
+        """
         validate_pagination_util(page, size)
 
     def _validate_color(self, color: str) -> None:
-        """Validate color format using centralized validation."""
+        """Validate color format using centralized validation.
+
+        Args:
+            color (str): Color string to validate
+        """
         validate_color_util(color)
 
     def _validate_activity_schema(
-        self, schema: dict
+        self, schema: Dict[str, Any]
     ) -> None:
-        """Validate activity schema using centralized validation."""
+        """Validate activity schema using centralized validation.
+
+        Args:
+            schema (Dict[str, Any]): Schema to validate
+        """
         validate_activity_schema_util(schema)
 
     def create_activity(
@@ -250,19 +265,8 @@ class ActivityService:
     def create_activity_graphql(
         self, activity_data, user_id: str
     ) -> Activity:
-        """Create activity for GraphQL
-
-        Args:
-            activity_data: Activity data to create (GraphQL input type)
-            user_id: ID of user creating the activity
-
-        Returns:
-            Created activity in GraphQL format
-
-        Raises:
-            HTTPException: If validation fails
-        """
-        # Convert activity_schema to dict if it's a string
+        """Create activity for GraphQL"""
+        # Handle activity schema that could be either string or dict
         activity_schema = activity_data.activitySchema
         if isinstance(activity_schema, str):
             try:
@@ -272,12 +276,24 @@ class ActivityService:
             except json.JSONDecodeError:
                 raise HTTPException(
                     status_code=400,
-                    detail="Invalid activity schema format: must be valid JSON",  # noqa: E501
+                    detail=(
+                        "Invalid activity schema format: "
+                        "must be valid JSON"
+                    ),
                 )
+        elif not isinstance(activity_schema, dict):
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    "Activity schema must be either "
+                    "a JSON string or a dictionary"
+                ),
+            )
 
-        # Validate the schema
+        # Validate schema
         self._validate_activity_schema(activity_schema)
 
+        # Create activity
         activity = self.activity_repository.create(
             name=activity_data.name,
             description=activity_data.description,
@@ -340,42 +356,47 @@ class ActivityService:
         activity_data,
         user_id: str,
     ) -> Activity:
-        """Update activity for GraphQL
-
-        Args:
-            activity_id: ID of activity to update
-            activity_data: New activity data (GraphQL input type)
-            user_id: ID of user updating the activity
-
-        Returns:
-            Updated activity in GraphQL format
-
-        Raises:
-            HTTPException: If activity not found or validation fails
-        """
-        # Convert activity_schema to dict if it's a string
+        """Update activity for GraphQL"""
+        activity_schema = None
         if activity_data.activitySchema:
-            try:
-                activity_schema = json.loads(
+            if isinstance(
+                activity_data.activitySchema, str
+            ):
+                try:
+                    activity_schema = json.loads(
+                        activity_data.activitySchema
+                    )
+                except json.JSONDecodeError:
+                    raise HTTPException(
+                        status_code=400,
+                        detail=(
+                            "Invalid activity schema format: "
+                            "must be valid JSON"
+                        ),
+                    )
+            elif isinstance(
+                activity_data.activitySchema, dict
+            ):
+                activity_schema = (
                     activity_data.activitySchema
                 )
-            except json.JSONDecodeError:
+            else:
                 raise HTTPException(
                     status_code=400,
-                    detail="Invalid activity schema format: must be valid JSON",  # noqa: E501
+                    detail=(
+                        "Activity schema must be either "
+                        "a JSON string or a dictionary"
+                    ),
                 )
+
             # Validate schema
             self._validate_activity_schema(activity_schema)
 
-        # Create an ActivityUpdate instance with the correct field names
+        # Create update data
         update_data = ActivityUpdate(
             name=activity_data.name,
-            description=activity_data.description,
-            activity_schema=(
-                activity_schema
-                if activity_data.activitySchema
-                else None
-            ),
+            description=(activity_data.description),
+            activity_schema=activity_schema,
             icon=activity_data.icon,
             color=activity_data.color,
         )
@@ -391,3 +412,67 @@ class ActivityService:
                 status_code=404, detail="Activity not found"
             )
         return Activity.from_db(updated)
+
+    def to_graphql_json(
+        self, activity_data: ActivityData
+    ) -> Dict[str, Any]:
+        """
+        Convert activity data to GraphQL-compatible JSON format.
+
+        Args:
+            activity_data (ActivityData): Activity domain model to convert
+
+        Returns:
+            Dict[str, Any]: GraphQL-compatible dictionary representation
+        """
+        return json.loads(
+            json.dumps(
+                {
+                    "id": activity_data.id,
+                    "name": activity_data.name,
+                    "color": activity_data.color,
+                    "activitySchema": activity_data.activity_schema,
+                }
+            )
+        )
+
+    def validate_activity_schema(
+        self, schema: dict
+    ) -> bool:
+        """
+        Validate if the activity schema contains required fields
+
+        Args:
+            schema (dict): Activity schema to validate
+
+        Returns:
+            bool: True if valid, raises ValidationError if invalid
+
+        Raises:
+            ValidationError: If schema is missing required fields
+        """
+        required_fields = ["type", "properties"]
+
+        if not all(
+            field in schema for field in required_fields
+        ):
+            raise ValidationError(
+                "Activity schema must contain 'type' and 'properties' fields"
+            )
+
+        return True
+
+    # Add this to your existing validation method if you have one
+    def validate(self, activity_data: dict) -> bool:
+        """
+        Validate activity data including schema and color if present
+        """
+        if "schema" in activity_data:
+            self.validate_activity_schema(
+                activity_data["schema"]
+            )
+
+        if "color" in activity_data:
+            validate_color_util(activity_data["color"])
+
+        return True

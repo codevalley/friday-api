@@ -7,9 +7,10 @@ from typing import (
     Any,
 )
 import logging
-from sqlalchemy.orm import Session, selectinload
+from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from fastapi import HTTPException, status
+from sqlalchemy import select
 
 from .RepositoryMeta import RepositoryMeta
 from utils.validation.validation import validate_existence
@@ -63,9 +64,9 @@ class BaseRepository(
 
             # Execute any pending loads within the same session
             self.db.execute(
-                self.db.query(self.model)
-                .filter(self.model.id == instance.id)
-                .options(selectinload("*"))
+                select(self.model).filter(
+                    self.model.id == instance.id
+                )
             )
             logger.debug("Loaded relationships")
             return instance

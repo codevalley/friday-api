@@ -164,9 +164,9 @@ class TestUserData:
     def test_invalid_datetime(self, valid_user_data):
         """Test validation of invalid datetime values."""
         data = dict(valid_user_data)
-        data["created_at"] = (
-            "2024-01-01"  # String instead of datetime
-        )
+        data[
+            "created_at"
+        ] = "2024-01-01"  # String instead of datetime
         with pytest.raises(ValueError) as exc:
             UserData.from_dict(data)
         assert (

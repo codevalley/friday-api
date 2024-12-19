@@ -1,14 +1,5 @@
 """Test configuration and fixtures."""
 
-from configs.Database import get_db_connection
-from configs.Logging import configure_logging
-from main import app
-from orm.ActivityModel import Activity
-from orm.BaseModel import Base
-from orm.MomentModel import Moment
-from orm.UserModel import User
-from utils.security import hash_user_secret
-
 import asyncio
 import os
 import sys
@@ -20,6 +11,16 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
+import warnings
+
+from configs.Database import get_db_connection
+from configs.Logging import configure_logging
+from main import app
+from orm.ActivityModel import Activity
+from orm.BaseModel import Base
+from orm.MomentModel import Moment
+from orm.UserModel import User
+from utils.security import hash_user_secret
 
 # Add project root to Python path
 project_root = os.path.dirname(
@@ -27,11 +28,10 @@ project_root = os.path.dirname(
 )
 sys.path.insert(0, project_root)
 
-
 # Use test MySQL database
 TEST_SQLALCHEMY_DATABASE_URL = (
     "mysql+pymysql://"
-    "root:root1234@localhost:3306/"
+    "root:1234567890@localhost:3306/"
     "test_fridaystore"
 )
 
@@ -100,10 +100,7 @@ def test_db_session(test_engine, test_session_factory):
 
 @pytest.fixture(scope="function")
 def test_client(test_db_session):
-    """Create a new FastAPI TestClient.
-
-    Uses the test_db_session fixture to override the get_db dependency.
-    """
+    """Create a new FastAPI TestClient."""
 
     def override_get_db():
         try:
@@ -111,9 +108,9 @@ def test_client(test_db_session):
         finally:
             test_db_session.close()
 
-    app.dependency_overrides[get_db_connection] = (
-        override_get_db
-    )
+    app.dependency_overrides[
+        get_db_connection
+    ] = override_get_db
     return TestClient(app)
 
 
@@ -198,3 +195,20 @@ def setup_logging():
     """Configure logging for all tests."""
     configure_logging(is_test=True)
     yield
+
+
+# Suppress specific warnings if needed
+warnings.filterwarnings(
+    "ignore",
+    category=DeprecationWarning,
+    module="sqlalchemy.*",
+)
+
+
+@pytest.fixture(autouse=True)
+async def setup_teardown() -> Generator:
+    """Setup and teardown for all tests."""
+    # Setup
+    yield
+    # Teardown
+    await asyncio.gather(*asyncio.all_tasks())
