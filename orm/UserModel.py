@@ -14,6 +14,7 @@ from orm.BaseModel import EntityMeta
 if TYPE_CHECKING:
     from orm.ActivityModel import Activity
     from orm.MomentModel import Moment
+    from orm.NoteModel import Note
 
 
 class User(EntityMeta):
@@ -89,6 +90,11 @@ class User(EntityMeta):
     moments: Mapped[List["Moment"]] = relationship(
         "Moment",
         back_populates="user",
+        cascade="all, delete-orphan",
+    )
+    notes: Mapped[list["Note"]] = relationship(
+        "Note",
+        back_populates="owner",
         cascade="all, delete-orphan",
     )
 

@@ -24,6 +24,13 @@
     - [x] List moments with filters
     - [x] Moment existence validation
     - [x] Delete operations
+  - [x] NoteRepository tests (12/12 tests passing)
+    - [x] Basic CRUD operations
+    - [x] User ownership validation
+    - [x] Attachment type validation
+    - [x] Content validation
+    - [x] List notes with pagination
+    - [x] List notes by user
   - [x] UserRepository tests
 
 - [x] Model Tests
@@ -63,6 +70,16 @@
         - [x] Array handling
         - [x] Circular references
       - [x] Error handling in conversion methods
+    - [x] NoteData tests
+      - [x] Data flow validation
+      - [x] Conversion methods (to_domain, from_domain)
+      - [x] Type hints validation
+      - [x] Content validation
+      - [x] Attachment handling
+        - [x] Valid attachment types
+        - [x] URL validation
+        - [x] Type-URL consistency
+      - [x] Error handling in conversion methods
     - [x] UserData tests
       - [x] Data flow validation
       - [x] Conversion methods (to_dict, from_dict, from_orm)
@@ -97,6 +114,14 @@
     - [x] Cascade deletion
     - [x] Data validation against schema
     - [x] Required fields validation
+  - [x] NoteModel tests
+    - [x] Basic model initialization
+    - [x] Database persistence
+    - [x] Relationship with user
+    - [x] Content validation
+    - [x] Attachment type validation
+    - [x] Attachment URL validation
+    - [x] Update functionality
   - [x] UserModel tests
     - [x] Basic model initialization
     - [x] Database persistence
@@ -110,6 +135,13 @@
   - [x] UserService tests
   - [x] ActivityService tests
   - [x] MomentService tests
+  - [x] NoteService tests
+    - [x] Create note with and without attachment
+    - [x] Get note with validation
+    - [x] List notes with pagination
+    - [x] Update note with validation
+    - [x] Delete note with validation
+    - [x] Note ownership validation
 
 - [x] Router Tests
   - [x] ActivityRouter tests
@@ -125,6 +157,14 @@
     - [x] Token authentication
     - [x] Error handling for invalid credentials
   - [x] MomentRouter tests
+  - [x] NoteRouter tests
+    - [x] Create note endpoints
+    - [x] Get note endpoints
+    - [x] List notes endpoints
+    - [x] Update note endpoints
+    - [x] Delete note endpoints
+    - [x] Authorization validation
+    - [x] Error handling
 
 - [x] Integration Tests
   - [x] Database integration tests
@@ -159,20 +199,24 @@
   - UserModel: 95%
   - ActivityModel: 65%
   - MomentModel: 86%
+  - NoteModel: 92%
   - BaseModel: 58%
 - Repositories:
   - BaseRepository: 100%
   - ActivityRepository: 79%
   - MomentRepository: 93%
+  - NoteRepository: 95%
   - UserRepository: 85%
 - Services:
   - UserService: 93%
   - ActivityService: 90%
   - MomentService: 94%
+  - NoteService: 96%
 - Routers:
   - ActivityRouter: 100%
   - AuthRouter: 100%
   - MomentRouter: 100%
+  - NoteRouter: 100%
 - Error Handling:
   - Exceptions: 100%
   - Error Handlers: 100%
@@ -183,6 +227,27 @@
   - LoggingFilters: 100%
 
 ## Recent Updates
+- Added comprehensive NoteModel tests:
+  - Implemented all CRUD operation tests
+  - Added attachment type validation
+  - Added URL validation
+  - Added user ownership tests
+  - Fixed line length violations
+- Added NoteRepository tests:
+  - Implemented CRUD operation tests
+  - Added pagination tests
+  - Added user ownership tests
+  - Added attachment validation
+- Added NoteService tests:
+  - Implemented business logic tests
+  - Added validation tests
+  - Added error handling tests
+  - Added ownership validation tests
+- Added NoteRouter tests:
+  - Implemented endpoint tests
+  - Added authorization tests
+  - Added error handling tests
+  - Added response format tests
 - Fixed test database setup to handle concurrent test execution
 - Fixed GraphQL activity tests:
   - Updated activity schema serialization to use proper JSON format
@@ -260,7 +325,11 @@ Implementing performance tests with the following priorities:
      - Added validation tests for activity and user relationships
      - Fixed timestamp-based ordering in recent activities
      - Added comprehensive filter and pagination tests
-   - Includes CRUD operations, error handling, and pagination
+   - NoteRepository: 100% coverage
+     - Implemented tests for all CRUD operations
+     - Added validation tests for attachments and content
+     - Added user ownership validation tests
+     - Added pagination and filtering tests
 3. Logging Tests
    - RequestLoggingMiddleware: 100% coverage
      - Added request/response capture tests

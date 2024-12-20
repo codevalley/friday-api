@@ -16,8 +16,10 @@ When adding a new entity:
 5. Create service layer methods for business logic.
 6. Add GraphQL schema definitions (types, queries, mutations).
 7. Add REST API endpoints (routers).
-8. Write tests (unit tests, integration tests).
-9. Update documentation and ensure both GraphQL and OpenAPI endpoints are accessible via the respective playground interfaces (GraphiQL and /docs).
+8. Update OpenAPI documentation.
+9. Add database table definition.
+10. Write tests (unit tests, integration tests).
+11. Update documentation and ensure both GraphQL and OpenAPI endpoints are accessible via the respective playground interfaces (GraphiQL and /docs).
 
 ## Folder Structure Recap
 
@@ -32,6 +34,7 @@ domain/
     user.py
     # Add project.py here
 metadata/
+    Tags.py  # Update with new entity's tags
 orm/
     ActivityModel.py
     MomentModel.py
@@ -66,6 +69,8 @@ schemas/
             UserMutation.py
             # Add ProjectMutation.py
         # Update Query.py and Mutation.py to include Project queries and mutations
+scripts/
+    init_database.sql  # Add table definition here
 services/
     ActivityService.py
     MomentService.py
@@ -73,7 +78,7 @@ services/
     # Add ProjectService.py here
 utils/
     # Validation, error handling, etc.
-main.py
+main.py  # Update to include new router
 ```
 
 ---
@@ -475,9 +480,44 @@ from routers.v1.ProjectRouter import router as ProjectRouter
 app.include_router(ProjectRouter)
 ```
 
-### 8. Tests
+### 8. OpenAPI Documentation
 
-Create test files under `__tests__` directory. For example:
+Update `metadata/Tags.py` to include your new entity:
+
+```python
+Tags = [
+    # ... existing tags ...
+    {
+        "name": "projects",
+        "description": "Create and manage projects with custom attributes",
+    },
+]
+```
+
+### 9. Database Table Definition
+
+Update `scripts/init_database.sql` to include your new table:
+
+```sql
+-- Create projects table
+CREATE TABLE IF NOT EXISTS projects (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    user_id VARCHAR(36) NOT NULL,
+    name VARCHAR(255) NOT NULL,
+    description TEXT,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    CHECK (name != '')
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Add indexes
+CREATE INDEX idx_projects_user_id ON projects(user_id);
+```
+
+### 10. Testing
+
+Create test files under `__tests__` directory:
 
 **File:** `__tests__/test_project.py`
 ```python
@@ -503,25 +543,6 @@ def test_create_project():
 
 Add more tests for listing, updating, and deleting projects, and for GraphQL endpoints as well. Run tests with `pytest`.
 
-### 9. Verification and Documentation
-
-- **OpenAPI (Swagger UI)**: Start the server (`uvicorn main:app --reload`) and open `http://localhost:8000/docs` to see the new `projects` endpoints.
-- **GraphiQL Playground**: Open `http://localhost:8000/graphql` to interact with the GraphQL schema.
-  Example query:
-  ```graphql
-  query {
-    getProject(projectId: 1) {
-      id
-      name
-      description
-    }
-  }
-  ```
-
-- **Postman/HTTP Clients**: Test REST endpoints with `POST /v1/projects`, `GET /v1/projects`, etc.
-
-- **Ensure Migrations**: If you use migrations (e.g., Alembic), update the migration scripts to include the `projects` table.
-
 ### Additional Notes
 
 - Make sure to handle authentication and authorization properly.
@@ -529,7 +550,8 @@ Add more tests for listing, updating, and deleting projects, and for GraphQL end
 - Add logging and error handling as done in other entities.
 - Update `pytest.ini` or test configuration if needed.
 - Extend this guide for custom pagination, filtering, or indexing as required.
+- After adding a new table, you'll need to recreate the database or run migrations.
 
 ---
 
-By following these steps, a new junior developer can add a new entity (`Project` in this example) to the API, including ORM models, domain models, schemas, repository, service, REST endpoints, GraphQL types/mutations, and tests.
+By following these steps, a new developer can add a new entity to the API, including all necessary components from domain models to database tables and tests.

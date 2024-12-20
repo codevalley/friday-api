@@ -50,9 +50,44 @@ CREATE TABLE IF NOT EXISTS moments (
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- Add indexes
+-- Create notes table
+-- This table stores user notes with optional attachments (voice, photo, or file)
+CREATE TABLE IF NOT EXISTS notes (
+    -- Primary key and relationships
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    user_id VARCHAR(36) NOT NULL,
+
+    -- Note content
+    content TEXT NOT NULL,
+
+    -- Optional attachments
+    attachment_url VARCHAR(500) NULL,
+    attachment_type ENUM('VOICE', 'PHOTO', 'FILE') NULL,
+
+    -- Timestamps
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
+
+    -- Foreign keys and constraints
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+
+    -- Data validation
+    CONSTRAINT check_content_not_empty CHECK (content != ''),
+    CONSTRAINT check_attachment_consistency
+        CHECK ((attachment_url IS NULL AND attachment_type IS NULL) OR
+               (attachment_url IS NOT NULL AND attachment_type IS NOT NULL)),
+    CONSTRAINT check_attachment_url_format
+        CHECK (attachment_url IS NULL OR attachment_url REGEXP '^https?://.+')
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Add indexes for better query performance
 CREATE INDEX idx_users_key_id ON users(key_id);
 CREATE INDEX idx_activities_user_id ON activities(user_id);
 CREATE INDEX idx_moments_activity_id ON moments(activity_id);
 CREATE INDEX idx_moments_user_id ON moments(user_id);
 CREATE INDEX idx_moments_timestamp ON moments(timestamp);
+
+-- Indexes for notes table
+CREATE INDEX idx_notes_user_id ON notes(user_id);
+CREATE INDEX idx_notes_created_at ON notes(created_at);
+CREATE INDEX idx_notes_attachment_type ON notes(attachment_type);

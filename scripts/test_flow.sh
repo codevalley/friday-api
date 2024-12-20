@@ -54,6 +54,11 @@ check_api_response() {
             echo -e "${GREEN}✓ Success${NC}"
             return
         fi
+        # Special case for MessageResponse format
+        if echo "$response" | grep -q "\"message\":"; then
+            echo -e "${GREEN}✓ Success${NC}"
+            return
+        fi
         echo -e "${RED}✗ Failed - $context - Invalid response format${NC}"
         echo "$response"
         exit 1
@@ -274,6 +279,94 @@ MOMENT_RESPONSE=$(curl -s -X GET "$BASE_URL/moments/1" \
     -H "Authorization: Bearer $TOKEN1")
 echo "Moment Response: $MOMENT_RESPONSE"
 check_api_response "$MOMENT_RESPONSE" "Getting specific moment"
+
+# 11. Create notes for user1
+echo -e "\n${BLUE}11. Creating notes for user1...${NC}"
+# Note with text only
+NOTE1_RESPONSE=$(curl -s -X POST "$BASE_URL/notes" \
+    -H "Authorization: Bearer $TOKEN1" \
+    -H "Content-Type: application/json" \
+    -d '{
+        "content": "My first note - text only"
+    }')
+echo "Note1 Response: $NOTE1_RESPONSE"
+NOTE1_ID=$(extract_json_value "$NOTE1_RESPONSE" "id")
+check_api_response "$NOTE1_RESPONSE" "Creating text-only note"
+
+# Note with photo attachment
+NOTE2_RESPONSE=$(curl -s -X POST "$BASE_URL/notes" \
+    -H "Authorization: Bearer $TOKEN1" \
+    -H "Content-Type: application/json" \
+    -d '{
+        "content": "My second note - with photo",
+        "attachment_url": "https://example.com/photo.jpg",
+        "attachment_type": "PHOTO"
+    }')
+echo "Note2 Response: $NOTE2_RESPONSE"
+NOTE2_ID=$(extract_json_value "$NOTE2_RESPONSE" "id")
+check_api_response "$NOTE2_RESPONSE" "Creating note with photo"
+
+# 12. Create notes for user2
+echo -e "\n${BLUE}12. Creating notes for user2...${NC}"
+# Note with voice attachment
+NOTE3_RESPONSE=$(curl -s -X POST "$BASE_URL/notes" \
+    -H "Authorization: Bearer $TOKEN2" \
+    -H "Content-Type: application/json" \
+    -d '{
+        "content": "Voice note from user2",
+        "attachment_url": "https://example.com/voice.mp3",
+        "attachment_type": "VOICE"
+    }')
+echo "Note3 Response: $NOTE3_RESPONSE"
+NOTE3_ID=$(extract_json_value "$NOTE3_RESPONSE" "id")
+check_api_response "$NOTE3_RESPONSE" "Creating note with voice attachment"
+
+# 13. List notes for user1
+echo -e "\n${BLUE}13. Listing notes for user1...${NC}"
+NOTES_RESPONSE=$(curl -s -X GET "$BASE_URL/notes?page=1&size=50" \
+    -H "Authorization: Bearer $TOKEN1")
+echo "Notes Response: $NOTES_RESPONSE"
+check_api_response "$NOTES_RESPONSE" "Listing notes for user1"
+
+# 14. Update note for user1
+echo -e "\n${BLUE}14. Updating note for user1...${NC}"
+UPDATE_RESPONSE=$(curl -s -X PUT "$BASE_URL/notes/$NOTE1_ID" \
+    -H "Authorization: Bearer $TOKEN1" \
+    -H "Content-Type: application/json" \
+    -d '{
+        "content": "Updated first note content"
+    }')
+echo "Update Response: $UPDATE_RESPONSE"
+check_api_response "$UPDATE_RESPONSE" "Updating note"
+
+# 15. Try to access user2's note with user1's token (should fail)
+echo -e "\n${BLUE}15. Testing note access control...${NC}"
+UNAUTHORIZED_RESPONSE=$(curl -s -X GET "$BASE_URL/notes/$NOTE3_ID" \
+    -H "Authorization: Bearer $TOKEN1")
+echo "Unauthorized Response: $UNAUTHORIZED_RESPONSE"
+if echo "$UNAUTHORIZED_RESPONSE" | grep -q "\"detail\":\"Note not found\""; then
+    echo -e "${GREEN}✓ Access control working correctly${NC}"
+else
+    echo -e "${RED}✗ Access control test failed${NC}"
+    exit 1
+fi
+
+# 16. Delete note for user1
+echo -e "\n${BLUE}16. Deleting note for user1...${NC}"
+DELETE_RESPONSE=$(curl -s -X DELETE "$BASE_URL/notes/$NOTE2_ID" \
+    -H "Authorization: Bearer $TOKEN1")
+echo "Delete Response: $DELETE_RESPONSE"
+check_api_response "$DELETE_RESPONSE" "Deleting note"
+
+# Verify deletion
+VERIFY_DELETE_RESPONSE=$(curl -s -X GET "$BASE_URL/notes/$NOTE2_ID" \
+    -H "Authorization: Bearer $TOKEN1")
+if echo "$VERIFY_DELETE_RESPONSE" | grep -q "\"detail\":\"Note not found\""; then
+    echo -e "${GREEN}✓ Note deletion verified${NC}"
+else
+    echo -e "${RED}✗ Note deletion verification failed${NC}"
+    exit 1
+fi
 
 echo -e "\n${GREEN}Test flow completed!${NC}"
 

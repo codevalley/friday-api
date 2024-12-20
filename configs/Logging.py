@@ -1,78 +1,104 @@
 """Logging configuration for the application."""
 
-import os
+import logging
 import logging.config
-from configs.Environment import get_environment_variables
+from typing import Dict, Any
+from datetime import datetime
+from pythonjsonlogger import jsonlogger
 
-env = get_environment_variables()
+
+class CustomJsonFormatter(jsonlogger.JsonFormatter):
+    """Custom JSON formatter for logging."""
+
+    def add_fields(
+        self,
+        log_record: Dict[str, Any],
+        record: logging.LogRecord,
+        message_dict: Dict[str, Any],
+    ) -> None:
+        """Add custom fields to the log record.
+
+        Args:
+            log_record: The log record to add fields to
+            record: The original log record
+            message_dict: The message dictionary
+        """
+        super().add_fields(log_record, record, message_dict)
+        if not log_record.get("timestamp"):
+            log_record[
+                "timestamp"
+            ] = datetime.utcnow().isoformat()
+        if log_record.get("level"):
+            log_record["level"] = log_record[
+                "level"
+            ].upper()
+        else:
+            log_record["level"] = record.levelname
 
 
 def configure_logging(is_test: bool = False) -> None:
-    """
-    Configure logging for the application.
+    """Configure logging for the application.
 
     Args:
         is_test: Whether the application is running in test mode
     """
-    # Ensure logs directory exists
-    os.makedirs("logs", exist_ok=True)
-
-    # Reset logging configuration
-    for handler in logging.root.handlers[:]:
-        logging.root.removeHandler(handler)
-        handler.close()
-
-    handlers = ["console"]
-    if not is_test:
-        handlers.append("file")
-
-    config = {
-        "version": 1,
-        "disable_existing_loggers": False,
-        "formatters": {
-            "default": {"format": "%(message)s"},
-            "json": {
-                "()": "pythonjsonlogger.jsonlogger.JsonFormatter",
-                "format": "%(message)s %(extra)s",
+    if is_test:
+        # Simple configuration for tests
+        config = {
+            "version": 1,
+            "disable_existing_loggers": False,
+            "formatters": {
+                "simple": {
+                    "format": (
+                        "%(asctime)s - %(name)s - "
+                        "%(levelname)s - %(message)s"
+                    )
+                }
             },
-        },
-        "filters": {
-            "extra_filter": {
-                "()": "utils.logging_filters.ExtraFilter"
-            }
-        },
-        "handlers": {
-            "console": {
-                "class": "logging.StreamHandler",
-                "formatter": "default",
-                "filters": ["extra_filter"],
-                "stream": "ext://sys.stdout",
+            "handlers": {
+                "console": {
+                    "class": "logging.StreamHandler",
+                    "level": "DEBUG",
+                    "formatter": "simple",
+                    "stream": "ext://sys.stdout",
+                }
             },
-            "file": {
-                "class": "logging.handlers.RotatingFileHandler",
-                "formatter": "json",
-                "filters": ["extra_filter"],
-                "filename": "logs/app.log",
-                "maxBytes": 10485760,  # 10MB
-                "backupCount": 5,
-            },
-        },
-        "loggers": {
-            "": {  # Root logger
-                "handlers": handlers,
+            "root": {
                 "level": "INFO",
+                "handlers": ["console"],
             },
-            "utils.request_logging": {
-                "handlers": handlers,
+        }
+    else:
+        # Production configuration
+        config = {
+            "version": 1,
+            "disable_existing_loggers": False,
+            "formatters": {
+                "json": {
+                    "()": CustomJsonFormatter,
+                    "format": "%(timestamp)s %(level)s %(name)s %(message)s",
+                }
+            },
+            "handlers": {
+                "console": {
+                    "class": "logging.StreamHandler",
+                    "level": "DEBUG",
+                    "formatter": "json",
+                    "stream": "ext://sys.stdout",
+                },
+                "file": {
+                    "class": "logging.handlers.RotatingFileHandler",
+                    "level": "INFO",
+                    "formatter": "json",
+                    "filename": "app.log",
+                    "maxBytes": 10485760,  # 10MB
+                    "backupCount": 5,
+                },
+            },
+            "root": {
                 "level": "INFO",
-                "propagate": False,
+                "handlers": ["console", "file"],
             },
-            "utils.audit_logging": {
-                "handlers": handlers,  # use console handler in test mode
-                "level": "INFO",
-                "propagate": False,
-            },
-        },
-    }
+        }
 
     logging.config.dictConfig(config)

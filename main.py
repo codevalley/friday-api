@@ -1,4 +1,6 @@
-from fastapi import FastAPI
+"""Main application module."""
+
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from strawberry import Schema
 from strawberry.fastapi import GraphQLRouter
@@ -12,19 +14,24 @@ from routers.v1.ActivityRouter import (
 )
 from routers.v1.MomentRouter import router as MomentRouter
 from routers.v1.AuthRouter import router as AuthRouter
+from routers.v1.NoteRouter import router as NoteRouter
 from schemas.graphql.Query import Query
 from schemas.graphql.Mutation import Mutation
 from utils.middleware.request_logging import (
     RequestLoggingMiddleware,
 )
+from utils.error_handlers import handle_exceptions
+
+# Load environment variables
+env = get_environment_variables()
+
+# Determine if we're in test mode
+# is_test = env.ENV_STATE == "test"
 
 # Configure logging
 configure_logging(is_test=False)
 
-# Application Environment Configuration
-env = get_environment_variables()
-
-# FastAPI Configuration
+# Create FastAPI application
 app = FastAPI(
     title=env.APP_NAME,
     version=env.API_VERSION,
@@ -34,7 +41,7 @@ app = FastAPI(
     redoc_url="/redoc",
 )
 
-# CORS Configuration
+# Add CORS middleware
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -43,13 +50,14 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Request Logging Configuration
+# Add request logging middleware
 app.add_middleware(RequestLoggingMiddleware)
 
-# REST API Configuration
+# Include routers
 app.include_router(ActivityRouter)
 app.include_router(MomentRouter)
 app.include_router(AuthRouter)
+app.include_router(NoteRouter)
 
 # GraphQL Configuration
 schema = Schema(query=Query, mutation=Mutation)
@@ -59,3 +67,12 @@ graphql = GraphQLRouter(
     graphql_ide="graphiql",
 )
 app.include_router(graphql, prefix="/graphql")
+
+
+# Add error handlers
+@app.exception_handler(Exception)
+async def global_exception_handler(
+    request: Request, exc: Exception
+):
+    """Global exception handler for all unhandled exceptions."""
+    return await handle_exceptions(request, exc)

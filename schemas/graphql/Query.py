@@ -8,6 +8,7 @@ from configs.GraphQL import (
     get_ActivityService,
     get_MomentService,
     get_user_from_context,
+    get_db_from_context,
 )
 
 from schemas.graphql.types.Activity import (
@@ -18,6 +19,8 @@ from schemas.graphql.types.Moment import (
     Moment,
     MomentConnection,
 )
+from schemas.graphql.types.Note import Note as GQLNote
+from services.NoteService import NoteService
 
 
 @strawberry.type(description="Query all entities")
@@ -192,3 +195,38 @@ class Query:
         return moment_service.list_recent_activities(
             str(user.id), limit
         )
+
+    @strawberry.field(description="Get a Note by ID")
+    def get_note(
+        self, info: Info, note_id: int
+    ) -> Optional[GQLNote]:
+        user = get_user_from_context(info)
+        if not user:
+            raise HTTPException(
+                status_code=401, detail="Unauthorized"
+            )
+
+        service = NoteService(get_db_from_context(info))
+        result = service.get_note(note_id, user.id)
+        if result:
+            return GQLNote(**result.dict())
+        return None
+
+    @strawberry.field(
+        description="List all notes for the current user"
+    )
+    def list_notes(
+        self, info: Info, page: int = 1, size: int = 50
+    ) -> List[GQLNote]:
+        user = get_user_from_context(info)
+        if not user:
+            raise HTTPException(
+                status_code=401, detail="Unauthorized"
+            )
+
+        service = NoteService(get_db_from_context(info))
+        result = service.list_notes(user.id, page, size)
+        return [
+            GQLNote(**item.dict())
+            for item in result["items"]
+        ]
