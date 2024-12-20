@@ -160,16 +160,41 @@ class TestActivityService:
         self, activity_service
     ):
         """Test activity schema validation with invalid schema."""
+        # Test missing type field
         invalid_schema = {"invalid_field": "value"}
         with pytest.raises(
             ValidationError,
+            match="Activity schema must contain 'type' field",
+        ):
+            activity_service._validate_activity_schema(
+                invalid_schema
+            )
+
+        # Test wrong type
+        invalid_schema = {"type": "string"}
+        with pytest.raises(
+            ValidationError,
+            match="Activity schema type must be 'object'",
+        ):
+            activity_service._validate_activity_schema(
+                invalid_schema
+            )
+
+        # Test constraints without properties
+        invalid_schema = {
+            "type": "object",
+            "required": ["field"],
+            "additionalProperties": False,
+        }
+        with pytest.raises(
+            ValidationError,
             match=(
-                "Activity schema must contain "
-                "'type' and 'properties' fields"
+                "Activity schema with constraints must contain "
+                "either 'properties' or 'patternProperties'"
             ),
         ):
-            activity_service.validate(
-                {"schema": invalid_schema}
+            activity_service._validate_activity_schema(
+                invalid_schema
             )
 
     def test_create_activity_success(

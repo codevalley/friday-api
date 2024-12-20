@@ -74,9 +74,9 @@ class TestActivityDataValidation:
 
     def test_invalid_schema(self, valid_activity_dict):
         """Test validation with invalid schema."""
-        valid_activity_dict[
-            "activity_schema"
-        ] = "not a dict"
+        valid_activity_dict["activity_schema"] = (
+            "not a dict"
+        )
         with pytest.raises(ValueError) as exc:
             ActivityData(**valid_activity_dict)
         assert (

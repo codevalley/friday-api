@@ -2,18 +2,24 @@
 
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List, Optional, TypeVar
 import re
 
 from domain.moment import MomentData
+from utils.validation import (
+    validate_activity_schema,
+    validate_moment_data,
+)
+
+T = TypeVar("T", bound="ActivityData")
 
 
 @dataclass
 class ActivityData:
     """Domain model for Activity.
 
-    This class represents an activity type that can be tracked through moments.
-    It contains all the business logic and validation rules for activities.
+    This class represents an activity type in the system and contains
+    all business logic and validation rules for activities.
 
     Data Flow and Conversions:
     1. API Layer: Incoming data is validated by Pydantic schemas
@@ -27,17 +33,17 @@ class ActivityData:
        using from_domain()
 
     Attributes:
-        id: Unique identifier for the activity
-        name: Display name of the activity
-        description: Detailed description
-        activity_schema: JSON Schema for validating moment data
-        icon: Display icon
-        color: Hex color code for UI
-        user_id: ID of the user who created this activity
-        moment_count: Number of moments recorded for this activity
-        moments: List of moments for this activity (optional)
-        created_at: When this record was created
-        updated_at: When this record was last updated
+        name: Name of the activity type
+        description: Description of what this activity represents
+        activity_schema: JSON Schema defining the structure of moment data
+        icon: Emoji or icon representing this activity
+        color: Hex color code for UI display
+        user_id: ID of the user who owns this activity
+        id: Unique identifier for this activity (optional)
+        moment_count: Number of moments of this activity type
+        moments: List of moments of this activity type (optional)
+        created_at: When this record was created (optional)
+        updated_at: When this record was last updated (optional)
     """
 
     name: str
@@ -59,6 +65,9 @@ class ActivityData:
     def validate(self) -> None:
         """Validate the activity data.
 
+        This method performs comprehensive validation of all fields
+        to ensure data integrity and consistency.
+
         Raises:
             ValueError: If any validation fails
         """
@@ -79,6 +88,9 @@ class ActivityData:
                 "activity_schema must be a dictionary"
             )
 
+        # Validate activity schema structure
+        self._validate_activity_schema(self.activity_schema)
+
         if not self.icon or not isinstance(self.icon, str):
             raise ValueError(
                 "icon must be a non-empty string"
@@ -91,10 +103,8 @@ class ActivityData:
                 "color must be a non-empty string"
             )
 
-        if not re.match(r"^#[0-9A-Fa-f]{6}$", self.color):
-            raise ValueError(
-                "color must be a valid hex code (e.g., #FF0000)"
-            )
+        # Validate color format
+        self._validate_color()
 
         if not self.user_id or not isinstance(
             self.user_id, str
@@ -147,6 +157,100 @@ class ActivityData:
         ):
             raise ValueError(
                 "updated_at must be a datetime object"
+            )
+
+    def _validate_color(self) -> None:
+        """Validate color format.
+
+        Raises:
+            ValueError: If color format is invalid
+        """
+        if not self.color:
+            return
+
+        if not re.match(r"^#[0-9A-Fa-f]{6}$", self.color):
+            raise ValueError(
+                "color must be a valid hex code"
+            )
+
+    def _validate_activity_schema(
+        self, schema: Dict[str, Any]
+    ) -> None:
+        """Validate activity schema structure.
+
+        Args:
+            schema: Schema to validate
+
+        Raises:
+            ValueError: If schema is invalid
+        """
+        # Basic schema validation
+        validate_activity_schema(schema)
+
+        # Additional domain-specific validation
+        if "properties" in schema:
+            if not isinstance(schema["properties"], dict):
+                raise ValueError(
+                    "Schema properties must be a dictionary"
+                )
+
+            # Validate property types
+            for prop_name, prop_schema in schema[
+                "properties"
+            ].items():
+                if not isinstance(prop_schema, dict):
+                    raise ValueError(
+                        f"Property {prop_name} schema must be a dictionary"
+                    )
+                # Skip type check if it's a reference
+                if (
+                    "$ref" not in prop_schema
+                    and "type" not in prop_schema
+                ):
+                    raise ValueError(
+                        f"Property {prop_name} must specify a type"
+                    )
+
+        if "patternProperties" in schema:
+            if not isinstance(
+                schema["patternProperties"], dict
+            ):
+                raise ValueError(
+                    "Pattern properties must be a dictionary"
+                )
+
+            # Validate pattern property types
+            for pattern, prop_schema in schema[
+                "patternProperties"
+            ].items():
+                if not isinstance(prop_schema, dict):
+                    raise ValueError(
+                        f"Pattern {pattern} schema must be a dictionary"
+                    )
+                if (
+                    "$ref" not in prop_schema
+                    and "type" not in prop_schema
+                ):
+                    raise ValueError(
+                        f"Pattern {pattern} must specify a type"
+                    )
+
+    def validate_moment_data(
+        self, data: Dict[str, Any]
+    ) -> None:
+        """Validate moment data against this activity's schema.
+
+        Args:
+            data: Moment data to validate
+
+        Raises:
+            ValueError: If data does not match the schema
+        """
+        try:
+            validate_moment_data(data, self.activity_schema)
+        except Exception as e:
+            raise ValueError(
+                f"Invalid moment data: {str(e)}"
             )
 
     def to_dict(self) -> Dict[str, Any]:

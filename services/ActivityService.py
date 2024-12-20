@@ -1,7 +1,8 @@
-from typing import List, Optional, Dict, Any
+"""Service for handling activity-related operations."""
+
 import json
-import logging
-from fastapi import HTTPException, Depends
+from typing import Dict, Any, List, Optional
+from fastapi import Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from configs.Database import get_db_connection
@@ -12,19 +13,20 @@ from repositories.ActivityRepository import (
 from repositories.MomentRepository import MomentRepository
 from schemas.pydantic.ActivitySchema import (
     ActivityCreate,
+    ActivityResponse,
     ActivityUpdate,
     ActivityList,
-    ActivityResponse,
 )
 from schemas.graphql.types.Activity import Activity
 from utils.validation import (
-    validate_pagination as validate_pagination_util,
-    validate_color as validate_color_util,
-    validate_activity_schema as validate_activity_schema_util,
+    validate_pagination,
+    validate_color,
+    validate_activity_schema,
 )
 from utils.errors.exceptions import ValidationError
 
-# Set up module logger
+import logging
+
 logger = logging.getLogger(__name__)
 
 
@@ -44,6 +46,42 @@ class ActivityService:
             "ActivityService initialized with database session"
         )
 
+    def _validate_color(self, color: str) -> None:
+        """Validate color format.
+
+        Args:
+            color: Color string to validate
+
+        Raises:
+            HTTPException: If color format is invalid
+        """
+        try:
+            validate_color(color)
+        except ValueError:
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    f"Invalid color format: {color}. "
+                    f"Must be in #RRGGBB format"
+                ),
+            )
+
+    def _validate_activity_schema(
+        self, schema: Dict
+    ) -> None:
+        """Validate activity schema structure.
+
+        Args:
+            schema: Schema dictionary to validate
+
+        Raises:
+            HTTPException: If schema is invalid
+        """
+        try:
+            validate_activity_schema(schema)
+        except ValueError as e:
+            raise ValidationError(str(e))
+
     def _validate_pagination(
         self, page: int, size: int
     ) -> None:
@@ -52,26 +90,17 @@ class ActivityService:
         Args:
             page (int): Page number to validate
             size (int): Page size to validate
+
+        Raises:
+            HTTPException: If validation fails
         """
-        validate_pagination_util(page, size)
-
-    def _validate_color(self, color: str) -> None:
-        """Validate color format using centralized validation.
-
-        Args:
-            color (str): Color string to validate
-        """
-        validate_color_util(color)
-
-    def _validate_activity_schema(
-        self, schema: Dict[str, Any]
-    ) -> None:
-        """Validate activity schema using centralized validation.
-
-        Args:
-            schema (Dict[str, Any]): Schema to validate
-        """
-        validate_activity_schema_util(schema)
+        try:
+            validate_pagination(page, size)
+        except ValueError as e:
+            raise HTTPException(
+                status_code=400,
+                detail=str(e),
+            )
 
     def create_activity(
         self, activity_data: ActivityCreate, user_id: str
@@ -86,7 +115,7 @@ class ActivityService:
             Created activity response
 
         Raises:
-            HTTPException: If schema validation fails
+            HTTPException: If validation fails
         """
         try:
             logger.info(
@@ -94,22 +123,20 @@ class ActivityService:
             )
             logger.debug(f"Activity data: {activity_data}")
 
+            # Validate color and schema
+            if activity_data.color:
+                self._validate_color(activity_data.color)
+            if activity_data.activity_schema:
+                self._validate_activity_schema(
+                    activity_data.activity_schema
+                )
+
             # Convert to domain model with user_id
             domain_data = activity_data.to_domain(
                 str(user_id)
             )
 
-            # Validate color format
-            self._validate_color(domain_data.color)
-            logger.debug("Color validation passed")
-
-            # Validate activity schema
-            self._validate_activity_schema(
-                domain_data.activity_schema
-            )
-            logger.debug("Schema validation passed")
-
-            # Create activity
+            # Create activity - validation handled by domain model
             activity = self.activity_repository.create(
                 instance_or_name=domain_data.name,
                 description=domain_data.description,
@@ -124,6 +151,15 @@ class ActivityService:
 
             # Convert back to response model
             return ActivityResponse.from_orm(activity)
+        except ValueError as e:
+            logger.error(
+                f"Validation error creating activity: {str(e)}",
+                exc_info=True,
+            )
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=str(e),
+            )
         except Exception as e:
             logger.error(
                 f"Error creating activity: {str(e)}",
@@ -416,14 +452,13 @@ class ActivityService:
     def to_graphql_json(
         self, activity_data: ActivityData
     ) -> Dict[str, Any]:
-        """
-        Convert activity data to GraphQL-compatible JSON format.
+        """Convert activity data to GraphQL-compatible JSON format.
 
         Args:
-            activity_data (ActivityData): Activity domain model to convert
+            activity_data: Activity domain model to convert
 
         Returns:
-            Dict[str, Any]: GraphQL-compatible dictionary representation
+            GraphQL-compatible dictionary representation
         """
         return json.loads(
             json.dumps(
@@ -436,43 +471,26 @@ class ActivityService:
             )
         )
 
-    def validate_activity_schema(
-        self, schema: dict
-    ) -> bool:
-        """
-        Validate if the activity schema contains required fields
+    def validate(self, data: Dict[str, Any]) -> None:
+        """Validate activity data.
 
         Args:
-            schema (dict): Activity schema to validate
-
-        Returns:
-            bool: True if valid, raises ValidationError if invalid
+            data: Data to validate
 
         Raises:
-            ValidationError: If schema is missing required fields
+            ValidationError: If validation fails
         """
-        required_fields = ["type", "properties"]
+        if "color" in data:
+            try:
+                validate_color(data["color"])
+            except ValueError:
+                raise ValidationError(
+                    f"Invalid color format: {data['color']}. "
+                    f"Must be in #RRGGBB format"
+                )
 
-        if not all(
-            field in schema for field in required_fields
-        ):
-            raise ValidationError(
-                "Activity schema must contain 'type' and 'properties' fields"
-            )
-
-        return True
-
-    # Add this to your existing validation method if you have one
-    def validate(self, activity_data: dict) -> bool:
-        """
-        Validate activity data including schema and color if present
-        """
-        if "schema" in activity_data:
-            self.validate_activity_schema(
-                activity_data["schema"]
-            )
-
-        if "color" in activity_data:
-            validate_color_util(activity_data["color"])
-
-        return True
+        if "schema" in data:
+            try:
+                validate_activity_schema(data["schema"])
+            except ValueError as e:
+                raise ValidationError(str(e))

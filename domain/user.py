@@ -67,11 +67,47 @@ class UserData:
 
         # Username format validation
         if not re.match(
-            r"^[a-zA-Z0-9_-]{3,50}$", self.username
+            r"^[a-zA-Z][a-zA-Z0-9_-]*$", self.username
         ):
             raise ValueError(
-                "username must be 3-50 characters and contain only "
+                "username must start with a letter and contain only "
                 "letters, numbers, underscores, and hyphens"
+            )
+
+        # Length check
+        if not 3 <= len(self.username) <= 50:
+            raise ValueError(
+                "username must be between 3 and 50 characters long"
+            )
+
+        # Check for consecutive special characters
+        if re.search(r"[_-]{2,}", self.username):
+            raise ValueError(
+                "username cannot contain consecutive special characters"
+            )
+
+        # Check for reserved words
+        reserved_words = {
+            "admin",
+            "root",
+            "system",
+            "anonymous",
+            "user",
+            "moderator",
+            "support",
+            "help",
+            "info",
+            "test",
+        }
+        if self.username.lower() in reserved_words:
+            raise ValueError(
+                "this username is reserved and cannot be used"
+            )
+
+        # Check for too many consecutive numbers
+        if re.search(r"\d{4,}", self.username):
+            raise ValueError(
+                "username cannot contain more than 3 consecutive numbers"
             )
 
         if not isinstance(self.key_id, str):

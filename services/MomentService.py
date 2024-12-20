@@ -20,6 +20,11 @@ from schemas.pydantic.MomentSchema import (
 from schemas.pydantic.PaginationSchema import (
     PaginationResponse,
 )
+from utils.validation import validate_pagination
+
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class MomentService:
@@ -40,7 +45,7 @@ class MomentService:
     def _validate_pagination(
         self, page: int, size: int
     ) -> None:
-        """Validate pagination parameters
+        """Validate pagination parameters.
 
         Args:
             page: Page number (1-based)
@@ -49,15 +54,12 @@ class MomentService:
         Raises:
             HTTPException: If parameters are invalid
         """
-        if page < 1:
+        try:
+            validate_pagination(page, size)
+        except ValueError as e:
             raise HTTPException(
                 status_code=400,
-                detail="Page number must be positive",
-            )
-        if size < 1 or size > 100:
-            raise HTTPException(
-                status_code=400,
-                detail="Page size must be between 1 and 100",
+                detail=str(e),
             )
 
     def _validate_timestamp(

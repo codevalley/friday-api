@@ -8,7 +8,11 @@ from schemas.pydantic.NoteSchema import (
     NoteUpdate,
     NoteResponse,
 )
-from utils.validation.validation import validate_pagination
+from utils.validation import validate_pagination
+
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class NoteService:

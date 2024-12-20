@@ -53,9 +53,9 @@ class Note(EntityMeta):
     attachment_url: Mapped[Optional[str]] = Column(
         String(500), nullable=True
     )
-    attachment_type: Mapped[
-        Optional[AttachmentType]
-    ] = Column(SQLEnum(AttachmentType), nullable=True)
+    attachment_type: Mapped[Optional[AttachmentType]] = (
+        Column(SQLEnum(AttachmentType), nullable=True)
+    )
 
     # Timestamps
     created_at: Mapped[datetime] = Column(

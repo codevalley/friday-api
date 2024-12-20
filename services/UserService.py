@@ -1,7 +1,6 @@
 from typing import Tuple
 from fastapi import Depends, HTTPException, status
 from sqlalchemy.orm import Session
-import re
 import bcrypt
 import secrets
 
@@ -13,6 +12,10 @@ from utils.security import (
     parse_api_key,
 )
 
+import logging
+
+logger = logging.getLogger(__name__)
+
 
 class UserService:
     def __init__(
@@ -21,72 +24,60 @@ class UserService:
         self.user_repository = UserRepository(db)
 
     def _validate_username(self, username: str) -> None:
-        """Validate username format with comprehensive rules
+        """Validate username format.
 
         Args:
             username: Username to validate
 
         Raises:
-            HTTPException: If username format is invalid
+            HTTPException: If username is invalid
         """
-        # Basic length check
-        if not 3 <= len(username) <= 50:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=(
+        try:
+            if len(username) < 3 or len(username) > 50:
+                raise ValueError(
                     "Username must be between 3 and 50 characters long"
-                ),
-            )
+                )
 
-        # Check for valid characters
-        if not re.match(
-            "^[a-zA-Z][a-zA-Z0-9_-]*$", username
-        ):
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=(
-                    "Username must start with a letter and contain only "
-                    "letters, numbers, underscores, and hyphens"
-                ),
-            )
+            if not username[0].isalpha():
+                raise ValueError(
+                    "Username must start with a letter"
+                )
 
-        # Check for consecutive special characters
-        if re.search(r"[_-]{2,}", username):
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=(
+            if not all(
+                c.isalnum() or c in "_-" for c in username
+            ):
+                raise ValueError(
+                    "Username must start with a letter and "
+                    "contain only letters, numbers, underscores, "
+                    "and hyphens"
+                )
+
+            if "__" in username or "--" in username:
+                raise ValueError(
                     "Username cannot contain consecutive special characters"
-                ),
-            )
+                )
 
-        # Check for reserved words
-        reserved_words = {
-            "admin",
-            "root",
-            "system",
-            "anonymous",
-            "user",
-            "moderator",
-            "support",
-            "help",
-            "info",
-            "test",
-        }
-        if username.lower() in reserved_words:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="This username is reserved and cannot be used",
-            )
-
-        # Check for common patterns that might indicate spam/abuse
-        if re.search(
-            r"\d{4,}", username
-        ):  # 4+ consecutive numbers
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=(
+            if any(
+                str(i) in username
+                for i in range(1000, 10000)
+            ):
+                raise ValueError(
                     "Username cannot contain more than 3 consecutive numbers"
-                ),
+                )
+
+            if username.lower() in [
+                "admin",
+                "root",
+                "system",
+            ]:
+                raise ValueError(
+                    "This username is reserved"
+                )
+
+        except ValueError as e:
+            raise HTTPException(
+                status_code=400,
+                detail=str(e),
             )
 
     def register_user(
