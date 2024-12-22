@@ -26,6 +26,7 @@ from .responses import ErrorResponse, ErrorDetail
 from domain.exceptions import (
     MomentValidationError,
     MomentTimestampError,
+    UserValidationError,
 )
 
 # Set up logger
@@ -226,6 +227,16 @@ async def moment_timestamp_exception_handler(
     )
 
 
+async def user_validation_exception_handler(
+    request: Request, exc: UserValidationError
+) -> JSONResponse:
+    """Handle user validation errors."""
+    return JSONResponse(
+        status_code=status.HTTP_400_BAD_REQUEST,
+        content={"detail": {"message": str(exc), "code": exc.code}}
+    )
+
+
 def configure_error_handlers(app: FastAPI) -> None:
     """Configure error handlers for the FastAPI application."""
     app.add_exception_handler(
@@ -245,4 +256,7 @@ def configure_error_handlers(app: FastAPI) -> None:
     app.add_exception_handler(
         MomentTimestampError,
         moment_timestamp_exception_handler,
+    )
+    app.add_exception_handler(
+        UserValidationError, user_validation_exception_handler
     )

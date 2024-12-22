@@ -139,3 +139,29 @@ class MomentSchemaError(MomentValidationError):
         super().__init__(
             message, code="MOMENT_SCHEMA_ERROR"
         )
+
+
+class UserValidationError(Exception):
+    """Base exception for user domain validation failures."""
+    def __init__(self, message: str, code: str = "USER_VALIDATION_ERROR"):
+        self.message = message
+        self.code = code
+        super().__init__(self.message)
+
+
+class UserAuthenticationError(UserValidationError):
+    """Raised when user authentication fails."""
+    def __init__(self, message: str):
+        super().__init__(message, code="USER_AUTHENTICATION_ERROR")
+
+
+class UserKeyValidationError(UserValidationError):
+    """Raised when user key validation fails."""
+    def __init__(self, message: str):
+        super().__init__(message, code="USER_KEY_VALIDATION_ERROR")
+
+
+class UserIdentifierError(UserValidationError):
+    """Raised when user identifier validation fails."""
+    def __init__(self, message: str):
+        super().__init__(message, code="USER_IDENTIFIER_ERROR")

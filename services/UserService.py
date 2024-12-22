@@ -11,6 +11,11 @@ from utils.security import (
     generate_api_key,
     parse_api_key,
 )
+from domain.exceptions import (
+    UserValidationError,
+    UserKeyValidationError,
+    UserIdentifierError
+)
 
 import logging
 
@@ -209,3 +214,24 @@ class UserService:
             str: A secure random token
         """
         return secrets.token_urlsafe(length)
+
+    def _handle_user_error(self, error: Exception) -> None:
+        """Map domain exceptions to HTTP exceptions."""
+        if isinstance(error, UserKeyValidationError):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail={"message": str(error), "code": error.code}
+            )
+        elif isinstance(error, UserIdentifierError):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail={"message": str(error), "code": error.code}
+            )
+        elif isinstance(error, UserValidationError):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail={"message": str(error), "code": error.code}
+            )
+        raise error
+
+    # Update other methods to use _handle_user_error

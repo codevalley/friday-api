@@ -197,37 +197,38 @@ Completed:
 
 ### Note Domain (note.py) ⭕
 
-1. **Enhance Domain Model**
-   - [ ] Create proper value objects for attachments
-   - [ ] Add domain-specific validation rules
-   - [ ] Implement `NoteValidationError`
+1. **Remove External Dependencies**
+   - [ ] Extract HTTP/framework specific code
+   - [ ] Create domain-specific validation
+   - [ ] Move attachment handling to service layer
 
 2. **Refactor Validation Logic**
-   - [ ] Move attachment validation to domain layer
-   - [ ] Add content validation rules
-   - [ ] Create proper error hierarchy
+   - [ ] Create NoteValidationError hierarchy
+   - [ ] Implement proper validation chain
+   - [ ] Add domain-specific rules for content and attachments
 
-3. **Clean Up Implementation**
+3. **Clean Up Data Handling**
    - [ ] Ensure proper encapsulation
-   - [ ] Add domain events
-   - [ ] Create clean interfaces for external services
+   - [ ] Create value objects for attachments
+   - [ ] Add domain events for state changes
 
-### User Domain (user.py) ⭕
+### User Domain (user.py) ✅
 
 1. **Remove External Dependencies**
-   - [ ] Extract HTTP-specific error handling
-   - [ ] Create domain-specific validation rules
-   - [ ] Move regex patterns to constants
+   - [x] Extracted HTTP/framework specific code
+   - [x] Created domain-specific validation (UserValidationError hierarchy)
+   - [x] Moved authentication logic to service layer
 
 2. **Refactor Validation Logic**
-   - [ ] Create `UserValidationError` hierarchy
-   - [ ] Split validation into smaller, focused methods
-   - [ ] Add proper value objects for username, key_id
+   - [x] Created proper validation error hierarchy (UserValidationError, UserKeyValidationError, UserIdentifierError)
+   - [x] Implemented clean validation chain in validate() method
+   - [x] Added domain-specific rules for username, key_id, and secrets
 
-3. **Clean Up Implementation**
-   - [ ] Ensure proper encapsulation of user data
-   - [ ] Add domain events for state changes
-   - [ ] Create clean interfaces for auth services
+3. **Clean Up Data Handling**
+   - [x] Ensured proper encapsulation of user data
+   - [x] Created proper error hierarchy for validation
+   - [x] Moved HTTP response handling to service layer
+   - [ ] Add domain events for state changes (optional enhancement)
 
 ### Implementation Approach
 

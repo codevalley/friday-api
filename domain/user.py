@@ -8,6 +8,12 @@ from datetime import datetime
 from typing import Dict, Any, Optional, Type, TypeVar
 import re
 
+from domain.exceptions import (
+    UserValidationError,
+    UserKeyValidationError,
+    UserIdentifierError
+)
+
 T = TypeVar("T", bound="UserData")
 
 
@@ -39,8 +45,8 @@ class UserData:
     """
 
     username: str
-    key_id: str
     user_secret: str
+    key_id: Optional[str] = None
     id: Optional[int] = None
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
@@ -56,12 +62,12 @@ class UserData:
         to ensure data integrity and consistency.
 
         Raises:
-            ValueError: If any validation fails
+            UserValidationError: If validation fails
         """
         if not self.username or not isinstance(
             self.username, str
         ):
-            raise ValueError(
+            raise UserIdentifierError(
                 "username must be a non-empty string"
             )
 
@@ -69,20 +75,20 @@ class UserData:
         if not re.match(
             r"^[a-zA-Z][a-zA-Z0-9_-]*$", self.username
         ):
-            raise ValueError(
+            raise UserIdentifierError(
                 "username must start with a letter and contain only "
                 "letters, numbers, underscores, and hyphens"
             )
 
         # Length check
         if not 3 <= len(self.username) <= 50:
-            raise ValueError(
+            raise UserIdentifierError(
                 "username must be between 3 and 50 characters long"
             )
 
         # Check for consecutive special characters
         if re.search(r"[_-]{2,}", self.username):
-            raise ValueError(
+            raise UserIdentifierError(
                 "username cannot contain consecutive special characters"
             )
 
@@ -100,56 +106,57 @@ class UserData:
             "test",
         }
         if self.username.lower() in reserved_words:
-            raise ValueError(
+            raise UserIdentifierError(
                 "this username is reserved and cannot be used"
             )
 
         # Check for too many consecutive numbers
         if re.search(r"\d{4,}", self.username):
-            raise ValueError(
+            raise UserIdentifierError(
                 "username cannot contain more than 3 consecutive numbers"
             )
 
-        if not isinstance(self.key_id, str):
-            raise ValueError("key_id must be a string")
-
-        # Key ID format validation (if not empty)
-        if self.key_id and not re.match(
-            r"^[a-zA-Z0-9-]{36}$", self.key_id
-        ):
-            raise ValueError(
+        # key_id is required but can be None during initialization
+        if self.key_id is None:
+            raise UserKeyValidationError(
+                "key_id must be empty or a valid UUID format"
+            )
+        elif not isinstance(self.key_id, str):
+            raise UserKeyValidationError("key_id must be a string")
+        elif not re.match(r"^[a-zA-Z0-9-]{36}$", self.key_id):
+            raise UserKeyValidationError(
                 "key_id must be empty or a valid UUID format"
             )
 
         if not isinstance(self.user_secret, str):
-            raise ValueError("user_secret must be a string")
+            raise UserValidationError("user_secret must be a string")
 
-        # User secret format validation (if not empty)
+        # User secret format validation
         if self.user_secret and not re.match(
             r"^\$2[ayb]\$.{56}$", self.user_secret
         ):
-            raise ValueError(
+            raise UserValidationError(
                 "user_secret must be empty or a valid bcrypt hash"
             )
 
         if self.id is not None and (
             not isinstance(self.id, int) or self.id <= 0
         ):
-            raise ValueError(
+            raise UserValidationError(
                 "id must be a positive integer"
             )
 
         if self.created_at is not None and not isinstance(
             self.created_at, datetime
         ):
-            raise ValueError(
+            raise UserValidationError(
                 "created_at must be a datetime object"
             )
 
         if self.updated_at is not None and not isinstance(
             self.updated_at, datetime
         ):
-            raise ValueError(
+            raise UserValidationError(
                 "updated_at must be a datetime object"
             )
 
