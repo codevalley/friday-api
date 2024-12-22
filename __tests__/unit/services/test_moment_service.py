@@ -15,6 +15,7 @@ from schemas.pydantic.MomentSchema import (
 from schemas.pydantic.PaginationSchema import (
     PaginationResponse,
 )
+from domain.exceptions import MomentTimestampError
 
 
 @pytest.fixture
@@ -123,12 +124,11 @@ class TestMomentService:
         future = datetime.now(timezone.utc) + timedelta(
             days=2
         )
-        with pytest.raises(HTTPException) as exc:
+        with pytest.raises(MomentTimestampError) as exc:
             moment_service._validate_timestamp(future)
-        assert exc.value.status_code == 400
         assert (
-            "cannot be more than 1 day in the future"
-            in exc.value.detail
+            str(exc.value)
+            == "timestamp cannot be more than 1 day in the future"
         )
 
     def test_validate_timestamp_past(self, moment_service):
@@ -136,12 +136,11 @@ class TestMomentService:
         past = datetime.now(timezone.utc) - timedelta(
             days=365 * 11
         )
-        with pytest.raises(HTTPException) as exc:
+        with pytest.raises(MomentTimestampError) as exc:
             moment_service._validate_timestamp(past)
-        assert exc.value.status_code == 400
         assert (
-            "cannot be more than 10 years in the past"
-            in exc.value.detail
+            str(exc.value)
+            == "timestamp cannot be more than 10 years in the past"
         )
 
     def test_validate_activity_ownership_valid(

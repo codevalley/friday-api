@@ -81,7 +81,9 @@ class ActivitySchema:
         """Validate the schema after initialization."""
         # Initialize derived fields from value
         object.__setattr__(
-            self, "properties", self.value.get("properties", {})
+            self,
+            "properties",
+            self.value.get("properties", {}),
         )
         object.__setattr__(
             self,
@@ -136,13 +138,19 @@ class ActivitySchema:
                     "Schema properties must be a dictionary",
                 )
 
-            for prop_name, prop_schema in self.properties.items():
+            for (
+                prop_name,
+                prop_schema,
+            ) in self.properties.items():
                 if not isinstance(prop_schema, dict):
                     raise ActivityValidationError.invalid_field_value(
                         prop_name,
                         f"Property {prop_name} schema must be a dictionary",
                     )
-                if "$ref" not in prop_schema and "type" not in prop_schema:
+                if (
+                    "$ref" not in prop_schema
+                    and "type" not in prop_schema
+                ):
                     raise ActivityValidationError.invalid_field_value(
                         prop_name,
                         f"Property {prop_name} must specify a type",
@@ -150,19 +158,27 @@ class ActivitySchema:
 
         # Validate pattern properties if present
         if self.pattern_properties:
-            if not isinstance(self.pattern_properties, dict):
+            if not isinstance(
+                self.pattern_properties, dict
+            ):
                 raise ActivityValidationError.invalid_field_value(
                     "patternProperties",
                     "Pattern properties must be a dictionary",
                 )
 
-            for pattern, prop_schema in self.pattern_properties.items():
+            for (
+                pattern,
+                prop_schema,
+            ) in self.pattern_properties.items():
                 if not isinstance(prop_schema, dict):
                     raise ActivityValidationError.invalid_field_value(
                         pattern,
                         f"Pattern {pattern} schema must be a dictionary",
                     )
-                if "$ref" not in prop_schema and "type" not in prop_schema:
+                if (
+                    "$ref" not in prop_schema
+                    and "type" not in prop_schema
+                ):
                     raise ActivityValidationError.invalid_field_value(
                         pattern,
                         f"Pattern {pattern} must specify a type",
@@ -178,7 +194,9 @@ class ActivitySchema:
         has_properties = bool(self.properties)
         has_pattern_props = bool(self.pattern_properties)
 
-        if has_constraints and not (has_properties or has_pattern_props):
+        if has_constraints and not (
+            has_properties or has_pattern_props
+        ):
             raise ActivityValidationError.invalid_schema_constraints()
 
     @classmethod

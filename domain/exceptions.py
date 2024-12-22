@@ -101,3 +101,41 @@ class ActivityValidationError(ValidationException):
             code=ErrorCode.INVALID_FIELD_VALUE,
             details={"field": field},
         )
+
+
+class MomentValidationError(Exception):
+    """Base exception for moment domain validation failures."""
+
+    def __init__(
+        self,
+        message: str,
+        code: str = "MOMENT_VALIDATION_ERROR",
+    ):
+        self.message = message
+        self.code = code
+        super().__init__(self.message)
+
+
+class MomentTimestampError(MomentValidationError):
+    """Raised when moment timestamp validation fails."""
+
+    def __init__(self, message: str):
+        super().__init__(
+            message, code="MOMENT_TIMESTAMP_ERROR"
+        )
+
+
+class MomentDataError(MomentValidationError):
+    """Raised when moment data validation fails."""
+
+    def __init__(self, message: str):
+        super().__init__(message, code="MOMENT_DATA_ERROR")
+
+
+class MomentSchemaError(MomentValidationError):
+    """Raised when moment schema validation fails."""
+
+    def __init__(self, message: str):
+        super().__init__(
+            message, code="MOMENT_SCHEMA_ERROR"
+        )

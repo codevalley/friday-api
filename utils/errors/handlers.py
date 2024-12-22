@@ -8,7 +8,7 @@ logging errors and generating error responses.
 import logging
 import uuid
 from typing import Optional, Dict, Any
-from fastapi import Request, status
+from fastapi import Request, status, FastAPI
 from fastapi.responses import JSONResponse
 from pydantic import (
     ValidationError as PydanticValidationError,
@@ -23,6 +23,10 @@ from .exceptions import (
     ConflictError,
 )
 from .responses import ErrorResponse, ErrorDetail
+from domain.exceptions import (
+    MomentValidationError,
+    MomentTimestampError,
+)
 
 # Set up logger
 logger = logging.getLogger(__name__)
@@ -112,15 +116,7 @@ def create_error_response(
 async def app_exception_handler(
     request: Request, exc: AppException
 ) -> JSONResponse:
-    """Handle all application-specific exceptions.
-
-    Args:
-        request: FastAPI request object
-        exc: Application exception
-
-    Returns:
-        JSON response with error details
-    """
+    """Handle all application-specific exceptions."""
     request_id = str(uuid.uuid4())
     logger.error(
         f"Application error: {exc.message}",
@@ -146,15 +142,7 @@ async def app_exception_handler(
 async def validation_exception_handler(
     request: Request, exc: PydanticValidationError
 ) -> JSONResponse:
-    """Handle Pydantic validation errors.
-
-    Args:
-        request: FastAPI request object
-        exc: Pydantic validation error
-
-    Returns:
-        JSON response with validation error details
-    """
+    """Handle Pydantic validation errors."""
     request_id = str(uuid.uuid4())
     errors = {}
     for error in exc.errors():
@@ -188,15 +176,7 @@ async def validation_exception_handler(
 async def internal_exception_handler(
     request: Request, exc: Exception
 ) -> JSONResponse:
-    """Handle unexpected exceptions.
-
-    Args:
-        request: FastAPI request object
-        exc: Unexpected exception
-
-    Returns:
-        JSON response with error details
-    """
+    """Handle unexpected exceptions."""
     request_id = str(uuid.uuid4())
     logger.exception(
         "Unexpected error",
@@ -213,4 +193,56 @@ async def internal_exception_handler(
             message="Internal server error",
             request_id=request_id,
         ).model_dump(),
+    )
+
+
+async def moment_validation_exception_handler(
+    request: Request, exc: MomentValidationError
+) -> JSONResponse:
+    """Handle moment validation errors."""
+    return JSONResponse(
+        status_code=status.HTTP_400_BAD_REQUEST,
+        content={
+            "detail": {
+                "message": str(exc),
+                "code": exc.code,
+            }
+        },
+    )
+
+
+async def moment_timestamp_exception_handler(
+    request: Request, exc: MomentTimestampError
+) -> JSONResponse:
+    """Handle moment timestamp errors."""
+    return JSONResponse(
+        status_code=status.HTTP_400_BAD_REQUEST,
+        content={
+            "detail": {
+                "message": str(exc),
+                "code": exc.code,
+            }
+        },
+    )
+
+
+def configure_error_handlers(app: FastAPI) -> None:
+    """Configure error handlers for the FastAPI application."""
+    app.add_exception_handler(
+        AppException, app_exception_handler
+    )
+    app.add_exception_handler(
+        PydanticValidationError,
+        validation_exception_handler,
+    )
+    app.add_exception_handler(
+        Exception, internal_exception_handler
+    )
+    app.add_exception_handler(
+        MomentValidationError,
+        moment_validation_exception_handler,
+    )
+    app.add_exception_handler(
+        MomentTimestampError,
+        moment_timestamp_exception_handler,
     )

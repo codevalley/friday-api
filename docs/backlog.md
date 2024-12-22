@@ -177,22 +177,23 @@ Completed:
 - Ensured clean separation between domain and infrastructure
 - All tests passing with new validation structure
 
-### Moment Domain (moment.py) ⭕
+### Moment Domain (moment.py) ✅
 
 1. **Remove External Dependencies**
-   - [ ] Extract HTTP/framework specific code
-   - [ ] Create domain-specific timestamp validation
-   - [ ] Move schema validation to utils/validation
+   - [x] Extract HTTP/framework specific code (removed HTTPException)
+   - [x] Create domain-specific timestamp validation (using MomentTimestampError)
+   - [x] Move schema validation to domain-specific exceptions (MomentSchemaError)
 
 2. **Refactor Validation Logic**
-   - [ ] Create `MomentValidationError` for domain-specific errors
-   - [ ] Implement proper validation chain in `validate()` method
-   - [ ] Add domain-specific timestamp rules
+   - [x] Created proper error hierarchy (MomentValidationError, MomentTimestampError, MomentDataError)
+   - [x] Implemented clean validation chain in `validate()` method
+   - [x] Added domain-specific timestamp rules with proper error handling
 
 3. **Clean Up Data Handling**
-   - [ ] Ensure proper encapsulation of moment data
-   - [ ] Create value objects for complex types (e.g., Timestamp)
-   - [ ] Add domain events for state changes
+   - [x] Ensured proper encapsulation of moment data
+   - [x] Created proper error hierarchy for data validation
+   - [x] Moved HTTP response handling to service layer
+   - [ ] Add domain events for state changes (optional enhancement for future)
 
 ### Note Domain (note.py) ⭕
 

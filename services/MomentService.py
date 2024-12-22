@@ -1,7 +1,7 @@
 """Service for handling moment-related operations"""
 
 from typing import Optional, List
-from fastapi import HTTPException, Depends
+from fastapi import HTTPException, Depends, status
 from sqlalchemy.orm import Session
 from datetime import datetime, timezone
 
@@ -21,6 +21,12 @@ from schemas.pydantic.PaginationSchema import (
     PaginationResponse,
 )
 from utils.validation import validate_pagination
+from domain.exceptions import (
+    MomentValidationError,
+    MomentTimestampError,
+    MomentDataError,
+    MomentSchemaError,
+)
 
 import logging
 
@@ -108,6 +114,44 @@ class MomentService:
                 status_code=404,
                 detail="Activity not found or does not belong to user",
             )
+
+    def _handle_moment_error(
+        self, error: Exception
+    ) -> None:
+        """Map domain exceptions to HTTP exceptions."""
+        if isinstance(error, MomentTimestampError):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail={
+                    "message": str(error),
+                    "code": error.code,
+                },
+            )
+        elif isinstance(error, MomentDataError):
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail={
+                    "message": str(error),
+                    "code": error.code,
+                },
+            )
+        elif isinstance(error, MomentSchemaError):
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail={
+                    "message": str(error),
+                    "code": error.code,
+                },
+            )
+        elif isinstance(error, MomentValidationError):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail={
+                    "message": str(error),
+                    "code": error.code,
+                },
+            )
+        raise error
 
     def create_moment(
         self,

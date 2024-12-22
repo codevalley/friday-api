@@ -21,6 +21,7 @@ from utils.middleware.request_logging import (
     RequestLoggingMiddleware,
 )
 from utils.error_handlers import handle_exceptions
+from utils.errors.handlers import configure_error_handlers
 
 # Load environment variables
 env = get_environment_variables()
@@ -67,6 +68,9 @@ graphql = GraphQLRouter(
     graphql_ide="graphiql",
 )
 app.include_router(graphql, prefix="/graphql")
+
+# Configure error handlers
+configure_error_handlers(app)
 
 
 # Add error handlers

@@ -61,7 +61,9 @@ class ActivityData:
     def __post_init__(self):
         """Validate the activity data after initialization."""
         self._color_obj = Color.from_string(self.color)
-        self._schema_obj = ActivitySchema.from_dict(self.activity_schema)
+        self._schema_obj = ActivitySchema.from_dict(
+            self.activity_schema
+        )
         self.validate()
 
     def validate(self) -> None:
@@ -203,7 +205,9 @@ class ActivityData:
             ValueError: If data does not match the schema
         """
         try:
-            validate_moment_data(data, self.schema_value.to_dict())
+            validate_moment_data(
+                data, self.schema_value.to_dict()
+            )
         except Exception as e:
             raise ValueError(
                 f"Invalid moment data: {str(e)}"

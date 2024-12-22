@@ -4,6 +4,12 @@ from dataclasses import dataclass
 from datetime import datetime, timezone, timedelta
 from typing import Dict, Any, Optional, TypeVar, Type
 
+from domain.exceptions import (
+    MomentValidationError,
+    MomentTimestampError,
+    MomentDataError,
+    MomentSchemaError,
+)
 from utils.validation import validate_moment_data
 
 # Type variable for the class itself
@@ -62,7 +68,7 @@ class MomentData:
             ValueError: If timestamp validation fails
         """
         if self.timestamp.tzinfo is None:
-            raise ValueError(
+            raise MomentTimestampError(
                 "timestamp must be timezone-aware"
             )
 
@@ -71,11 +77,12 @@ class MomentData:
         min_past = now - timedelta(days=365 * 10)
 
         if self.timestamp > max_future:
-            raise ValueError(
+            raise MomentTimestampError(
                 "timestamp cannot be more than 1 day in the future"
             )
+
         if self.timestamp < min_past:
-            raise ValueError(
+            raise MomentTimestampError(
                 "timestamp cannot be more than 10 years in the past"
             )
 
@@ -92,28 +99,32 @@ class MomentData:
             not isinstance(self.activity_id, int)
             or self.activity_id <= 0
         ):
-            raise ValueError(
+            raise MomentValidationError(
                 "activity_id must be a positive integer"
             )
 
         if not self.user_id or not isinstance(
             self.user_id, str
         ):
-            raise ValueError(
+            raise MomentValidationError(
                 "user_id must be a non-empty string"
             )
 
         if not isinstance(self.data, dict):
-            raise ValueError("data must be a dictionary")
+            raise MomentDataError(
+                "data must be a dictionary"
+            )
 
         # Validate data structure
         try:
             self._validate_nested_data(self.data)
         except ValueError as e:
-            raise ValueError(f"Invalid data structure: {e}")
+            raise MomentDataError(
+                f"Invalid data structure: {str(e)}"
+            )
 
         if not isinstance(self.timestamp, datetime):
-            raise ValueError(
+            raise MomentTimestampError(
                 "timestamp must be a datetime object"
             )
 
@@ -122,28 +133,28 @@ class MomentData:
 
         # Validate microsecond precision
         if self.timestamp.microsecond >= 1000000:
-            raise ValueError(
+            raise MomentTimestampError(
                 "microsecond must be in 0..999999"
             )
 
         if self.id is not None and (
             not isinstance(self.id, int) or self.id <= 0
         ):
-            raise ValueError(
+            raise MomentValidationError(
                 "id must be a positive integer"
             )
 
         if self.created_at is not None and not isinstance(
             self.created_at, datetime
         ):
-            raise ValueError(
+            raise MomentValidationError(
                 "created_at must be a datetime object"
             )
 
         if self.updated_at is not None and not isinstance(
             self.updated_at, datetime
         ):
-            raise ValueError(
+            raise MomentValidationError(
                 "updated_at must be a datetime object"
             )
 
@@ -186,7 +197,10 @@ class MomentData:
         Raises:
             HTTPException: If validation fails
         """
-        validate_moment_data(self.data, activity_schema)
+        try:
+            validate_moment_data(self.data, activity_schema)
+        except Exception as e:
+            raise MomentSchemaError(str(e))
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert the moment data to a dictionary.

@@ -10,6 +10,11 @@ from datetime import datetime, timezone, timedelta
 from typing import Dict, Any
 
 from domain.moment import MomentData
+from domain.exceptions import (
+    MomentValidationError,
+    MomentTimestampError,
+    MomentDataError,
+)
 
 
 @pytest.fixture
@@ -52,36 +57,38 @@ class TestMomentDataValidation:
     def test_invalid_activity_id(self, valid_moment_dict):
         """Test validation with invalid activity_id."""
         valid_moment_dict["activity_id"] = 0
-        with pytest.raises(ValueError) as exc:
+        with pytest.raises(MomentValidationError) as exc:
             MomentData(**valid_moment_dict)
         assert (
-            "activity_id must be a positive integer"
-            in str(exc.value)
+            str(exc.value)
+            == "activity_id must be a positive integer"
         )
 
     def test_invalid_user_id(self, valid_moment_dict):
         """Test validation with invalid user_id."""
         valid_moment_dict["user_id"] = ""
-        with pytest.raises(ValueError) as exc:
+        with pytest.raises(MomentValidationError) as exc:
             MomentData(**valid_moment_dict)
-        assert "user_id must be a non-empty string" in str(
-            exc.value
+        assert (
+            str(exc.value)
+            == "user_id must be a non-empty string"
         )
 
     def test_invalid_data_type(self, valid_moment_dict):
         """Test validation with invalid data type."""
         valid_moment_dict["data"] = "not a dict"
-        with pytest.raises(ValueError) as exc:
+        with pytest.raises(MomentDataError) as exc:
             MomentData(**valid_moment_dict)
-        assert "data must be a dictionary" in str(exc.value)
+        assert str(exc.value) == "data must be a dictionary"
 
     def test_invalid_timestamp(self, valid_moment_dict):
         """Test validation with invalid timestamp."""
         valid_moment_dict["timestamp"] = "not a datetime"
-        with pytest.raises(ValueError) as exc:
+        with pytest.raises(MomentTimestampError) as exc:
             MomentData(**valid_moment_dict)
-        assert "timestamp must be a datetime object" in str(
-            exc.value
+        assert (
+            str(exc.value)
+            == "timestamp must be a datetime object"
         )
 
     def test_timezone_aware_timestamp(
@@ -106,10 +113,11 @@ class TestMomentDataValidation:
     ):
         """Test handling of timezone-naive timestamps."""
         valid_moment_dict["timestamp"] = datetime.now()
-        with pytest.raises(ValueError) as exc:
+        with pytest.raises(MomentTimestampError) as exc:
             MomentData(**valid_moment_dict)
-        assert "timestamp must be timezone-aware" in str(
-            exc.value
+        assert (
+            str(exc.value)
+            == "timestamp must be timezone-aware"
         )
 
     def test_nested_data_validation(
@@ -133,9 +141,12 @@ class TestMomentDataValidation:
         valid_moment_dict["data"]["circular"] = (
             valid_moment_dict["data"]
         )
-        with pytest.raises(ValueError) as exc:
+        with pytest.raises(MomentDataError) as exc:
             MomentData(**valid_moment_dict)
-        assert "circular reference" in str(exc.value)
+        assert (
+            str(exc.value)
+            == "Invalid data structure: circular reference detected"
+        )
 
 
 class TestMomentDataConversion:
@@ -288,8 +299,12 @@ class TestMomentDataErrorHandling:
     def test_type_mismatches(self, valid_moment_dict):
         """Test handling of type mismatches."""
         valid_moment_dict["activity_id"] = "not an int"
-        with pytest.raises(ValueError):
+        with pytest.raises(MomentValidationError) as exc:
             MomentData(**valid_moment_dict)
+        assert (
+            str(exc.value)
+            == "activity_id must be a positive integer"
+        )
 
     def test_schema_validation_failure(
         self, valid_moment_data
@@ -315,11 +330,11 @@ class TestMomentDataTimestamps:
             days=2
         )
         valid_moment_dict["timestamp"] = future
-        with pytest.raises(ValueError) as exc:
+        with pytest.raises(MomentTimestampError) as exc:
             MomentData(**valid_moment_dict)
         assert (
-            "timestamp cannot be more than 1 day in the future"
-            in str(exc.value)
+            str(exc.value)
+            == "timestamp cannot be more than 1 day in the future"
         )
 
     def test_past_timestamp(self, valid_moment_dict):
@@ -328,11 +343,11 @@ class TestMomentDataTimestamps:
             days=365 * 11
         )
         valid_moment_dict["timestamp"] = past
-        with pytest.raises(ValueError) as exc:
+        with pytest.raises(MomentTimestampError) as exc:
             MomentData(**valid_moment_dict)
         assert (
-            "timestamp cannot be more than 10 years in the past"
-            in str(exc.value)
+            str(exc.value)
+            == "timestamp cannot be more than 10 years in the past"
         )
 
     def test_timestamp_precision(self, valid_moment_dict):
