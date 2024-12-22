@@ -148,3 +148,113 @@ If you want less verbose logs in production, you could add environment-based che
   5.1 Identify overlapping code in GraphQL resolvers and REST endpoints.  
   5.2 Refactor any parallel methods in the services so that both GraphQL and REST clients invoke the same core function.  
   5.3 Consistently map the domain objects to GraphQL or REST response schemas, without branching logic.  
+
+## Domain Model Cleanup Initiative 🆕
+
+This initiative aligns with Epic 2 (Remove Infrastructure Leaks from Domain) and aims to clean up all domain model classes to ensure proper separation of concerns and domain-centric error handling.
+
+### Activity Domain (activity.py) ✅
+
+1. **Remove External Dependencies**
+   - [x] Move `jsonschema` validation to utils/validation
+   - [x] Replace direct schema validation with domain-specific validation rules
+   - [x] Create domain-specific exceptions for activity validation
+
+2. **Refactor Validation Logic**
+   - [x] Create `ActivityValidationError` class with specific error codes/messages
+   - [x] Move complex validation logic to value objects (Color, ActivitySchema)
+   - [x] Update `validate()` method to use domain exceptions
+
+3. **Clean Up Data Conversions**
+   - [x] Ensure `to_dict()` and `from_dict()` methods are framework-agnostic
+   - [x] Create proper value objects for domain concepts
+   - [x] Implement clean domain validation
+
+Completed:
+- Created domain-specific exceptions with proper error codes
+- Implemented value objects for Color and ActivitySchema
+- Moved validation logic into value objects
+- Ensured clean separation between domain and infrastructure
+- All tests passing with new validation structure
+
+### Moment Domain (moment.py) ⭕
+
+1. **Remove External Dependencies**
+   - [ ] Extract HTTP/framework specific code
+   - [ ] Create domain-specific timestamp validation
+   - [ ] Move schema validation to utils/validation
+
+2. **Refactor Validation Logic**
+   - [ ] Create `MomentValidationError` for domain-specific errors
+   - [ ] Implement proper validation chain in `validate()` method
+   - [ ] Add domain-specific timestamp rules
+
+3. **Clean Up Data Handling**
+   - [ ] Ensure proper encapsulation of moment data
+   - [ ] Create value objects for complex types (e.g., Timestamp)
+   - [ ] Add domain events for state changes
+
+### Note Domain (note.py) ⭕
+
+1. **Enhance Domain Model**
+   - [ ] Create proper value objects for attachments
+   - [ ] Add domain-specific validation rules
+   - [ ] Implement `NoteValidationError`
+
+2. **Refactor Validation Logic**
+   - [ ] Move attachment validation to domain layer
+   - [ ] Add content validation rules
+   - [ ] Create proper error hierarchy
+
+3. **Clean Up Implementation**
+   - [ ] Ensure proper encapsulation
+   - [ ] Add domain events
+   - [ ] Create clean interfaces for external services
+
+### User Domain (user.py) ⭕
+
+1. **Remove External Dependencies**
+   - [ ] Extract HTTP-specific error handling
+   - [ ] Create domain-specific validation rules
+   - [ ] Move regex patterns to constants
+
+2. **Refactor Validation Logic**
+   - [ ] Create `UserValidationError` hierarchy
+   - [ ] Split validation into smaller, focused methods
+   - [ ] Add proper value objects for username, key_id
+
+3. **Clean Up Implementation**
+   - [ ] Ensure proper encapsulation of user data
+   - [ ] Add domain events for state changes
+   - [ ] Create clean interfaces for auth services
+
+### Implementation Approach
+
+1. Start with Activity domain as it has the most external dependencies
+2. For each entity:
+   - Create necessary exception classes
+   - Update validation logic
+   - Add tests for new error cases
+   - Verify existing tests pass
+   - Update service layer to handle new exceptions
+   - Document changes and migration notes
+
+### Success Criteria
+
+- No framework dependencies in domain models
+- Clear, domain-specific error messages
+- All existing tests passing
+- Clean separation between domain and infrastructure
+- Proper encapsulation of domain logic
+- Clear validation rules and error handling
+
+### Risks and Mitigations
+
+- **Risk**: Breaking existing error handling in services
+  - **Mitigation**: Create proper exception mapping in service layer
+
+- **Risk**: Missing edge cases in validation
+  - **Mitigation**: Comprehensive test coverage for new validation rules
+
+- **Risk**: Performance impact from additional abstraction
+  - **Mitigation**: Benchmark critical paths before/after

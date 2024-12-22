@@ -1,16 +1,19 @@
+"""Unit tests for ActivityService."""
+
 import pytest
 from datetime import datetime
 from unittest.mock import Mock
 from fastapi import HTTPException
 import json
 
-from services.ActivityService import ActivityService
+from domain.exceptions import ActivityValidationError
 from schemas.pydantic.ActivitySchema import (
     ActivityCreate,
-    ActivityUpdate,
     ActivityResponse,
+    ActivityUpdate,
 )
-from utils.errors.exceptions import ValidationError
+
+from services.ActivityService import ActivityService
 
 
 @pytest.fixture
@@ -137,12 +140,17 @@ class TestActivityService:
         )  # Should not raise
 
     def test_validate_color_invalid(self, activity_service):
-        """Test color validation with invalid hex code."""
+        """Test color validation with invalid color."""
+        invalid_color = "invalid"
+        expected_msg = (
+            f"Invalid color format: {invalid_color}. "
+            f"Must be in #RRGGBB format"
+        )
         with pytest.raises(
-            ValidationError,
-            match="Invalid color format: invalid. Must be in #RRGGBB format",
+            ActivityValidationError,
+            match=expected_msg,
         ):
-            activity_service.validate({"color": "invalid"})
+            activity_service._validate_color(invalid_color)
 
     def test_validate_activity_schema_valid(
         self, activity_service
@@ -163,7 +171,7 @@ class TestActivityService:
         # Test missing type field
         invalid_schema = {"invalid_field": "value"}
         with pytest.raises(
-            ValidationError,
+            ActivityValidationError,
             match="Activity schema must contain 'type' field",
         ):
             activity_service._validate_activity_schema(
@@ -173,7 +181,7 @@ class TestActivityService:
         # Test wrong type
         invalid_schema = {"type": "string"}
         with pytest.raises(
-            ValidationError,
+            ActivityValidationError,
             match="Activity schema type must be 'object'",
         ):
             activity_service._validate_activity_schema(
@@ -187,7 +195,7 @@ class TestActivityService:
             "additionalProperties": False,
         }
         with pytest.raises(
-            ValidationError,
+            ActivityValidationError,
             match=(
                 "Activity schema with constraints must contain "
                 "either 'properties' or 'patternProperties'"

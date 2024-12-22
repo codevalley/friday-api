@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 
 from configs.Database import get_db_connection
 from domain.activity import ActivityData
+from domain.exceptions import ActivityValidationError
 from repositories.ActivityRepository import (
     ActivityRepository,
 )
@@ -23,7 +24,9 @@ from utils.validation import (
     validate_color,
     validate_activity_schema,
 )
-from utils.errors.exceptions import ValidationError
+from utils.errors.domain_exceptions import (
+    handle_domain_exception,
+)
 
 import logging
 
@@ -58,13 +61,11 @@ class ActivityService:
         try:
             validate_color(color)
         except ValueError:
-            raise HTTPException(
-                status_code=400,
-                detail=(
-                    f"Invalid color format: {color}. "
-                    f"Must be in #RRGGBB format"
-                ),
+            raise ActivityValidationError.invalid_color(
+                color
             )
+        except ActivityValidationError as e:
+            raise handle_domain_exception(e)
 
     def _validate_activity_schema(
         self, schema: Dict
@@ -80,7 +81,11 @@ class ActivityService:
         try:
             validate_activity_schema(schema)
         except ValueError as e:
-            raise ValidationError(str(e))
+            raise ActivityValidationError.invalid_field_value(
+                "activity_schema", str(e)
+            )
+        except ActivityValidationError as e:
+            raise handle_domain_exception(e)
 
     def _validate_pagination(
         self, page: int, size: int
@@ -478,19 +483,17 @@ class ActivityService:
             data: Data to validate
 
         Raises:
-            ValidationError: If validation fails
+            HTTPException: If validation fails
         """
-        if "color" in data:
-            try:
+        try:
+            if "color" in data:
                 validate_color(data["color"])
-            except ValueError:
-                raise ValidationError(
-                    f"Invalid color format: {data['color']}. "
-                    f"Must be in #RRGGBB format"
-                )
 
-        if "schema" in data:
-            try:
+            if "schema" in data:
                 validate_activity_schema(data["schema"])
-            except ValueError as e:
-                raise ValidationError(str(e))
+        except ValueError as e:
+            raise ActivityValidationError.invalid_field_value(
+                "data", str(e)
+            )
+        except ActivityValidationError as e:
+            raise handle_domain_exception(e)

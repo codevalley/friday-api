@@ -3,13 +3,11 @@
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Dict, Any, List, Optional, TypeVar
-import re
 
 from domain.moment import MomentData
-from utils.validation import (
-    validate_activity_schema,
-    validate_moment_data,
-)
+from domain.exceptions import ActivityValidationError
+from domain.values import Color, ActivitySchema
+from utils.validation import validate_moment_data
 
 T = TypeVar("T", bound="ActivityData")
 
@@ -57,9 +55,13 @@ class ActivityData:
     moments: Optional[List[MomentData]] = None
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
+    _color_obj: Optional[Color] = None
+    _schema_obj: Optional[ActivitySchema] = None
 
     def __post_init__(self):
         """Validate the activity data after initialization."""
+        self._color_obj = Color.from_string(self.color)
+        self._schema_obj = ActivitySchema.from_dict(self.activity_schema)
         self.validate()
 
     def validate(self) -> None:
@@ -72,106 +74,103 @@ class ActivityData:
             ValueError: If any validation fails
         """
         if not self.name or not isinstance(self.name, str):
-            raise ValueError(
-                "name must be a non-empty string"
+            raise ActivityValidationError.invalid_field_value(
+                "name", "name must be a non-empty string"
             )
 
         if not self.description or not isinstance(
             self.description, str
         ):
-            raise ValueError(
-                "description must be a non-empty string"
+            raise ActivityValidationError.invalid_field_value(
+                "description",
+                "description must be a non-empty string",
             )
 
         if not isinstance(self.activity_schema, dict):
-            raise ValueError(
-                "activity_schema must be a dictionary"
+            raise ActivityValidationError.invalid_field_value(
+                "activity_schema",
+                "activity_schema must be a dictionary",
             )
 
         # Validate activity schema structure
         self._validate_activity_schema(self.activity_schema)
 
         if not self.icon or not isinstance(self.icon, str):
-            raise ValueError(
-                "icon must be a non-empty string"
+            raise ActivityValidationError.invalid_field_value(
+                "icon", "icon must be a non-empty string"
             )
-
-        if not self.color or not isinstance(
-            self.color, str
-        ):
-            raise ValueError(
-                "color must be a non-empty string"
-            )
-
-        # Validate color format
-        self._validate_color()
 
         if not self.user_id or not isinstance(
             self.user_id, str
         ):
-            raise ValueError(
-                "user_id must be a non-empty string"
+            raise ActivityValidationError.invalid_field_value(
+                "user_id",
+                "user_id must be a non-empty string",
             )
 
         if self.id is not None and (
             not isinstance(self.id, int) or self.id <= 0
         ):
-            raise ValueError(
-                "id must be a positive integer"
+            raise ActivityValidationError.invalid_field_value(
+                "id", "id must be a positive integer"
             )
 
         if (
             not isinstance(self.moment_count, int)
             or self.moment_count < 0
         ):
-            raise ValueError(
-                "moment_count must be a non-negative integer"
+            raise ActivityValidationError.invalid_field_value(
+                "moment_count",
+                "moment_count must be a non-negative integer",
             )
 
         if self.moments is not None:
             if not isinstance(self.moments, list):
-                raise ValueError(
-                    "moments must be a list or None"
+                raise ActivityValidationError.invalid_field_value(
+                    "moments",
+                    "moments must be a list or None",
                 )
 
             for moment in self.moments:
                 if not isinstance(moment, MomentData):
-                    raise ValueError(
-                        "invalid moment data in list"
+                    raise ActivityValidationError.invalid_field_value(
+                        "moments",
+                        "invalid moment data in list",
                     )
 
             if self.moment_count != len(self.moments):
-                raise ValueError(
-                    "moment count mismatch: count does not match list length"
+                raise ActivityValidationError.invalid_field_value(
+                    "moment_count",
+                    "moment count mismatch: count does not match list length",
                 )
 
         if self.created_at is not None and not isinstance(
             self.created_at, datetime
         ):
-            raise ValueError(
-                "created_at must be a datetime object"
+            raise ActivityValidationError.invalid_field_value(
+                "created_at",
+                "created_at must be a datetime object",
             )
 
         if self.updated_at is not None and not isinstance(
             self.updated_at, datetime
         ):
-            raise ValueError(
-                "updated_at must be a datetime object"
+            raise ActivityValidationError.invalid_field_value(
+                "updated_at",
+                "updated_at must be a datetime object",
             )
 
     def _validate_color(self) -> None:
         """Validate color format.
 
-        Raises:
-            ValueError: If color format is invalid
+        This is now handled by the Color value object in __post_init__
         """
-        if not self.color:
-            return
+        pass
 
-        if not re.match(r"^#[0-9A-Fa-f]{6}$", self.color):
-            raise ValueError(
-                "color must be a valid hex code"
-            )
+    @property
+    def color_value(self) -> Color:
+        """Get the color as a Color value object."""
+        return self._color_obj
 
     def _validate_activity_schema(
         self, schema: Dict[str, Any]
@@ -182,58 +181,15 @@ class ActivityData:
             schema: Schema to validate
 
         Raises:
-            ValueError: If schema is invalid
+            ActivityValidationError: If schema is invalid
         """
-        # Basic schema validation
-        validate_activity_schema(schema)
+        # Schema validation is now handled by ActivitySchema value object
+        pass
 
-        # Additional domain-specific validation
-        if "properties" in schema:
-            if not isinstance(schema["properties"], dict):
-                raise ValueError(
-                    "Schema properties must be a dictionary"
-                )
-
-            # Validate property types
-            for prop_name, prop_schema in schema[
-                "properties"
-            ].items():
-                if not isinstance(prop_schema, dict):
-                    raise ValueError(
-                        f"Property {prop_name} schema must be a dictionary"
-                    )
-                # Skip type check if it's a reference
-                if (
-                    "$ref" not in prop_schema
-                    and "type" not in prop_schema
-                ):
-                    raise ValueError(
-                        f"Property {prop_name} must specify a type"
-                    )
-
-        if "patternProperties" in schema:
-            if not isinstance(
-                schema["patternProperties"], dict
-            ):
-                raise ValueError(
-                    "Pattern properties must be a dictionary"
-                )
-
-            # Validate pattern property types
-            for pattern, prop_schema in schema[
-                "patternProperties"
-            ].items():
-                if not isinstance(prop_schema, dict):
-                    raise ValueError(
-                        f"Pattern {pattern} schema must be a dictionary"
-                    )
-                if (
-                    "$ref" not in prop_schema
-                    and "type" not in prop_schema
-                ):
-                    raise ValueError(
-                        f"Pattern {pattern} must specify a type"
-                    )
+    @property
+    def schema_value(self) -> ActivitySchema:
+        """Get the schema as an ActivitySchema value object."""
+        return self._schema_obj
 
     def validate_moment_data(
         self, data: Dict[str, Any]
@@ -247,7 +203,7 @@ class ActivityData:
             ValueError: If data does not match the schema
         """
         try:
-            validate_moment_data(data, self.activity_schema)
+            validate_moment_data(data, self.schema_value.to_dict())
         except Exception as e:
             raise ValueError(
                 f"Invalid moment data: {str(e)}"
@@ -267,9 +223,9 @@ class ActivityData:
             "id": self.id,
             "name": self.name,
             "description": self.description,
-            "activity_schema": self.activity_schema,
+            "activity_schema": self.schema_value.to_dict(),
             "icon": self.icon,
-            "color": self.color,
+            "color": str(self.color_value),
             "user_id": self.user_id,
             "moment_count": self.moment_count,
             "created_at": self.created_at,
