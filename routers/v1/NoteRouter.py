@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, status
+from fastapi.security import HTTPBearer
 from services.NoteService import NoteService
 from schemas.pydantic.NoteSchema import (
     NoteCreate,
@@ -15,12 +16,11 @@ from schemas.pydantic.PaginationSchema import (
 from dependencies import get_current_user
 from orm.UserModel import User
 from utils.error_handlers import handle_exceptions
-from sqlalchemy.orm import Session
-from configs.Database import get_db_connection
 
 router = APIRouter(
     prefix="/v1/notes",
-    tags=["notes"]
+    tags=["notes"],
+    dependencies=[Depends(HTTPBearer())]
 )
 
 
@@ -32,10 +32,9 @@ router = APIRouter(
 async def create_note(
     note: NoteCreate,
     current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db_connection),
+    service: NoteService = Depends(),
 ) -> GenericResponse[NoteResponse]:
     """Create a new note."""
-    service = NoteService(db)
     result = service.create_note(note, current_user.id)
     return GenericResponse(
         data=result, message="Note created successfully"

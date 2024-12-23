@@ -98,7 +98,12 @@ class NoteService:
                 moment_id=domain_data.moment_id,
                 attachments=domain_data.attachments,
             )
-            return NoteResponse.from_orm(note)
+
+            # Ensure note has required fields before conversion
+            if note.id is None or note.created_at is None:
+                raise ValueError("Note missing required fields after creation")
+
+            return NoteResponse.model_validate(note)
         except (
             NoteValidationError,
             NoteContentError,
@@ -110,43 +115,23 @@ class NoteService:
     def get_note(
         self, note_id: int, user_id: str
     ) -> NoteResponse:
-        """Get a specific note by ID.
-
-        Args:
-            note_id: ID of the note to retrieve
-            user_id: ID of the user requesting the note
-
-        Returns:
-            Note response if found
-
-        Raises:
-            HTTPException: If note is not found
-        """
+        """Get a specific note by ID."""
         note = self.note_repo.get_by_user(note_id, user_id)
         if not note:
             raise HTTPException(
                 status_code=404, detail="Note not found"
             )
-        return NoteResponse.from_orm(note)
+
+        # Ensure note has required fields before conversion
+        if note.id is None or note.created_at is None:
+            raise ValueError("Note missing required fields")
+
+        return NoteResponse.model_validate(note)
 
     def list_notes(
         self, user_id: str, page: int = 1, size: int = 50
     ) -> Dict[str, Any]:
-        """List notes for a user with pagination.
-
-        Args:
-            user_id: ID of the user whose notes to list
-            page: Page number (1-based)
-            size: Number of items per page
-
-        Returns:
-            Dictionary containing:
-                - items: List of notes
-                - total: Total number of notes
-                - page: Current page number
-                - size: Page size
-                - pages: Total number of pages
-        """
+        """List notes for a user with pagination."""
         validate_pagination(page, size)
         skip = (page - 1) * size
         items = self.note_repo.list_notes(
@@ -155,7 +140,7 @@ class NoteService:
         total = self.note_repo.count_user_notes(user_id)
         return {
             "items": [
-                NoteResponse.from_orm(i) for i in items
+                NoteResponse.model_validate(i) for i in items
             ],
             "total": total,
             "page": page,
@@ -169,19 +154,7 @@ class NoteService:
         user_id: str,
         update_data: NoteUpdate,
     ) -> NoteResponse:
-        """Update a specific note.
-
-        Args:
-            note_id: ID of the note to update
-            user_id: ID of the user updating the note
-            update_data: New note data
-
-        Returns:
-            Updated note response
-
-        Raises:
-            HTTPException: If note is not found
-        """
+        """Update a specific note."""
         note = self.note_repo.get_by_user(note_id, user_id)
         if not note:
             raise HTTPException(
@@ -194,7 +167,12 @@ class NoteService:
         updated = self.note_repo.update(
             note_id, data_to_update
         )
-        return NoteResponse.from_orm(updated)
+
+        # Ensure updated note has required fields
+        if updated.id is None or updated.created_at is None:
+            raise ValueError("Updated note missing required fields")
+
+        return NoteResponse.model_validate(updated)
 
     def delete_note(
         self, note_id: int, user_id: str
