@@ -143,7 +143,12 @@ class MomentSchemaError(MomentValidationError):
 
 class UserValidationError(Exception):
     """Base exception for user domain validation failures."""
-    def __init__(self, message: str, code: str = "USER_VALIDATION_ERROR"):
+
+    def __init__(
+        self,
+        message: str,
+        code: str = "USER_VALIDATION_ERROR",
+    ):
         self.message = message
         self.code = code
         super().__init__(self.message)
@@ -151,17 +156,64 @@ class UserValidationError(Exception):
 
 class UserAuthenticationError(UserValidationError):
     """Raised when user authentication fails."""
+
     def __init__(self, message: str):
-        super().__init__(message, code="USER_AUTHENTICATION_ERROR")
+        super().__init__(
+            message, code="USER_AUTHENTICATION_ERROR"
+        )
 
 
 class UserKeyValidationError(UserValidationError):
     """Raised when user key validation fails."""
+
     def __init__(self, message: str):
-        super().__init__(message, code="USER_KEY_VALIDATION_ERROR")
+        super().__init__(
+            message, code="USER_KEY_VALIDATION_ERROR"
+        )
 
 
 class UserIdentifierError(UserValidationError):
     """Raised when user identifier validation fails."""
+
     def __init__(self, message: str):
-        super().__init__(message, code="USER_IDENTIFIER_ERROR")
+        super().__init__(
+            message, code="USER_IDENTIFIER_ERROR"
+        )
+
+
+class NoteValidationError(Exception):
+    """Base exception for note domain validation failures."""
+
+    def __init__(
+        self,
+        message: str,
+        code: str = "NOTE_VALIDATION_ERROR",
+    ):
+        self.message = message
+        self.code = code
+        super().__init__(self.message)
+
+
+class NoteContentError(NoteValidationError):
+    """Raised when note content validation fails."""
+
+    def __init__(self, message: str):
+        super().__init__(message, code="NOTE_CONTENT_ERROR")
+
+
+class NoteAttachmentError(NoteValidationError):
+    """Raised when note attachment validation fails."""
+
+    def __init__(self, message: str):
+        super().__init__(
+            message, code="NOTE_ATTACHMENT_ERROR"
+        )
+
+
+class NoteReferenceError(NoteValidationError):
+    """Raised when note reference (activity/moment) validation fails."""
+
+    def __init__(self, message: str):
+        super().__init__(
+            message, code="NOTE_REFERENCE_ERROR"
+        )

@@ -60,9 +60,14 @@ CREATE TABLE IF NOT EXISTS notes (
     -- Note content
     content TEXT NOT NULL,
 
-    -- Optional attachments
+    -- New columns needed for activity/moment references
+    activity_id INT NULL,
+    moment_id INT NULL,
+
+    -- Changed attachment columns
     attachment_url VARCHAR(500) NULL,
-    attachment_type ENUM('VOICE', 'PHOTO', 'FILE') NULL,
+    attachment_type ENUM('IMAGE', 'DOCUMENT', 'LINK') NULL,  -- Updated enum values
+    attachments JSON NULL,  -- New column for structured attachments
 
     -- Timestamps
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -70,14 +75,14 @@ CREATE TABLE IF NOT EXISTS notes (
 
     -- Foreign keys and constraints
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (activity_id) REFERENCES activities(id),  -- New FK
+    FOREIGN KEY (moment_id) REFERENCES moments(id),  -- New FK
 
     -- Data validation
     CONSTRAINT check_content_not_empty CHECK (content != ''),
     CONSTRAINT check_attachment_consistency
         CHECK ((attachment_url IS NULL AND attachment_type IS NULL) OR
-               (attachment_url IS NOT NULL AND attachment_type IS NOT NULL)),
-    CONSTRAINT check_attachment_url_format
-        CHECK (attachment_url IS NULL OR attachment_url REGEXP '^https?://.+')
+               (attachment_url IS NOT NULL AND attachment_type IS NOT NULL))
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- Add indexes for better query performance

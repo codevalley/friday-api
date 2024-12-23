@@ -1,7 +1,8 @@
 from pydantic import BaseModel, Field, ConfigDict
 from datetime import datetime
 from typing import Optional
-from domain.note import NoteData, AttachmentType
+from domain.note import NoteData
+from domain.values import AttachmentType
 
 
 class NoteBase(BaseModel):
@@ -26,20 +27,32 @@ class NoteBase(BaseModel):
 class NoteCreate(NoteBase):
     """Schema for creating a new note."""
 
+    content: str = Field(
+        ..., min_length=1, max_length=10000
+    )
+    activity_id: Optional[int] = None
+    moment_id: Optional[int] = None
+    attachment_url: Optional[str] = None
+    attachment_type: Optional[AttachmentType] = None
+
     def to_domain(self, user_id: str) -> NoteData:
-        """Convert to domain model.
-
-        Args:
-            user_id: ID of the user creating the note
-
-        Returns:
-            NoteData instance
-        """
+        """Convert to domain model."""
         return NoteData(
             content=self.content,
             user_id=user_id,
-            attachment_url=self.attachment_url,
-            attachment_type=self.attachment_type,
+            activity_id=self.activity_id,
+            moment_id=self.moment_id,
+            attachments=(
+                [
+                    {
+                        "url": self.attachment_url,
+                        "type": self.attachment_type,
+                    }
+                ]
+                if self.attachment_url
+                and self.attachment_type
+                else None
+            ),
         )
 
 

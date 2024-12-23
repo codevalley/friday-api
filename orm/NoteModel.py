@@ -9,10 +9,12 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import relationship, Mapped
 from datetime import datetime
-from typing import Optional
+from typing import Optional, List, Dict, Any
 from orm.BaseModel import EntityMeta
 from orm.UserModel import User
-from domain.note import AttachmentType, NoteData
+from domain.note import NoteData
+from domain.values import AttachmentType
+from orm.types import JSONType
 
 
 class Note(EntityMeta):
@@ -26,6 +28,8 @@ class Note(EntityMeta):
         id: Unique identifier for the note
         content: The text content of the note
         user_id: ID of the user who owns this note
+        activity_id: ID of the activity associated with this note
+        moment_id: ID of the moment associated with this note
         attachment_url: Optional URL to an attachment
         attachment_type: Type of the attachment (if any)
         created_at: Timestamp when the note was created
@@ -50,6 +54,12 @@ class Note(EntityMeta):
         nullable=False,
         index=True,
     )
+    activity_id: Mapped[Optional[int]] = Column(
+        Integer, ForeignKey("activities.id"), nullable=True
+    )
+    moment_id: Mapped[Optional[int]] = Column(
+        Integer, ForeignKey("moments.id"), nullable=True
+    )
     attachment_url: Mapped[Optional[str]] = Column(
         String(500), nullable=True
     )
@@ -68,6 +78,11 @@ class Note(EntityMeta):
     # Relationships
     owner: Mapped[User] = relationship(
         "User", back_populates="notes"
+    )
+
+    # Add attachments column
+    attachments: Mapped[Optional[List[Dict[str, Any]]]] = (
+        Column(JSONType, nullable=True)
     )
 
     # Table constraints
@@ -93,6 +108,8 @@ class Note(EntityMeta):
             id=self.id,
             content=self.content,
             user_id=self.user_id,
+            activity_id=self.activity_id,
+            moment_id=self.moment_id,
             attachment_url=self.attachment_url,
             attachment_type=self.attachment_type,
             created_at=self.created_at,
@@ -113,6 +130,8 @@ class Note(EntityMeta):
             id=domain.id,
             content=domain.content,
             user_id=domain.user_id,
+            activity_id=domain.activity_id,
+            moment_id=domain.moment_id,
             attachment_url=domain.attachment_url,
             attachment_type=domain.attachment_type,
             created_at=domain.created_at,

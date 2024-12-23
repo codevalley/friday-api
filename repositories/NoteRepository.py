@@ -1,7 +1,6 @@
-from typing import Optional, List
+from typing import Optional, List, Dict, Any
 from sqlalchemy.orm import Session
 from orm.NoteModel import Note
-from domain.note import NoteData
 from .BaseRepository import BaseRepository
 
 
@@ -20,17 +19,28 @@ class NoteRepository(BaseRepository[Note, int]):
         """
         super().__init__(db, Note)
 
-    def create(self, domain_data: NoteData) -> Note:
-        """Create a new note from domain data.
-
-        Args:
-            domain_data: Note domain model instance
-
-        Returns:
-            Created Note ORM model instance
-        """
-        note = Note.from_domain(domain_data)
-        return super().create(note)
+    def create(
+        self,
+        content: str,
+        user_id: str,
+        activity_id: Optional[int] = None,
+        moment_id: Optional[int] = None,
+        attachments: Optional[List[Dict[str, Any]]] = None,
+    ) -> Note:
+        """Create a new note."""
+        note = Note(
+            content=content,
+            user_id=user_id,
+            activity_id=activity_id,
+            moment_id=moment_id,
+            attachments=(
+                attachments if attachments else None
+            ),
+        )
+        self.db.add(note)
+        self.db.commit()
+        self.db.refresh(note)
+        return note
 
     def list_notes(
         self, user_id: str, skip: int = 0, limit: int = 100

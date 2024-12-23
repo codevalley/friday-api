@@ -14,7 +14,7 @@ from utils.security import (
 from domain.exceptions import (
     UserValidationError,
     UserKeyValidationError,
-    UserIdentifierError
+    UserIdentifierError,
 )
 
 import logging
@@ -220,17 +220,26 @@ class UserService:
         if isinstance(error, UserKeyValidationError):
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail={"message": str(error), "code": error.code}
+                detail={
+                    "message": str(error),
+                    "code": error.code,
+                },
             )
         elif isinstance(error, UserIdentifierError):
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail={"message": str(error), "code": error.code}
+                detail={
+                    "message": str(error),
+                    "code": error.code,
+                },
             )
         elif isinstance(error, UserValidationError):
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail={"message": str(error), "code": error.code}
+                detail={
+                    "message": str(error),
+                    "code": error.code,
+                },
             )
         raise error
 

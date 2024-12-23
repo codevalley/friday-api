@@ -1,16 +1,23 @@
 from typing import Dict, Any
-from fastapi import Depends, HTTPException
+from fastapi import Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from configs.Database import get_db_connection
 from repositories.NoteRepository import NoteRepository
 from schemas.pydantic.NoteSchema import (
-    NoteCreate,
     NoteUpdate,
     NoteResponse,
+    NoteCreate,
 )
 from utils.validation import validate_pagination
 
 import logging
+
+from domain.exceptions import (
+    NoteValidationError,
+    NoteContentError,
+    NoteAttachmentError,
+    NoteReferenceError,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -37,21 +44,68 @@ class NoteService:
         self.db = db
         self.note_repo = NoteRepository(db)
 
+    def _handle_note_error(self, error: Exception) -> None:
+        """Map domain exceptions to HTTP exceptions."""
+        if isinstance(error, NoteContentError):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail={
+                    "message": str(error),
+                    "code": error.code,
+                },
+            )
+        elif isinstance(error, NoteAttachmentError):
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail={
+                    "message": str(error),
+                    "code": error.code,
+                },
+            )
+        elif isinstance(error, NoteReferenceError):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail={
+                    "message": str(error),
+                    "code": error.code,
+                },
+            )
+        elif isinstance(error, NoteValidationError):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail={
+                    "message": str(error),
+                    "code": error.code,
+                },
+            )
+        raise error
+
     def create_note(
-        self, note_data: NoteCreate, user_id: str
+        self,
+        note_data: NoteCreate,
+        user_id: str,
     ) -> NoteResponse:
-        """Create a new note for a user.
+        """Create a new note."""
+        try:
+            # Convert to domain model
+            domain_data = note_data.to_domain(user_id)
 
-        Args:
-            note_data: Note creation data
-            user_id: ID of the user creating the note
-
-        Returns:
-            Created note response
-        """
-        domain_data = note_data.to_domain(user_id)
-        instance = self.note_repo.create(domain_data)
-        return NoteResponse.from_orm(instance)
+            # Create note
+            note = self.note_repo.create(
+                content=domain_data.content,
+                user_id=domain_data.user_id,
+                activity_id=domain_data.activity_id,
+                moment_id=domain_data.moment_id,
+                attachments=domain_data.attachments,
+            )
+            return NoteResponse.model_validate(note)
+        except (
+            NoteValidationError,
+            NoteContentError,
+            NoteAttachmentError,
+            NoteReferenceError,
+        ) as e:
+            self._handle_note_error(e)
 
     def get_note(
         self, note_id: int, user_id: str

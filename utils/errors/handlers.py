@@ -27,6 +27,7 @@ from domain.exceptions import (
     MomentValidationError,
     MomentTimestampError,
     UserValidationError,
+    NoteValidationError,
 )
 
 # Set up logger
@@ -233,7 +234,27 @@ async def user_validation_exception_handler(
     """Handle user validation errors."""
     return JSONResponse(
         status_code=status.HTTP_400_BAD_REQUEST,
-        content={"detail": {"message": str(exc), "code": exc.code}}
+        content={
+            "detail": {
+                "message": str(exc),
+                "code": exc.code,
+            }
+        },
+    )
+
+
+async def note_validation_exception_handler(
+    request: Request, exc: NoteValidationError
+) -> JSONResponse:
+    """Handle note validation errors."""
+    return JSONResponse(
+        status_code=status.HTTP_400_BAD_REQUEST,
+        content={
+            "detail": {
+                "message": str(exc),
+                "code": exc.code,
+            }
+        },
     )
 
 
@@ -258,5 +279,10 @@ def configure_error_handlers(app: FastAPI) -> None:
         moment_timestamp_exception_handler,
     )
     app.add_exception_handler(
-        UserValidationError, user_validation_exception_handler
+        UserValidationError,
+        user_validation_exception_handler,
+    )
+    app.add_exception_handler(
+        NoteValidationError,
+        note_validation_exception_handler,
     )

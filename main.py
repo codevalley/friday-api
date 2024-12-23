@@ -20,7 +20,7 @@ from schemas.graphql.Mutation import Mutation
 from utils.middleware.request_logging import (
     RequestLoggingMiddleware,
 )
-from utils.error_handlers import handle_exceptions
+from utils.error_handlers import handle_global_exception
 from utils.errors.handlers import configure_error_handlers
 
 # Load environment variables
@@ -79,4 +79,4 @@ async def global_exception_handler(
     request: Request, exc: Exception
 ):
     """Global exception handler for all unhandled exceptions."""
-    return await handle_exceptions(request, exc)
+    return await handle_global_exception(request, exc)

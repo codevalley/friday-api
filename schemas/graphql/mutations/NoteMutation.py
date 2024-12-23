@@ -4,16 +4,16 @@ from fastapi import HTTPException
 from typing import Optional
 
 from schemas.pydantic.NoteSchema import (
-    NoteCreate,
     NoteUpdate,
 )
 from schemas.graphql.types.Note import Note as GQLNote
-from domain.note import AttachmentType
+from domain.values import AttachmentType
 from configs.GraphQL import (
     get_user_from_context,
     get_db_from_context,
 )
 from services.NoteService import NoteService
+from domain.note import NoteData
 
 
 @strawberry.input
@@ -43,13 +43,16 @@ class NoteMutation:
             )
 
         service = NoteService(get_db_from_context(info))
-        pydantic_obj = NoteCreate(
+        note_data = NoteData(
             content=note.content,
+            user_id=user.id,
+            activity_id=note.activity_id,
+            moment_id=note.moment_id,
             attachment_url=note.attachment_url,
             attachment_type=note.attachment_type,
         )
-        result = service.create_note(pydantic_obj, user.id)
-        return GQLNote(**result.dict())
+        result = service.create_note(note_data, user.id)
+        return GQLNote.from_domain(result)
 
     @strawberry.mutation
     def update_note(

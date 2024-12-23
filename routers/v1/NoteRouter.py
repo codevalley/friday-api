@@ -15,6 +15,8 @@ from schemas.pydantic.PaginationSchema import (
 from dependencies import get_current_user
 from orm.UserModel import User
 from utils.error_handlers import handle_exceptions
+from sqlalchemy.orm import Session
+from configs.Database import get_db_connection
 
 router = APIRouter(prefix="/v1/notes", tags=["notes"])
 
@@ -24,13 +26,13 @@ router = APIRouter(prefix="/v1/notes", tags=["notes"])
     response_model=GenericResponse[NoteResponse],
     status_code=status.HTTP_201_CREATED,
 )
-@handle_exceptions
 async def create_note(
     note: NoteCreate,
-    service: NoteService = Depends(),
     current_user: User = Depends(get_current_user),
-):
-    """Create a new note for the current user."""
+    db: Session = Depends(get_db_connection),
+) -> GenericResponse[NoteResponse]:
+    """Create a new note."""
+    service = NoteService(db)
     result = service.create_note(note, current_user.id)
     return GenericResponse(
         data=result, message="Note created successfully"

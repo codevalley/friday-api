@@ -300,7 +300,7 @@ NOTE2_RESPONSE=$(curl -s -X POST "$BASE_URL/notes" \
     -d '{
         "content": "My second note - with photo",
         "attachment_url": "https://example.com/photo.jpg",
-        "attachment_type": "PHOTO"
+        "attachment_type": "image"
     }')
 echo "Note2 Response: $NOTE2_RESPONSE"
 NOTE2_ID=$(extract_json_value "$NOTE2_RESPONSE" "id")
@@ -315,7 +315,7 @@ NOTE3_RESPONSE=$(curl -s -X POST "$BASE_URL/notes" \
     -d '{
         "content": "Voice note from user2",
         "attachment_url": "https://example.com/voice.mp3",
-        "attachment_type": "VOICE"
+        "attachment_type": "document"
     }')
 echo "Note3 Response: $NOTE3_RESPONSE"
 NOTE3_ID=$(extract_json_value "$NOTE3_RESPONSE" "id")

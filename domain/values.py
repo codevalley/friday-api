@@ -4,6 +4,7 @@ import re
 from dataclasses import dataclass
 from typing import Optional, Dict, Any, Set
 from domain.exceptions import ActivityValidationError
+from enum import Enum
 
 
 @dataclass(frozen=True)
@@ -227,3 +228,32 @@ class ActivitySchema:
     def __str__(self) -> str:
         """Return a string representation of the schema."""
         return str(self.value)
+
+
+class AttachmentType(str, Enum):
+    """Type of attachment that can be associated with a note.
+
+    Inherits from str to allow case-insensitive comparison and
+    automatic string serialization.
+    """
+
+    IMAGE = "image"
+    DOCUMENT = "document"
+    LINK = "link"
+
+    @classmethod
+    def _missing_(
+        cls, value: str
+    ) -> Optional["AttachmentType"]:
+        """Handle case-insensitive lookup of enum values.
+
+        Args:
+            value: The value to look up
+
+        Returns:
+            Matching enum member or None
+        """
+        for member in cls:
+            if member.value.upper() == value.upper():
+                return member
+        return None

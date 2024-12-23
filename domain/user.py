@@ -11,7 +11,7 @@ import re
 from domain.exceptions import (
     UserValidationError,
     UserKeyValidationError,
-    UserIdentifierError
+    UserIdentifierError,
 )
 
 T = TypeVar("T", bound="UserData")
@@ -122,14 +122,20 @@ class UserData:
                 "key_id must be empty or a valid UUID format"
             )
         elif not isinstance(self.key_id, str):
-            raise UserKeyValidationError("key_id must be a string")
-        elif not re.match(r"^[a-zA-Z0-9-]{36}$", self.key_id):
+            raise UserKeyValidationError(
+                "key_id must be a string"
+            )
+        elif not re.match(
+            r"^[a-zA-Z0-9-]{36}$", self.key_id
+        ):
             raise UserKeyValidationError(
                 "key_id must be empty or a valid UUID format"
             )
 
         if not isinstance(self.user_secret, str):
-            raise UserValidationError("user_secret must be a string")
+            raise UserValidationError(
+                "user_secret must be a string"
+            )
 
         # User secret format validation
         if self.user_secret and not re.match(

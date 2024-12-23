@@ -1,127 +1,151 @@
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Optional
-from enum import Enum
+from typing import Optional, Dict, Any, List, TypeVar
 
+from domain.exceptions import (
+    NoteValidationError,
+    NoteContentError,
+    NoteAttachmentError,
+    NoteReferenceError,
+)
 
-class AttachmentType(str, Enum):
-    """Type of attachment that can be associated with a note.
-
-    Inherits from str to allow case-insensitive comparison and
-    automatic string serialization.
-    """
-
-    VOICE = "voice"
-    PHOTO = "photo"
-    FILE = "file"
-
-    @classmethod
-    def _missing_(
-        cls, value: str
-    ) -> Optional["AttachmentType"]:
-        """Handle case-insensitive lookup of enum values.
-
-        Args:
-            value: The value to look up
-
-        Returns:
-            Matching enum member or None
-        """
-        for member in cls:
-            if member.value.upper() == value.upper():
-                return member
-        return None
+T = TypeVar("T", bound="NoteData")
 
 
 @dataclass
 class NoteData:
-    """Domain model for a note.
+    """Domain model for Note.
 
-    This class represents a note in the system, with optional attachments.
-    It includes validation rules to ensure data consistency.
-
-    Attributes:
-        content: The text content of the note
-        user_id: ID of the user who owns this note
-        id: Optional unique identifier
-        attachment_url: Optional URL to an attachment
-        attachment_type: Optional type of the attachment
-        created_at: When the note was created
-        updated_at: When the note was last updated
+    This class represents a note attached to an activity or moment
+    and contains all business logic and validation rules.
     """
 
     content: str
     user_id: str
+    activity_id: Optional[int] = None
+    attachments: Optional[List[Dict[str, Any]]] = None
+    moment_id: Optional[int] = None
     id: Optional[int] = None
-    attachment_url: Optional[str] = None
-    attachment_type: Optional[AttachmentType] = None
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
+        """Validate note data after initialization."""
         self.validate()
 
-    def validate(self):
+    def validate(self) -> None:
         """Validate the note data.
 
         Raises:
-            ValueError: If any validation rules are violated
+            NoteValidationError: If validation fails
         """
-        if not self.content or not isinstance(
-            self.content, str
-        ):
-            raise ValueError(
-                "Note content must be a non-empty string"
+        if not isinstance(self.content, str):
+            raise NoteContentError(
+                "content must be a string"
             )
-        if len(self.content) < 1:
-            raise ValueError("Note content cannot be empty")
-        if not self.user_id or not isinstance(
-            self.user_id, str
+
+        if not self.content.strip():
+            raise NoteContentError(
+                "content cannot be empty"
+            )
+
+        if len(self.content) > 10000:
+            raise NoteContentError(
+                "content cannot exceed 10000 characters"
+            )
+
+        if (
+            not isinstance(self.user_id, str)
+            or not self.user_id
         ):
-            raise ValueError(
+            raise NoteValidationError(
                 "user_id must be a non-empty string"
             )
-        if self.attachment_url and not self.attachment_type:
-            raise ValueError(
-                "attachment_type is required when attachment_url is provided"
-            )
-        if self.attachment_type and not self.attachment_url:
-            raise ValueError(
-                "attachment_url is required when attachment_type is provided"
+
+        if self.activity_id is not None:
+            if (
+                not isinstance(self.activity_id, int)
+                or self.activity_id <= 0
+            ):
+                raise NoteReferenceError(
+                    "activity_id must be a positive integer"
+                )
+
+        if self.moment_id is not None:
+            if (
+                not isinstance(self.moment_id, int)
+                or self.moment_id <= 0
+            ):
+                raise NoteReferenceError(
+                    "moment_id must be a positive integer"
+                )
+
+        if self.attachments is not None:
+            if not isinstance(self.attachments, list):
+                raise NoteAttachmentError(
+                    "attachments must be a list"
+                )
+
+            for attachment in self.attachments:
+                self._validate_attachment(attachment)
+
+        if self.id is not None and (
+            not isinstance(self.id, int) or self.id <= 0
+        ):
+            raise NoteValidationError(
+                "id must be a positive integer"
             )
 
-    def to_dict(self):
-        """Convert the note to a dictionary.
+    def _validate_attachment(
+        self, attachment: Dict[str, Any]
+    ) -> None:
+        """Validate a single attachment.
 
-        Returns:
-            Dictionary representation of the note
+        Args:
+            attachment: Attachment data to validate
+
+        Raises:
+            NoteAttachmentError: If validation fails
         """
+        if not isinstance(attachment, dict):
+            raise NoteAttachmentError(
+                "attachment must be a dictionary"
+            )
+
+        required_fields = {"type", "url"}
+        if not all(
+            field in attachment for field in required_fields
+        ):
+            raise NoteAttachmentError(
+                f"attachment must contain fields: {required_fields}"
+            )
+
+        if not isinstance(attachment["type"], str):
+            raise NoteAttachmentError(
+                "attachment type must be a string"
+            )
+
+        if not isinstance(attachment["url"], str):
+            raise NoteAttachmentError(
+                "attachment url must be a string"
+            )
+
+        # Validate attachment type
+        valid_types = {"image", "document", "link"}
+        if attachment["type"] not in valid_types:
+            raise NoteAttachmentError(
+                f"attachment type must be one of: {valid_types}"
+            )
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert note to dictionary."""
         return {
             "id": self.id,
             "content": self.content,
             "user_id": self.user_id,
-            "attachment_url": self.attachment_url,
-            "attachment_type": (
-                self.attachment_type.value
-                if self.attachment_type
-                else None
-            ),
+            "activity_id": self.activity_id,
+            "moment_id": self.moment_id,
+            "attachments": self.attachments,
             "created_at": self.created_at,
             "updated_at": self.updated_at,
         }
-
-    @classmethod
-    def from_dict(cls, data: dict):
-        """Create a note from a dictionary.
-
-        Args:
-            data: Dictionary containing note data
-
-        Returns:
-            NoteData instance
-        """
-        if data.get("attachment_type"):
-            data["attachment_type"] = AttachmentType(
-                data["attachment_type"]
-            )
-        return cls(**data)
