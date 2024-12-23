@@ -7,6 +7,26 @@ from datetime import datetime
 from pythonjsonlogger import jsonlogger
 
 
+class ExtraFilter(logging.Filter):
+    """Filter that ensures all records have an extra field."""
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        """Add extra fields to the record if they don't exist."""
+        if not hasattr(record, "extra"):
+            record.extra = {}
+
+        # Convert extra dict to string if it exists
+        if hasattr(record, "extra") and isinstance(
+            record.extra, dict
+        ):
+            extras = []
+            for key, value in record.extra.items():
+                extras.append(f"{key}={value}")
+            record.extra = " ".join(extras)
+
+        return True
+
+
 class CustomJsonFormatter(jsonlogger.JsonFormatter):
     """Custom JSON formatter for logging."""
 
@@ -61,11 +81,15 @@ def configure_logging(is_test: bool = False) -> None:
                     "level": "DEBUG",
                     "formatter": "simple",
                     "stream": "ext://sys.stdout",
+                    "filters": ["extra_filter"],
                 }
             },
             "root": {
                 "level": "INFO",
                 "handlers": ["console"],
+            },
+            "filters": {
+                "extra_filter": {"()": ExtraFilter}
             },
         }
     else:
@@ -85,6 +109,7 @@ def configure_logging(is_test: bool = False) -> None:
                     "level": "DEBUG",
                     "formatter": "json",
                     "stream": "ext://sys.stdout",
+                    "filters": ["extra_filter"],
                 },
                 "file": {
                     "class": "logging.handlers.RotatingFileHandler",
@@ -93,11 +118,15 @@ def configure_logging(is_test: bool = False) -> None:
                     "filename": "app.log",
                     "maxBytes": 10485760,  # 10MB
                     "backupCount": 5,
+                    "filters": ["extra_filter"],
                 },
             },
             "root": {
                 "level": "INFO",
                 "handlers": ["console", "file"],
+            },
+            "filters": {
+                "extra_filter": {"()": ExtraFilter}
             },
         }
 

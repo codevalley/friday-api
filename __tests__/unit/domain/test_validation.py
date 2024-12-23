@@ -105,14 +105,16 @@ def test_validate_activity_schema_invalid_pattern_properties():
     """Test validation fails when patternProperties is invalid."""
     invalid_schema = {
         "type": "object",
-        "patternProperties": "invalid"
+        "patternProperties": "invalid",
     }
-    
+
     with pytest.raises(ActivityValidationError) as exc:
         validate_activity_schema(invalid_schema)
-    
+
     # The actual error message from ActivityValidationError
-    assert "Pattern properties must be a dictionary" in str(exc.value)
+    assert "Pattern properties must be a dictionary" in str(
+        exc.value
+    )
 
 
 def test_validate_activity_schema_constraints_without_properties():

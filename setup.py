@@ -16,5 +16,6 @@ setup(
         "mysqlclient",
         "python-jose[cryptography]",
         "passlib[bcrypt]",
+        "pytest-asyncio>=0.14.0",
     ],
 )

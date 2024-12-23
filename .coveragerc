@@ -4,3 +4,5 @@ omit =
         __tests__/*
         **/__init__.py
         main.py
+        setup.py
+        */site-packages/*
