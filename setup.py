@@ -17,5 +17,6 @@ setup(
         "python-jose[cryptography]",
         "passlib[bcrypt]",
         "pytest-asyncio>=0.14.0",
+        "httpx>=0.24.0",
     ],
 )

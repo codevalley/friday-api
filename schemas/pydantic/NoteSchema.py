@@ -100,3 +100,12 @@ class NoteResponse(BaseModel):
             created_at=domain.created_at,
             updated_at=domain.updated_at,
         )
+
+
+class NoteList(BaseModel):
+    """Schema for list of notes."""
+    items: List[NoteResponse]
+    total: int
+    page: Optional[int] = 1
+    size: Optional[int] = 10
+    pages: Optional[int] = 1

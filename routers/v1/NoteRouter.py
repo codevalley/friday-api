@@ -18,7 +18,10 @@ from utils.error_handlers import handle_exceptions
 from sqlalchemy.orm import Session
 from configs.Database import get_db_connection
 
-router = APIRouter(prefix="/v1/notes", tags=["notes"])
+router = APIRouter(
+    prefix="/v1/notes",
+    tags=["notes"]
+)
 
 
 @router.post(
