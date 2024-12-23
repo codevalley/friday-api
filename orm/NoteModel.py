@@ -110,8 +110,7 @@ class Note(EntityMeta):
             user_id=self.user_id,
             activity_id=self.activity_id,
             moment_id=self.moment_id,
-            attachment_url=self.attachment_url,
-            attachment_type=self.attachment_type,
+            attachments=self.attachments,
             created_at=self.created_at,
             updated_at=self.updated_at,
         )
@@ -132,8 +131,7 @@ class Note(EntityMeta):
             user_id=domain.user_id,
             activity_id=domain.activity_id,
             moment_id=domain.moment_id,
-            attachment_url=domain.attachment_url,
-            attachment_type=domain.attachment_type,
+            attachments=domain.attachments,
             created_at=domain.created_at,
             updated_at=domain.updated_at,
         )

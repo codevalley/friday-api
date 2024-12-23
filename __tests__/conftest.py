@@ -6,11 +6,12 @@ import sys
 import uuid
 from datetime import datetime, timezone
 from typing import Generator
+from unittest.mock import Mock
 
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy.orm import sessionmaker, Session
 import warnings
 
 from configs.Database import get_db_connection
@@ -19,7 +20,10 @@ from main import app
 from orm.ActivityModel import Activity
 from orm.BaseModel import Base
 from orm.MomentModel import Moment
+from orm.NoteModel import Note
 from orm.UserModel import User
+from repositories.NoteRepository import NoteRepository
+from services.NoteService import NoteService
 from utils.security import hash_user_secret
 
 # Add project root to Python path
@@ -212,3 +216,40 @@ async def setup_teardown() -> Generator:
     yield
     # Teardown
     await asyncio.gather(*asyncio.all_tasks())
+
+
+@pytest.fixture(scope="function")
+def mock_note_repository():
+    """Create a mock note repository for testing."""
+    return Mock(spec=NoteRepository)
+
+
+@pytest.fixture(scope="function")
+def note_service(mock_note_repository):
+    """Create a note service instance with mocked repository."""
+    return NoteService(mock_note_repository)
+
+
+@pytest.fixture(scope="function")
+def sample_note(test_db_session, sample_user):
+    """Create a sample note for testing."""
+    note = Note(
+        user_id=sample_user.id,
+        content="Test Note Content",
+        attachment_url=None,
+        attachment_type=None,
+    )
+    test_db_session.add(note)
+    test_db_session.commit()
+    test_db_session.refresh(note)
+    return note
+
+
+@pytest.fixture
+def mock_db():
+    return Mock(spec=Session)
+
+
+@pytest.fixture
+def mock_user():
+    return Mock(id="test-user-id")

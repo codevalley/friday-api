@@ -1,6 +1,6 @@
 from pydantic import BaseModel, Field, ConfigDict
 from datetime import datetime
-from typing import Optional
+from typing import Optional, List, Dict, Any
 from domain.note import NoteData
 from domain.values import AttachmentType
 
@@ -24,7 +24,7 @@ class NoteBase(BaseModel):
     )
 
 
-class NoteCreate(NoteBase):
+class NoteCreate(BaseModel):
     """Schema for creating a new note."""
 
     content: str = Field(
@@ -32,27 +32,23 @@ class NoteCreate(NoteBase):
     )
     activity_id: Optional[int] = None
     moment_id: Optional[int] = None
-    attachment_url: Optional[str] = None
-    attachment_type: Optional[AttachmentType] = None
+    attachments: Optional[List[Dict[str, Any]]] = None
 
     def to_domain(self, user_id: str) -> NoteData:
-        """Convert to domain model."""
+        """Convert to domain model.
+
+        Args:
+            user_id: ID of the user creating the note
+
+        Returns:
+            NoteData instance with validated data
+        """
         return NoteData(
             content=self.content,
             user_id=user_id,
             activity_id=self.activity_id,
             moment_id=self.moment_id,
-            attachments=(
-                [
-                    {
-                        "url": self.attachment_url,
-                        "type": self.attachment_type,
-                    }
-                ]
-                if self.attachment_url
-                and self.attachment_type
-                else None
-            ),
+            attachments=self.attachments,
         )
 
 
@@ -76,15 +72,14 @@ class NoteResponse(BaseModel):
     id: int
     content: str
     user_id: str
-    attachment_url: Optional[str] = None
-    attachment_type: Optional[AttachmentType] = None
+    activity_id: Optional[int] = None
+    moment_id: Optional[int] = None
+    attachments: Optional[List[Dict[str, Any]]] = None
     created_at: datetime
     updated_at: Optional[datetime] = None
 
     @classmethod
-    def from_domain(
-        cls, domain: NoteData
-    ) -> "NoteResponse":
+    def from_domain(cls, domain: NoteData) -> "NoteResponse":
         """Create response from domain model.
 
         Args:
@@ -93,4 +88,13 @@ class NoteResponse(BaseModel):
         Returns:
             NoteResponse instance
         """
-        return cls(**domain.to_dict())
+        return cls(
+            id=domain.id,
+            content=domain.content,
+            user_id=domain.user_id,
+            activity_id=domain.activity_id,
+            moment_id=domain.moment_id,
+            attachments=domain.attachments,
+            created_at=domain.created_at,
+            updated_at=domain.updated_at,
+        )

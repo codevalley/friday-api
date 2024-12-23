@@ -98,7 +98,7 @@ class NoteService:
                 moment_id=domain_data.moment_id,
                 attachments=domain_data.attachments,
             )
-            return NoteResponse.model_validate(note)
+            return NoteResponse.from_orm(note)
         except (
             NoteValidationError,
             NoteContentError,
