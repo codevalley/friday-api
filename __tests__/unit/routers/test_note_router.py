@@ -47,7 +47,9 @@ def test_app(mock_note_service, test_user):
         return test_user
 
     app.dependency_overrides[NoteService] = get_note_service
-    app.dependency_overrides[get_current_user] = mock_current_user
+    app.dependency_overrides[get_current_user] = (
+        mock_current_user
+    )
     return app
 
 
@@ -57,19 +59,23 @@ def test_client(test_app):
     return TestClient(test_app)
 
 
-def test_create_note(test_client, mock_note_service, test_user):
+def test_create_note(
+    test_client, mock_note_service, test_user
+):
     """Test creating a note."""
     # Setup mock
     created_at = datetime.utcnow()
-    mock_note_service.create_note.return_value = NoteResponse(
-        id=1,
-        content="Test Note",
-        user_id=test_user.id,
-        created_at=created_at,
-        updated_at=None,
-        attachment_url=None,
-        attachment_type=None,
-        attachments=None,
+    mock_note_service.create_note.return_value = (
+        NoteResponse(
+            id=1,
+            content="Test Note",
+            user_id=test_user.id,
+            created_at=created_at,
+            updated_at=None,
+            attachment_url=None,
+            attachment_type=None,
+            attachments=None,
+        )
     )
 
     # Create note
@@ -87,22 +93,28 @@ def test_create_note(test_client, mock_note_service, test_user):
     assert data["user_id"] == test_user.id
 
 
-def test_create_note_with_attachment(test_client, mock_note_service):
+def test_create_note_with_attachment(
+    test_client, mock_note_service
+):
     """Test creating a note with attachment."""
     # Setup mock
     created_at = datetime.utcnow()
-    mock_note_service.create_note.return_value = NoteResponse(
-        id=1,
-        content="Test Note",
-        user_id="test-user-id",
-        created_at=created_at,
-        updated_at=None,
-        activity_id=None,
-        moment_id=None,
-        attachments=[{
-            "url": "https://example.com/photo.jpg",
-            "type": "image",
-        }],
+    mock_note_service.create_note.return_value = (
+        NoteResponse(
+            id=1,
+            content="Test Note",
+            user_id="test-user-id",
+            created_at=created_at,
+            updated_at=None,
+            activity_id=None,
+            moment_id=None,
+            attachments=[
+                {
+                    "url": "https://example.com/photo.jpg",
+                    "type": "image",
+                }
+            ],
+        )
     )
 
     # Create note
@@ -110,10 +122,12 @@ def test_create_note_with_attachment(test_client, mock_note_service):
         "/v1/notes",
         json={
             "content": "Test Note",
-            "attachments": [{
-                "url": "https://example.com/photo.jpg",
-                "type": "image",
-            }],
+            "attachments": [
+                {
+                    "url": "https://example.com/photo.jpg",
+                    "type": "image",
+                }
+            ],
         },
         headers={"Authorization": "Bearer test-token"},
     )
@@ -128,7 +142,9 @@ def test_create_note_with_attachment(test_client, mock_note_service):
     )
 
 
-def test_get_note(test_client, mock_note_service, test_user):
+def test_get_note(
+    test_client, mock_note_service, test_user
+):
     """Test getting a note."""
     # Setup mock
     created_at = datetime.utcnow()

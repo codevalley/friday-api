@@ -21,9 +21,7 @@ def test_note_initialization():
     note_with_attachment = Note(
         user_id="test-user-id",
         content="Test Note with Attachment",
-        attachment_url=(
-            "https://example.com/photo.jpg"
-        ),
+        attachment_url=("https://example.com/photo.jpg"),
         attachment_type=AttachmentType.IMAGE,
     )
     assert (
@@ -40,14 +38,14 @@ def test_note_initialization():
     )
 
 
-def test_note_database_persistence(test_db_session, sample_user):
+def test_note_database_persistence(
+    test_db_session, sample_user
+):
     """Test note persistence in database."""
     note = Note(
         user_id=sample_user.id,
         content="Test Note Content",
-        attachment_url=(
-            "https://example.com/doc.pdf"
-        ),
+        attachment_url=("https://example.com/doc.pdf"),
         attachment_type=AttachmentType.DOCUMENT,
     )
     test_db_session.add(note)

@@ -79,7 +79,9 @@ class NoteResponse(BaseModel):
     updated_at: Optional[datetime] = None
 
     @classmethod
-    def from_domain(cls, domain: NoteData) -> "NoteResponse":
+    def from_domain(
+        cls, domain: NoteData
+    ) -> "NoteResponse":
         """Create response from domain model.
 
         Args:

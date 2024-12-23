@@ -27,16 +27,23 @@ def test_create_note_with_attachment(
     note = repo.create(
         content="Test Note with Attachment",
         user_id=sample_user.id,
-        attachments=[{
-            "url": "https://example.com/photo.jpg",
-            "type": AttachmentType.IMAGE,
-        }],
+        attachments=[
+            {
+                "url": "https://example.com/photo.jpg",
+                "type": AttachmentType.IMAGE,
+            }
+        ],
     )
 
     assert note.id is not None
     assert note.content == "Test Note with Attachment"
-    assert note.attachments[0]["url"] == "https://example.com/photo.jpg"
-    assert note.attachments[0]["type"] == AttachmentType.IMAGE
+    assert (
+        note.attachments[0]["url"]
+        == "https://example.com/photo.jpg"
+    )
+    assert (
+        note.attachments[0]["type"] == AttachmentType.IMAGE
+    )
 
 
 def test_list_notes(test_db_session, sample_user):
@@ -73,9 +80,7 @@ def test_get_by_user(test_db_session, sample_user):
     assert found.id == note.id
 
     # Try to get note with wrong user
-    not_found = repo.get_by_user(
-        note.id, "wrong-user-id"
-    )
+    not_found = repo.get_by_user(note.id, "wrong-user-id")
     assert not_found is None
 
 
