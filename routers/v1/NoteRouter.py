@@ -20,7 +20,7 @@ from utils.error_handlers import handle_exceptions
 router = APIRouter(
     prefix="/v1/notes",
     tags=["notes"],
-    dependencies=[Depends(HTTPBearer())]
+    dependencies=[Depends(HTTPBearer())],
 )
 
 

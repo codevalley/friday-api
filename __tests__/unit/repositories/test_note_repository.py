@@ -68,7 +68,9 @@ def test_create_note_with_attachment(
 def test_list_notes(note_repository, mock_note):
     """Test listing notes."""
     # Setup mock data
-    note_repository.list_notes = Mock(return_value=[mock_note])
+    note_repository.list_notes = Mock(
+        return_value=[mock_note]
+    )
 
     # Call the method
     notes = note_repository.list_notes()

@@ -101,7 +101,9 @@ class NoteService:
 
             # Ensure note has required fields before conversion
             if note.id is None or note.created_at is None:
-                raise ValueError("Note missing required fields after creation")
+                raise ValueError(
+                    "Note missing required fields after creation"
+                )
 
             return NoteResponse.model_validate(note)
         except (
@@ -140,7 +142,8 @@ class NoteService:
         total = self.note_repo.count_user_notes(user_id)
         return {
             "items": [
-                NoteResponse.model_validate(i) for i in items
+                NoteResponse.model_validate(i)
+                for i in items
             ],
             "total": total,
             "page": page,
@@ -170,7 +173,9 @@ class NoteService:
 
         # Ensure updated note has required fields
         if updated.id is None or updated.created_at is None:
-            raise ValueError("Updated note missing required fields")
+            raise ValueError(
+                "Updated note missing required fields"
+            )
 
         return NoteResponse.model_validate(updated)
 

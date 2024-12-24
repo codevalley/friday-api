@@ -1,155 +1,79 @@
-# Active Development Backlog
+## LLM Integration Feature Backlog
 
-## 1. Note Domain Implementation ⏳
-**Goal**: Complete the Note domain model following clean architecture principles
+### Milestone 1: Core LLM Service Infrastructure
+**Goal**: Set up base LLM service structure and first implementation
 
-### Tasks:
-1. Create Note Domain Model
-```python
-# domain/note.py
-from datetime import datetime
-from typing import List, Optional
+1. Base Infrastructure
+   - [ ] Create LLMService interface with core methods
+   - [ ] Add LLM-specific error types in domain/exceptions.py
+   - [ ] Set up configuration management for LLM API keys
+   - [ ] Create basic retry mechanism for API calls
 
-class NoteValidationError(Exception):
-    def __init__(self, message: str, code: str = "NOTE_VALIDATION_ERROR"):
-        self.code = code
-        super().__init__(message)
+2. OpenAI Implementation
+   - [ ] Implement OpenAIService class
+   - [ ] Add unit tests with mocked responses
+   - [ ] Add integration tests with real API
+   - [ ] Implement rate limiting and token tracking
 
-class Note:
-    def __init__(
-        self, 
-        content: str,
-        user_id: str,
-        id: Optional[int] = None,
-        created_at: Optional[datetime] = None,
-        attachments: Optional[List[str]] = None
-    ):
-        self.id = id
-        self.content = content
-        self.user_id = user_id
-        self.created_at = created_at
-        self.attachments = attachments or []
-        self.validate()
+### Milestone 2: Note Processing Integration
+**Goal**: Integrate LLM processing into note creation flow
 
-    def validate(self) -> None:
-        if not self.content:
-            raise NoteValidationError("Content cannot be empty")
-        if not self.user_id:
-            raise NoteValidationError("User ID is required")
-```
+1. Domain Updates
+   - [ ] Add LLM processing status to NoteData
+   - [ ] Add validation rules for LLM processing
+   - [ ] Create LLMProcessingResult value object
 
-2. Update Repository Layer
-```python
-# repositories/NoteRepository.py
-from domain.note import Note
+2. Service Integration
+   - [ ] Update NoteService to use LLMService
+   - [ ] Add async processing capability
+   - [ ] Implement error handling and recovery
+   - [ ] Add unit tests for new functionality
 
-class NoteRepository:
-    def create(self, note: Note) -> Note:
-        orm_note = NoteModel(
-            content=note.content,
-            user_id=note.user_id,
-            attachments=note.attachments
-        )
-        self.db.add(orm_note)
-        self.db.commit()
-        return Note.from_orm(orm_note)
-```
+3. Repository Updates
+   - [ ] Add temporary status tracking for LLM processing
+   - [ ] Implement cleanup mechanism for old processing statuses
+   - [ ] Add indices for efficient status queries
 
-## 2. Repository Layer Refinement 🔄
+### Milestone 3: Entity Extraction
+**Goal**: Implement extraction and linking of moments/activities
 
-### Tasks:
-1. Create Base Repository Interface
-```python
-# repositories/base.py
-from typing import TypeVar, Generic, List
-from domain.base import DomainModel
+1. Core Extraction
+   - [ ] Implement moment extraction in LLMService
+   - [ ] Implement activity extraction in LLMService
+   - [ ] Add validation for extracted entities
+   - [ ] Create tests for extraction accuracy
 
-T = TypeVar('T', bound=DomainModel)
+2. Entity Linking
+   - [ ] Update MomentService to handle LLM-extracted moments
+   - [ ] Update ActivityService to handle LLM-extracted activities
+   - [ ] Implement entity deduplication
+   - [ ] Add tests for entity linking
 
-class BaseRepository(Generic[T]):
-    def get(self, id: int) -> T:
-        raise NotImplementedError
-    
-    def create(self, entity: T) -> T:
-        raise NotImplementedError
-```
+### Milestone 4: Infrastructure Hardening
+**Goal**: Make the system production-ready
 
-2. Update All Repositories to Return Domain Models
+1. Performance & Reliability
+   - [ ] Implement response caching
+   - [ ] Add circuit breaker for LLM API calls
+   - [ ] Set up monitoring for LLM API usage
+   - [ ] Add performance tracking metrics
 
-## 3. Service Layer Enhancement 🔄
+2. Cost Management
+   - [ ] Implement token usage tracking
+   - [ ] Add cost allocation logging
+   - [ ] Create usage reports
+   - [ ] Set up usage alerts
 
-### Tasks:
-1. Move HTTP Exception Handling to Routers
-```python
-# routers/v1/error_handlers.py
-from fastapi import Request, status
-from fastapi.responses import JSONResponse
-from domain.note import NoteValidationError
+### Testing Checklist for Each PR
+- [ ] Unit tests for new components
+- [ ] Integration tests with mocked LLM responses
+- [ ] Error handling verification
+- [ ] Performance impact assessment
+- [ ] Cost impact assessment
 
-async def note_validation_exception_handler(
-    request: Request, 
-    exc: NoteValidationError
-):
-    return JSONResponse(
-        status_code=status.HTTP_400_BAD_REQUEST,
-        content={"detail": str(exc), "code": exc.code}
-    )
-```
-
-2. Create Base Service Interface
-```python
-# services/base.py
-from typing import TypeVar, Generic
-from domain.base import DomainModel
-
-T = TypeVar('T', bound=DomainModel)
-
-class BaseService(Generic[T]):
-    def create(self, data: dict) -> T:
-        raise NotImplementedError
-```
-
-## 4. Validation Consolidation ⭕
-
-### Tasks:
-1. Create Central Validation Module
-```python
-# utils/validation/domain_validators.py
-from typing import Any, Type
-from domain.base import DomainModel
-
-def validate_domain_model(model_class: Type[DomainModel], data: dict) -> Any:
-    """Central validation point for domain models"""
-    instance = model_class(**data)
-    instance.validate()
-    return instance
-```
-
-## 5. Infrastructure Independence ⭕
-
-### Tasks:
-1. Create Database Abstraction Layer
-```python
-# infrastructure/database/interface.py
-from typing import Protocol, TypeVar
-
-T = TypeVar('T')
-
-class DatabaseInterface(Protocol):
-    def query(self, model: Type[T]) -> List[T]: ...
-    def save(self, instance: T) -> T: ...
-```
-
-## Implementation Priority:
-1. Complete Note Domain Model
-2. Update Repository Layer
-3. Move Exception Handling
-4. Implement Validation Consolidation
-5. Add Infrastructure Abstractions
-
-## Success Criteria:
-- All domain models are framework-independent
-- Repositories return domain models
-- HTTP exceptions handled only in routers
-- Single validation entry point
-- Clear separation between domain and infrastructure
+### Notes
+- LLM service is internal only, no public API endpoints needed
+- Processing status is temporary, no long-term storage in OLTP
+- Each milestone should be independently deployable
+- Focus on maintaining existing system stability
+- Keep changes backward compatible

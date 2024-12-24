@@ -11,7 +11,10 @@ from sqlalchemy.orm import Session
 from dependencies import get_current_user
 from orm.UserModel import User
 from routers.v1.NoteRouter import router as note_router
-from schemas.pydantic.NoteSchema import NoteCreate, NoteResponse
+from schemas.pydantic.NoteSchema import (
+    NoteCreate,
+    NoteResponse,
+)
 from services.NoteService import NoteService
 
 
@@ -19,7 +22,7 @@ from services.NoteService import NoteService
 def mock_note_service():
     """Create mock NoteService."""
     service = Mock(spec=NoteService)
-    
+
     # Mock the create_note method to return a proper response
     def mock_create_note(note_data, user_id):
         current_time = datetime.now(timezone.utc)
@@ -31,12 +34,14 @@ def mock_note_service():
             updated_at=None,
             activity_id=None,
             moment_id=None,
-            attachments=None
+            attachments=None,
         )
-    
+
     # Set up the mock methods
     service.create_note = Mock(side_effect=mock_create_note)
-    service.delete_note = Mock()  # Will be configured per test
+    service.delete_note = (
+        Mock()
+    )  # Will be configured per test
     return service
 
 
@@ -55,8 +60,7 @@ def mock_current_user():
 def mock_auth_credentials():
     """Create mock auth credentials."""
     return HTTPAuthorizationCredentials(
-        scheme="Bearer",
-        credentials="test-token"
+        scheme="Bearer", credentials="test-token"
     )
 
 
@@ -67,7 +71,7 @@ def valid_note_data():
         "content": "Test Note",
         "activity_id": None,
         "moment_id": None,
-        "attachments": None
+        "attachments": None,
     }
 
 
@@ -79,8 +83,12 @@ def app(mock_current_user, mock_note_service):
     async def mock_get_current_user():
         return mock_current_user
 
-    app.dependency_overrides[get_current_user] = mock_get_current_user
-    app.dependency_overrides[NoteService] = lambda: mock_note_service
+    app.dependency_overrides[get_current_user] = (
+        mock_get_current_user
+    )
+    app.dependency_overrides[NoteService] = (
+        lambda: mock_note_service
+    )
     app.include_router(note_router, prefix="/api")
     return app
 
@@ -127,7 +135,8 @@ class TestNoteRouter:
             "/api/v1/notes",
             json=valid_note_data,
             headers={
-                "Authorization": "Bearer " + mock_auth_credentials.credentials
+                "Authorization": "Bearer "
+                + mock_auth_credentials.credentials
             },
         )
 
@@ -137,8 +146,13 @@ class TestNoteRouter:
 
         # Verify response matches actual API format
         assert response_data["id"] == 1
-        assert response_data["content"] == valid_note_data["content"]
-        assert response_data["user_id"] == mock_current_user.id
+        assert (
+            response_data["content"]
+            == valid_note_data["content"]
+        )
+        assert (
+            response_data["user_id"] == mock_current_user.id
+        )
         assert response_data["activity_id"] is None
         assert response_data["moment_id"] is None
         assert response_data["attachments"] is None
@@ -166,12 +180,16 @@ class TestNoteRouter:
         response = client.delete(
             f"/api/v1/notes/{note_id}",
             headers={
-                "Authorization": "Bearer " + mock_auth_credentials.credentials
+                "Authorization": "Bearer "
+                + mock_auth_credentials.credentials
             },
         )
 
         assert response.status_code == 200
-        assert response.json()["message"] == "Note deleted successfully"
+        assert (
+            response.json()["message"]
+            == "Note deleted successfully"
+        )
         mock_note_service.delete_note.assert_called_once_with(
             note_id, mock_current_user.id
         )
@@ -186,25 +204,25 @@ class TestNoteRouter:
         """Test deleting a non-existent note."""
         note_id = 999
         error_message = "Note not found"
- 
+
         # Use the exact error message from the service
-        mock_note_service.delete_note.side_effect = HTTPException(
-            status_code=404,
-            detail=error_message
+        mock_note_service.delete_note.side_effect = (
+            HTTPException(
+                status_code=404, detail=error_message
+            )
         )
 
         response = client.delete(
             f"/api/v1/notes/{note_id}",
             headers={
-                "Authorization": "Bearer " + mock_auth_credentials.credentials
+                "Authorization": "Bearer "
+                + mock_auth_credentials.credentials
             },
         )
 
         assert response.status_code == 404
         # Split assertion to fix line length
-        assert (
-            response.json()["detail"] == error_message
-        )
+        assert response.json()["detail"] == error_message
         mock_note_service.delete_note.assert_called_once_with(
             note_id, mock_current_user.id
         )

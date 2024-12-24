@@ -104,6 +104,7 @@ class NoteResponse(BaseModel):
 
 class NoteList(BaseModel):
     """Schema for list of notes."""
+
     items: List[NoteResponse]
     total: int
     page: Optional[int] = 1

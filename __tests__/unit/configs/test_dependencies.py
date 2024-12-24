@@ -31,55 +31,84 @@ async def test_get_current_user_valid(
 ):
     """Test getting current user with valid token."""
     with patch("dependencies.verify_token") as mock_verify:
-        with patch("dependencies.UserRepository") as mock_repo:
+        with patch(
+            "dependencies.UserRepository"
+        ) as mock_repo:
             mock_verify.return_value = "test_user_id"
-            mock_repo.return_value.get_by_id.return_value = mock_user
+            mock_repo.return_value.get_by_id.return_value = (
+                mock_user
+            )
 
-            user = await get_current_user(mock_credentials, mock_db)
+            user = await get_current_user(
+                mock_credentials, mock_db
+            )
 
             assert user == mock_user
-            mock_verify.assert_called_once_with("valid_token")
-            mock_repo.return_value.get_by_id\
-                .assert_called_once_with("test_user_id")
+            mock_verify.assert_called_once_with(
+                "valid_token"
+            )
+            mock_repo.return_value.get_by_id.assert_called_once_with(
+                "test_user_id"
+            )
 
 
 @pytest.mark.asyncio
-async def test_get_current_user_invalid_token(mock_credentials, mock_db):
+async def test_get_current_user_invalid_token(
+    mock_credentials, mock_db
+):
     """Test getting current user with invalid token."""
     with patch("dependencies.verify_token") as mock_verify:
         mock_verify.return_value = None
 
         with pytest.raises(HTTPException) as exc:
-            await get_current_user(mock_credentials, mock_db)
+            await get_current_user(
+                mock_credentials, mock_db
+            )
 
         assert exc.value.status_code == 401
         assert "Invalid token" in str(exc.value.detail)
 
 
 @pytest.mark.asyncio
-async def test_get_current_user_user_not_found(mock_credentials, mock_db):
+async def test_get_current_user_user_not_found(
+    mock_credentials, mock_db
+):
     """Test getting current user when user not found in DB."""
     with patch("dependencies.verify_token") as mock_verify:
-        with patch("dependencies.UserRepository") as mock_repo:
+        with patch(
+            "dependencies.UserRepository"
+        ) as mock_repo:
             mock_verify.return_value = "test_user_id"
-            mock_repo.return_value.get_by_id.return_value = None
+            mock_repo.return_value.get_by_id.return_value = (
+                None
+            )
 
             with pytest.raises(HTTPException) as exc:
-                await get_current_user(mock_credentials, mock_db)
+                await get_current_user(
+                    mock_credentials, mock_db
+                )
 
             assert exc.value.status_code == 401
             assert "User not found" in str(exc.value.detail)
 
 
 @pytest.mark.asyncio
-async def test_get_optional_user_valid(mock_credentials, mock_user, mock_db):
+async def test_get_optional_user_valid(
+    mock_credentials, mock_user, mock_db
+):
     """Test getting optional user with valid token."""
     with patch("dependencies.verify_token") as mock_verify:
-        with patch("dependencies.UserRepository") as mock_repo:
+        with patch(
+            "dependencies.UserRepository"
+        ) as mock_repo:
             mock_verify.return_value = "test_user_id"
-            mock_repo.return_value.get_by_id.return_value = mock_user
+            mock_repo.return_value.get_by_id.return_value = (
+                mock_user
+            )
 
-            user = await get_optional_user(mock_db, mock_credentials)
+            user = await get_optional_user(
+                mock_db, mock_credentials
+            )
 
             assert user == mock_user
 
@@ -92,36 +121,54 @@ async def test_get_optional_user_no_credentials(mock_db):
 
 
 @pytest.mark.asyncio
-async def test_get_optional_user_invalid_token(mock_credentials, mock_db):
+async def test_get_optional_user_invalid_token(
+    mock_credentials, mock_db
+):
     """Test getting optional user with invalid token."""
     with patch("dependencies.verify_token") as mock_verify:
         mock_verify.return_value = None
 
-        user = await get_optional_user(mock_db, mock_credentials)
+        user = await get_optional_user(
+            mock_db, mock_credentials
+        )
 
         assert user is None
 
 
 @pytest.mark.asyncio
-async def test_get_current_user_verify_token_error(mock_credentials, mock_db):
+async def test_get_current_user_verify_token_error(
+    mock_credentials, mock_db
+):
     """Test getting current user when token verification fails."""
     with patch("dependencies.verify_token") as mock_verify:
-        mock_verify.side_effect = Exception("Token verification failed")
+        mock_verify.side_effect = Exception(
+            "Token verification failed"
+        )
 
         with pytest.raises(HTTPException) as exc:
-            await get_current_user(mock_credentials, mock_db)
+            await get_current_user(
+                mock_credentials, mock_db
+            )
 
         assert exc.value.status_code == 401
-        assert "Token verification failed" in str(exc.value.detail)
+        assert "Token verification failed" in str(
+            exc.value.detail
+        )
 
 
 @pytest.mark.asyncio
-async def test_get_optional_user_verify_token_error(mock_credentials, mock_db):
+async def test_get_optional_user_verify_token_error(
+    mock_credentials, mock_db
+):
     """Test getting optional user when token verification fails."""
     with patch("dependencies.verify_token") as mock_verify:
-        mock_verify.side_effect = Exception("Token verification failed")
+        mock_verify.side_effect = Exception(
+            "Token verification failed"
+        )
 
-        user = await get_optional_user(mock_db, mock_credentials)
+        user = await get_optional_user(
+            mock_db, mock_credentials
+        )
         assert user is None
 
 
@@ -135,8 +182,11 @@ async def test_get_optional_user_db_error(
             "dependencies.UserRepository"
         ) as mock_repo:
             mock_verify.return_value = "test_user_id"
-            mock_repo.return_value.get_by_id.side_effect = \
+            mock_repo.return_value.get_by_id.side_effect = (
                 Exception("DB error")
+            )
 
-            user = await get_optional_user(mock_db, mock_credentials)
+            user = await get_optional_user(
+                mock_db, mock_credentials
+            )
             assert user is None

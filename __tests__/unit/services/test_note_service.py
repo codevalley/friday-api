@@ -26,7 +26,7 @@ def valid_note_data():
         "content": "Test Note",
         "activity_id": None,
         "moment_id": None,
-        "attachments": None
+        "attachments": None,
     }
 
 
@@ -75,7 +75,7 @@ class TestNoteService:
         mock_create = Mock()
         mock_create.side_effect = HTTPException(
             status_code=400,
-            detail="Note content cannot be empty"
+            detail="Note content cannot be empty",
         )
         note_service.note_repo.create = mock_create
 
@@ -160,9 +160,7 @@ class TestNoteService:
         result = note_service.delete_note(1, "test_user")
         assert result is True
 
-    def test_delete_note_unauthorized(
-        self, note_service
-    ):
+    def test_delete_note_unauthorized(self, note_service):
         """Test deleting note without authorization."""
         note_service.note_repo.get_by_user = Mock(
             return_value=None
