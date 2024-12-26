@@ -209,7 +209,7 @@ class Query:
         service = NoteService(get_db_from_context(info))
         result = service.get_note(note_id, user.id)
         if result:
-            return GQLNote(**result.dict())
+            return GQLNote.from_domain(result)
         return None
 
     @strawberry.field(
@@ -227,6 +227,6 @@ class Query:
         service = NoteService(get_db_from_context(info))
         result = service.list_notes(user.id, page, size)
         return [
-            GQLNote(**item.dict())
+            GQLNote.from_domain(item)
             for item in result["items"]
         ]

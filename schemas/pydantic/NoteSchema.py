@@ -2,7 +2,7 @@ from pydantic import BaseModel, Field, ConfigDict
 from datetime import datetime
 from typing import Optional, List, Dict, Any
 from domain.note import NoteData
-from domain.values import AttachmentType
+from domain.values import AttachmentType, ProcessingStatus
 
 
 class NoteBase(BaseModel):
@@ -21,6 +21,10 @@ class NoteBase(BaseModel):
     )
     attachment_type: Optional[AttachmentType] = Field(
         None, description="Type of the attachment"
+    )
+    processing_status: ProcessingStatus = Field(
+        default_factory=ProcessingStatus.default,
+        description="Processing status of the note",
     )
 
 
@@ -62,6 +66,9 @@ class NoteUpdate(BaseModel):
         None, max_length=500
     )
     attachment_type: Optional[AttachmentType] = None
+    processing_status: Optional[ProcessingStatus] = Field(
+        None, description="New processing status"
+    )
 
 
 class NoteResponse(BaseModel):

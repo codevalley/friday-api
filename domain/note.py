@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Optional, Dict, Any, List, TypeVar
 
@@ -8,6 +8,7 @@ from domain.exceptions import (
     NoteAttachmentError,
     NoteReferenceError,
 )
+from domain.values import ProcessingStatus
 
 T = TypeVar("T", bound="NoteData")
 
@@ -26,8 +27,15 @@ class NoteData:
     attachments: Optional[List[Dict[str, Any]]] = None
     moment_id: Optional[int] = None
     id: Optional[int] = None
-    created_at: Optional[datetime] = None
-    updated_at: Optional[datetime] = None
+    created_at: datetime = field(
+        default_factory=datetime.now
+    )
+    updated_at: datetime = field(
+        default_factory=datetime.now
+    )
+    processing_status: ProcessingStatus = field(
+        default_factory=ProcessingStatus.default
+    )
 
     def __post_init__(self) -> None:
         """Validate note data after initialization."""
@@ -148,4 +156,23 @@ class NoteData:
             "attachments": self.attachments,
             "created_at": self.created_at,
             "updated_at": self.updated_at,
+            "processing_status": self.processing_status,
         }
+
+    def update_content(self, new_content: str) -> None:
+        """Update note content and updated_at timestamp."""
+        self.content = new_content
+        self.updated_at = datetime.now()
+
+    def update_processing_status(
+        self, new_status: ProcessingStatus
+    ) -> None:
+        """Update processing status if transition is valid."""
+        if not self.processing_status.can_transition_to(
+            new_status
+        ):
+            raise ValueError(
+                f"Invalid transition: {self.processing_status} -> {new_status}"
+            )
+        self.processing_status = new_status
+        self.updated_at = datetime.now()

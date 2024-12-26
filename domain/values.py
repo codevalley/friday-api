@@ -257,3 +257,55 @@ class AttachmentType(str, Enum):
             if member.value.upper() == value.upper():
                 return member
         return None
+
+
+class ProcessingStatus(str, Enum):
+    """Status of Robo processing for a note."""
+
+    NOT_PROCESSED = "not_processed"
+    PENDING = "pending"
+    PROCESSING = "processing"
+    COMPLETED = "completed"
+    FAILED = "failed"
+    SKIPPED = "skipped"
+
+    @classmethod
+    def default(cls) -> "ProcessingStatus":
+        """Get the default processing status."""
+        return cls.NOT_PROCESSED
+
+    def is_terminal_state(self) -> bool:
+        """Check if this is a terminal state."""
+        return self in {
+            self.COMPLETED,
+            self.FAILED,
+            self.SKIPPED,
+        }
+
+    def can_transition_to(
+        self, new_status: "ProcessingStatus"
+    ) -> bool:
+        """Check if transition to new status is valid."""
+        valid_transitions = {
+            self.NOT_PROCESSED: {
+                self.PENDING,
+                self.SKIPPED,
+            },
+            self.PENDING: {
+                self.PROCESSING,
+                self.FAILED,
+                self.SKIPPED,
+            },
+            self.PROCESSING: {self.COMPLETED, self.FAILED},
+            # Terminal states can't transition
+            self.COMPLETED: set(),
+            self.FAILED: {
+                self.PENDING
+            },  # Allow retry from failed
+            self.SKIPPED: {
+                self.PENDING
+            },  # Allow processing of skipped notes
+        }
+        return new_status in valid_transitions.get(
+            self, set()
+        )

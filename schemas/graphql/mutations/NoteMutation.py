@@ -7,7 +7,7 @@ from schemas.pydantic.NoteSchema import (
     NoteUpdate,
 )
 from schemas.graphql.types.Note import Note as GQLNote
-from domain.values import AttachmentType
+from domain.values import AttachmentType, ProcessingStatus
 from configs.GraphQL import (
     get_user_from_context,
     get_db_from_context,
@@ -21,6 +21,9 @@ class NoteInput:
     content: str
     attachment_url: Optional[str] = None
     attachment_type: Optional[AttachmentType] = None
+    processing_status: ProcessingStatus = (
+        ProcessingStatus.default()
+    )
 
 
 @strawberry.input
@@ -28,6 +31,7 @@ class NoteUpdateInput:
     content: Optional[str] = None
     attachment_url: Optional[str] = None
     attachment_type: Optional[AttachmentType] = None
+    processing_status: Optional[ProcessingStatus] = None
 
 
 @strawberry.type
@@ -50,6 +54,7 @@ class NoteMutation:
             moment_id=note.moment_id,
             attachment_url=note.attachment_url,
             attachment_type=note.attachment_type,
+            processing_status=note.processing_status,
         )
         result = service.create_note(note_data, user.id)
         return GQLNote.from_domain(result)
@@ -72,7 +77,7 @@ class NoteMutation:
         result = service.update_note(
             note_id, user.id, update_obj
         )
-        return GQLNote(**result.dict())
+        return GQLNote.from_domain(result)
 
     @strawberry.mutation
     def delete_note(self, info: Info, note_id: int) -> bool:

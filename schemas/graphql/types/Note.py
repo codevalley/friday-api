@@ -1,6 +1,6 @@
 from datetime import datetime
 from typing import Optional
-from domain.values import AttachmentType
+from domain.values import AttachmentType, ProcessingStatus
 import strawberry
 
 
@@ -43,6 +43,11 @@ class Note:
         """When the note was last updated."""
         return self._updated_at
 
+    @strawberry.field
+    def processing_status(self) -> ProcessingStatus:
+        """Status of Robo processing for the note."""
+        return self._processing_status
+
     def __init__(
         self,
         id: int,
@@ -52,6 +57,7 @@ class Note:
         attachment_url: Optional[str] = None,
         attachment_type: Optional[AttachmentType] = None,
         updated_at: Optional[datetime] = None,
+        processing_status: ProcessingStatus = ProcessingStatus.default(),
     ):
         self._id = id
         self._content = content
@@ -60,3 +66,4 @@ class Note:
         self._attachment_type = attachment_type
         self._created_at = created_at
         self._updated_at = updated_at
+        self._processing_status = processing_status

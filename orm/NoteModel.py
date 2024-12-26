@@ -13,7 +13,7 @@ from typing import Optional, List, Dict, Any
 from orm.BaseModel import EntityMeta
 from orm.UserModel import User
 from domain.note import NoteData
-from domain.values import AttachmentType
+from domain.values import AttachmentType, ProcessingStatus
 from orm.types import JSONType
 
 
@@ -35,6 +35,7 @@ class Note(EntityMeta):
         created_at: Timestamp when the note was created
         updated_at: Timestamp when the note was last updated
         owner: Relationship to the User model
+        processing_status: Processing status of the note
     """
 
     __tablename__ = "notes"
@@ -98,6 +99,14 @@ class Note(EntityMeta):
         ),
     )
 
+    # Processing status
+    processing_status: Mapped[ProcessingStatus] = Column(
+        SQLEnum(ProcessingStatus),
+        nullable=False,
+        default=ProcessingStatus.default,
+        server_default=ProcessingStatus.default().value,
+    )
+
     def to_domain(self) -> NoteData:
         """Convert ORM model to domain model.
 
@@ -113,6 +122,7 @@ class Note(EntityMeta):
             attachments=self.attachments,
             created_at=self.created_at,
             updated_at=self.updated_at,
+            processing_status=self.processing_status,
         )
 
     @classmethod
@@ -134,6 +144,7 @@ class Note(EntityMeta):
             attachments=domain.attachments,
             created_at=domain.created_at,
             updated_at=domain.updated_at,
+            processing_status=domain.processing_status,
         )
 
     def __repr__(self) -> str:

@@ -69,6 +69,16 @@ CREATE TABLE IF NOT EXISTS notes (
     attachment_type ENUM('IMAGE', 'DOCUMENT', 'LINK') NULL,  -- Updated enum values
     attachments JSON NULL,  -- New column for structured attachments
 
+    -- Processing status
+    processing_status ENUM(
+        'not_processed',
+        'pending',
+        'processing',
+        'completed',
+        'failed',
+        'skipped'
+    ) NOT NULL DEFAULT 'not_processed',
+
     -- Timestamps
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
