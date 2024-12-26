@@ -217,3 +217,43 @@ class NoteReferenceError(NoteValidationError):
         super().__init__(
             message, code="NOTE_REFERENCE_ERROR"
         )
+
+
+class RoboError(Exception):
+    """Base exception for all Robo-related errors."""
+
+    pass
+
+
+class RoboAPIError(RoboError):
+    """Raised when there's an error communicating with the Robo API."""
+
+    def __init__(
+        self, message: str, status_code: int = None
+    ):
+        self.status_code = status_code
+        super().__init__(message)
+
+
+class RoboRateLimitError(RoboAPIError):
+    """Raised when API rate limits are exceeded."""
+
+    pass
+
+
+class RoboConfigError(RoboError):
+    """Raised when there's an error with Robo configuration."""
+
+    pass
+
+
+class RoboProcessingError(RoboError):
+    """Raised when there's an error processing content through Robo."""
+
+    pass
+
+
+class RoboValidationError(RoboError):
+    """Raised when there's an error validating Robo inputs or outputs."""
+
+    pass

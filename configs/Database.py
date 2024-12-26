@@ -20,8 +20,8 @@ env = get_environment_variables()
 
 # Construct Database URL from environment variables
 DATABASE_URL = (
-    f"{env.DATABASE_DIALECT}://"
-    f"{env.DATABASE_USERNAME}:{env.DATABASE_PASSWORD}"
+    f"{env.DATABASE_DIALECT}{env.DATABASE_DRIVER}"
+    f"://{env.DATABASE_USERNAME}:{env.DATABASE_PASSWORD}"
     f"@{env.DATABASE_HOSTNAME}:{env.DATABASE_PORT}"
     f"/{env.DATABASE_NAME}"
 )

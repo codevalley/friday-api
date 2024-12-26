@@ -1,13 +1,13 @@
-## LLM Integration Feature Backlog
+## Robo Integration Feature Backlog
 
-### Milestone 1: Core LLM Service Infrastructure
-**Goal**: Set up base LLM service structure and first implementation
+### Milestone 1: Core Robo Service Infrastructure
+**Goal**: Set up base Robo service structure and first implementation
 
 1. Base Infrastructure
-   - [ ] Create LLMService interface with core methods
-   - [ ] Add LLM-specific error types in domain/exceptions.py
-   - [ ] Set up configuration management for LLM API keys
-   - [ ] Create basic retry mechanism for API calls
+   - [x] Create RoboService interface with core methods
+   - [x] Add Robo-specific error types in domain/exceptions.py
+   - [x] Set up configuration management for Robo API keys
+   - [x] Create basic retry mechanism for API calls
 
 2. OpenAI Implementation
    - [ ] Implement OpenAIService class
@@ -16,21 +16,21 @@
    - [ ] Implement rate limiting and token tracking
 
 ### Milestone 2: Note Processing Integration
-**Goal**: Integrate LLM processing into note creation flow
+**Goal**: Integrate Robo processing into note creation flow
 
 1. Domain Updates
-   - [ ] Add LLM processing status to NoteData
-   - [ ] Add validation rules for LLM processing
-   - [ ] Create LLMProcessingResult value object
+   - [ ] Add Robo processing status to NoteData
+   - [ ] Add validation rules for Robo processing
+   - [ ] Create RoboProcessingResult value object
 
 2. Service Integration
-   - [ ] Update NoteService to use LLMService
+   - [ ] Update NoteService to use RoboService
    - [ ] Add async processing capability
    - [ ] Implement error handling and recovery
    - [ ] Add unit tests for new functionality
 
 3. Repository Updates
-   - [ ] Add temporary status tracking for LLM processing
+   - [ ] Add temporary status tracking for Robo processing
    - [ ] Implement cleanup mechanism for old processing statuses
    - [ ] Add indices for efficient status queries
 
@@ -38,14 +38,14 @@
 **Goal**: Implement extraction and linking of moments/activities
 
 1. Core Extraction
-   - [ ] Implement moment extraction in LLMService
-   - [ ] Implement activity extraction in LLMService
+   - [ ] Implement moment extraction in RoboService
+   - [ ] Implement activity extraction in RoboService
    - [ ] Add validation for extracted entities
    - [ ] Create tests for extraction accuracy
 
 2. Entity Linking
-   - [ ] Update MomentService to handle LLM-extracted moments
-   - [ ] Update ActivityService to handle LLM-extracted activities
+   - [ ] Update MomentService to handle Robo-extracted moments
+   - [ ] Update ActivityService to handle Robo-extracted activities
    - [ ] Implement entity deduplication
    - [ ] Add tests for entity linking
 
@@ -54,8 +54,8 @@
 
 1. Performance & Reliability
    - [ ] Implement response caching
-   - [ ] Add circuit breaker for LLM API calls
-   - [ ] Set up monitoring for LLM API usage
+   - [ ] Add circuit breaker for Robo API calls
+   - [ ] Set up monitoring for Robo API usage
    - [ ] Add performance tracking metrics
 
 2. Cost Management
@@ -66,13 +66,13 @@
 
 ### Testing Checklist for Each PR
 - [ ] Unit tests for new components
-- [ ] Integration tests with mocked LLM responses
+- [ ] Integration tests with mocked Robo responses
 - [ ] Error handling verification
 - [ ] Performance impact assessment
 - [ ] Cost impact assessment
 
 ### Notes
-- LLM service is internal only, no public API endpoints needed
+- Robo service is internal only, no public API endpoints needed
 - Processing status is temporary, no long-term storage in OLTP
 - Each milestone should be independently deployable
 - Focus on maintaining existing system stability

@@ -1,20 +1,24 @@
 """Test configuration and fixtures."""
 
 import asyncio
-import os
 import sys
 import uuid
+import warnings
+import pytest
+
+# Standard library imports
 from datetime import datetime, timezone
 from typing import Generator
 from unittest.mock import Mock
 
-import pytest
+# Third-party imports
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, Session
-import warnings
 
+# Local imports
 from configs.Database import get_db_connection
+from configs.Environment import get_environment_variables
 from configs.Logging import configure_logging
 from main import app
 from orm.ActivityModel import Activity
@@ -26,17 +30,27 @@ from repositories.NoteRepository import NoteRepository
 from services.NoteService import NoteService
 from utils.security import hash_user_secret
 
+# Set test environment before any imports
+import os
+
+os.environ["ENV"] = "test"
+
+
 # Add project root to Python path
 project_root = os.path.dirname(
     os.path.dirname(os.path.abspath(__file__))
 )
 sys.path.insert(0, project_root)
 
-# Use test MySQL database
+# Get environment variables
+env = get_environment_variables()
+
+# Construct test database URL from environment variables
 TEST_SQLALCHEMY_DATABASE_URL = (
-    "mysql+pymysql://"
-    "root:1234567890@localhost:3306/"
-    "test_fridaystore"
+    f"{env.DATABASE_DIALECT}{env.DATABASE_DRIVER}"
+    f"://{env.DATABASE_USERNAME}:{env.DATABASE_PASSWORD}"
+    f"@{env.DATABASE_HOSTNAME}:{env.DATABASE_PORT}"
+    f"/{env.DATABASE_NAME}"
 )
 
 
