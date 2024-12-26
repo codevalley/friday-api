@@ -6,15 +6,15 @@ Below is a **step-by-step** guide on how to introduce a **new entity** into this
 
 Here’s the **typical flow** when adding a brand-new entity (for illustration, let’s call it `Task`—imagine a simple “task” that a user can create and mark as done, with optional notes or something like that). The same steps apply to any new entity:
 
-1. **Domain Layer** (`domain/Task.py`, plus maybe `domain/exceptions.py` updates):  
+1. **Domain Layer** (`domain/Task.py`, plus maybe `domain/exceptions.py` updates):
    - Create a domain model `TaskData` or similarly named.
    - Implement validations, domain logic, specialized domain exceptions if needed.
-2. **Repository Layer** (`repositories/TaskRepository.py`):  
+2. **Repository Layer** (`repositories/TaskRepository.py`):
    - Create an ORM model `Task` in `orm/TaskModel.py` (or if you want a separate file).
    - Then create `TaskRepository` to handle DB queries/CRUD for `Task`.
-3. **Service Layer** (`services/TaskService.py`):  
+3. **Service Layer** (`services/TaskService.py`):
    - Create a `TaskService` that orchestrates domain logic + repository calls + error handling, and optionally transforms domain exceptions into `HTTPException`.
-4. **Router Layer** (`routers/v1/TaskRouter.py`):  
+4. **Router Layer** (`routers/v1/TaskRouter.py`):
    - Create a new FastAPI router with endpoints for creating, retrieving, listing, updating, deleting tasks (whatever is needed).
    - Optionally add `GraphQL` types/mutations if you also support GraphQL.
 
@@ -42,7 +42,7 @@ from domain.exceptions import TaskValidationError
 @dataclass
 class TaskData:
     """Domain model for Task.
-    
+
     Represents a single user task with optional notes and statuses.
     """
 
@@ -550,25 +550,25 @@ def test_create_task_success(client):
 
 ## 8. Summarized Steps
 
-1. **Domain**  
-   - Add `TaskData` in `domain/task.py` with your business logic.  
-   - Add domain exceptions if needed.  
-2. **ORM & Repository**  
-   - In `orm/TaskModel.py`, define the SQLAlchemy `Task` model.  
-   - In `repositories/TaskRepository.py`, define `TaskRepository` (subclass `BaseRepository`).  
-3. **Service**  
-   - In `services/TaskService.py`, define a `TaskService` class that uses your `TaskRepository`.  
-   - Perform domain validation, handle domain exceptions, raise `HTTPException` if needed.  
-4. **Router**  
-   - In `routers/v1/TaskRouter.py`, create endpoints (POST, GET, etc.).  
-   - They call the `TaskService` methods.  
-5. **Pydantic Schemas**  
-   - In `schemas/pydantic/TaskSchema.py`, define `TaskCreate`, `TaskUpdate`, and `TaskResponse` (with `.to_domain()` and `.from_orm()`).  
-6. **Tests**  
-   - Domain tests: `test_task_data.py`  
-   - Repository tests: `test_task_repository.py`  
-   - Service tests: `test_task_service.py`  
-   - Router tests: `test_task_router.py`  
+1. **Domain**
+   - Add `TaskData` in `domain/task.py` with your business logic.
+   - Add domain exceptions if needed.
+2. **ORM & Repository**
+   - In `orm/TaskModel.py`, define the SQLAlchemy `Task` model.
+   - In `repositories/TaskRepository.py`, define `TaskRepository` (subclass `BaseRepository`).
+3. **Service**
+   - In `services/TaskService.py`, define a `TaskService` class that uses your `TaskRepository`.
+   - Perform domain validation, handle domain exceptions, raise `HTTPException` if needed.
+4. **Router**
+   - In `routers/v1/TaskRouter.py`, create endpoints (POST, GET, etc.).
+   - They call the `TaskService` methods.
+5. **Pydantic Schemas**
+   - In `schemas/pydantic/TaskSchema.py`, define `TaskCreate`, `TaskUpdate`, and `TaskResponse` (with `.to_domain()` and `.from_orm()`).
+6. **Tests**
+   - Domain tests: `test_task_data.py`
+   - Repository tests: `test_task_repository.py`
+   - Service tests: `test_task_service.py`
+   - Router tests: `test_task_router.py`
 
 That’s it! Following these steps keeps your approach consistent with existing entities (`Note`, `Moment`, `Activity`), ensuring each new entity flows through **domain** → **repository** → **service** → **router** with separate Pydantic schemas for input/output.
 
@@ -576,32 +576,32 @@ That’s it! Following these steps keeps your approach consistent with existing 
 
 ## Key Philosophy & Guiding Principles
 
-1. **Strict Layer Separation**  
+1. **Strict Layer Separation**
    Each of the four layers—**Domain**, **Repository**, **Service**, **Router**—should remain independent in terms of functionality:
-   - **Domain**: Business logic, validation rules, domain-specific exceptions. **No** HTTP or DB code. 
-   - **Repository**: Strictly data access (SQLAlchemy or other). **No** domain logic or HTTP concerns. 
-   - **Service**: Coordination logic. Catches domain exceptions, re-raises as `HTTPException`. Orchestrates domain + repository calls. 
-   - **Router**: HTTP endpoints or GraphQL resolvers. Minimal logic: pass inputs to the service, return service results.  
+   - **Domain**: Business logic, validation rules, domain-specific exceptions. **No** HTTP or DB code.
+   - **Repository**: Strictly data access (SQLAlchemy or other). **No** domain logic or HTTP concerns.
+   - **Service**: Coordination logic. Catches domain exceptions, re-raises as `HTTPException`. Orchestrates domain + repository calls.
+   - **Router**: HTTP endpoints or GraphQL resolvers. Minimal logic: pass inputs to the service, return service results.
 
    **Why**: Each layer has a single responsibility, reducing coupling and making it easier to change or test each piece independently.
 
-2. **Domain Models Are the Single Source of Truth**  
-   The `domain/` classes define how entities (Activity, Moment, Note, Task, etc.) behave. They own the business rules. The Pydantic or GraphQL schemas exist to translate “external data” to or from your domain.  
+2. **Domain Models Are the Single Source of Truth**
+   The `domain/` classes define how entities (Activity, Moment, Note, Task, etc.) behave. They own the business rules. The Pydantic or GraphQL schemas exist to translate “external data” to or from your domain.
 
    **Why**: This ensures your domain logic doesn’t get scattered in multiple places. The domain stays consistent even if you add new transport layers (like another API or a different UI).
 
-3. **Pydantic Schemas for I/O, Not for Business Logic**  
-   Pydantic schemas in `schemas/pydantic/` exist to handle request validation, shaping the data for domain usage. They do not contain advanced domain rules. 
+3. **Pydantic Schemas for I/O, Not for Business Logic**
+   Pydantic schemas in `schemas/pydantic/` exist to handle request validation, shaping the data for domain usage. They do not contain advanced domain rules.
 
    **Why**: This approach clarifies the difference between “request validation” and “deeper business constraints” in the domain.
 
-4. **Service as an Application Facade**  
-   Services are “HTTP-aware” but domain-agnostic. They handle domain exceptions (like `ActivityValidationError`) and raise `HTTPException` if needed. They also orchestrate multiple repositories if needed.  
+4. **Service as an Application Facade**
+   Services are “HTTP-aware” but domain-agnostic. They handle domain exceptions (like `ActivityValidationError`) and raise `HTTPException` if needed. They also orchestrate multiple repositories if needed.
 
    **Why**: This structure keeps your domain pure while providing a clean interface for the router.
 
-5. **Repository Just for Data Persistence**  
-   Each repository does CRUD queries and minor filtering or pagination. Avoid placing domain logic or complex business rules in the repository.  
+5. **Repository Just for Data Persistence**
+   Each repository does CRUD queries and minor filtering or pagination. Avoid placing domain logic or complex business rules in the repository.
 
    **Why**: Minimizes duplication and ensures your logic stays in the domain/services.
 
@@ -609,68 +609,68 @@ That’s it! Following these steps keeps your approach consistent with existing 
 
 ## Pitfalls to Avoid
 
-1. **Leaking Domain Concerns into Other Layers**  
-   - **Domain** must not import or raise `fastapi.HTTPException`.  
-   - **Repository** should not know about domain `ValidationError` or business rules. 
-   - **Service** might do domain logic if it duplicates code that already exists in the domain—avoid that.  
+1. **Leaking Domain Concerns into Other Layers**
+   - **Domain** must not import or raise `fastapi.HTTPException`.
+   - **Repository** should not know about domain `ValidationError` or business rules.
+   - **Service** might do domain logic if it duplicates code that already exists in the domain—avoid that.
 
-2. **Partial Mocking in Router Tests**  
-   - If you only partially mock the service or DB, you can end up with DB constraints not being satisfied (foreign-key errors, missing IDs).  
-   - Either use a **fully mocked** approach (where the service returns “fake” fully-populated objects) or a **fully real** approach (use the test DB).  
+2. **Partial Mocking in Router Tests**
+   - If you only partially mock the service or DB, you can end up with DB constraints not being satisfied (foreign-key errors, missing IDs).
+   - Either use a **fully mocked** approach (where the service returns “fake” fully-populated objects) or a **fully real** approach (use the test DB).
 
-3. **Inconsistent Error Handling**  
-   - If domain code sometimes raises domain exceptions and sometimes raises `HTTPException`, it can cause confusion.  
-   - Keep it consistent: domain → domain exceptions, service → `HTTPException`.  
+3. **Inconsistent Error Handling**
+   - If domain code sometimes raises domain exceptions and sometimes raises `HTTPException`, it can cause confusion.
+   - Keep it consistent: domain → domain exceptions, service → `HTTPException`.
 
-4. **Repository Bloat**  
-   - Repositories can balloon if we keep adding specialized queries. If you see repeated patterns, consider factoring them out or ensuring they truly belong at the repository level.  
+4. **Repository Bloat**
+   - Repositories can balloon if we keep adding specialized queries. If you see repeated patterns, consider factoring them out or ensuring they truly belong at the repository level.
 
-5. **Skipping Tests in One Layer**  
-   - Because each layer has distinct logic, skipping tests for domain or service can cause regressions.  
+5. **Skipping Tests in One Layer**
+   - Because each layer has distinct logic, skipping tests for domain or service can cause regressions.
    - Unit tests in domain, repository, service, and router are all important for coverage and confidence.
 
 ---
 
 ## Keeping Code Manageable & Scalable
 
-1. **Naming & Structure**  
-   - Consistent file naming (e.g. `TaskModel.py`, `TaskRepository.py`, `TaskService.py`, `TaskRouter.py`) helps new devs orient.  
+1. **Naming & Structure**
+   - Consistent file naming (e.g. `TaskModel.py`, `TaskRepository.py`, `TaskService.py`, `TaskRouter.py`) helps new devs orient.
    - Follow the same patterns for “create, get, list, update, delete” to keep the codebase uniform.
 
-2. **Use Common Patterns & Utilities**  
-   - If you have repeated logic (pagination, color validation, date constraints), centralize it in `utils/validation` or a shared library.  
+2. **Use Common Patterns & Utilities**
+   - If you have repeated logic (pagination, color validation, date constraints), centralize it in `utils/validation` or a shared library.
    - For pagination, keep the same approach (like `page` and `size` query params, `validate_pagination(page, size)` in the service, etc.).
 
-3. **Testing Strategy**  
-   - **Domain**: Unit test each new entity’s validation logic thoroughly.  
-   - **Repository**: Use a real test DB session to confirm constraints and foreign keys.  
-   - **Service**: Test real domain calls plus repository calls, or mock the repository if you prefer.  
+3. **Testing Strategy**
+   - **Domain**: Unit test each new entity’s validation logic thoroughly.
+   - **Repository**: Use a real test DB session to confirm constraints and foreign keys.
+   - **Service**: Test real domain calls plus repository calls, or mock the repository if you prefer.
    - **Router**: Perform integration-style tests with an actual DB session or a fully mocked service. Keep it consistent to avoid partial mocking pitfalls.
 
-4. **Incremental Evolution**  
-   - When you add new domain rules or fields, update the domain model first. Then adapt the repository, service, router layers.  
+4. **Incremental Evolution**
+   - When you add new domain rules or fields, update the domain model first. Then adapt the repository, service, router layers.
    - The separate tests at each layer help ensure each piece is still correct.
 
-5. **Use Domain Exceptions**  
-   - If a new domain rule requires a custom error, define it in `domain/exceptions.py`. The service can catch it and raise an HTTP 400 or 422 as appropriate.  
+5. **Use Domain Exceptions**
+   - If a new domain rule requires a custom error, define it in `domain/exceptions.py`. The service can catch it and raise an HTTP 400 or 422 as appropriate.
    - Consistent usage clarifies the difference between domain issues vs. repository failures.
 
-6. **Embrace the “Single Source of Truth”**  
-   - For each new feature, always ask: “Which domain entity is responsible for that rule or data?” Then implement it in that entity’s domain logic.  
-   - Resist putting the logic in the router or repository.  
+6. **Embrace the “Single Source of Truth”**
+   - For each new feature, always ask: “Which domain entity is responsible for that rule or data?” Then implement it in that entity’s domain logic.
+   - Resist putting the logic in the router or repository.
 
-7. **Refactoring is Easier with Separation**  
-   - Because each layer is clearly defined, if you later decide to switch from MySQL to Postgres, only your repository code changes.  
+7. **Refactoring is Easier with Separation**
+   - Because each layer is clearly defined, if you later decide to switch from MySQL to Postgres, only your repository code changes.
    - If you add a new transport mechanism (like a gRPC server or a new GraphQL field), you mostly only add new router/resolvers. The domain and service remain the same.
 
 ---
 
 ### Summarized Advice for New Features
 
-- **Add Domain**: Create the new entity’s domain model (`XYZData`), ensure all validations are there.  
-- **Add Repository**: Create the SQLAlchemy model (`XYZ`) and a repository class if needed.  
-- **Add Service**: Orchestrate domain logic + repository calls. Catch domain errors, raise `HTTPException` if needed.  
-- **Add Router**: Provide endpoints (`POST`, `GET`, etc.). Return appropriate Pydantic response schemas.  
+- **Add Domain**: Create the new entity’s domain model (`XYZData`), ensure all validations are there.
+- **Add Repository**: Create the SQLAlchemy model (`XYZ`) and a repository class if needed.
+- **Add Service**: Orchestrate domain logic + repository calls. Catch domain errors, raise `HTTPException` if needed.
+- **Add Router**: Provide endpoints (`POST`, `GET`, etc.). Return appropriate Pydantic response schemas.
 - **Add/Update Tests**: Domain tests, repository tests, service tests, router tests. Keep them consistent and don’t skip layers.
 
 By sticking to these guidelines, you ensure that each new feature (or entity) remains **easy to reason about**, **test**, and **extend**—keeping the overall codebase in good health.

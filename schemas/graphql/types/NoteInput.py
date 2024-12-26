@@ -14,11 +14,11 @@ class NoteInput:
         default=None,
         description="URL of the attachment if any",
     )
-    attachment_type: Optional[AttachmentType] = (
-        strawberry.field(
-            default=None,
-            description="Type of the attachment",
-        )
+    attachment_type: Optional[
+        AttachmentType
+    ] = strawberry.field(
+        default=None,
+        description="Type of the attachment",
     )
     activity_id: int = strawberry.field(
         description="ID of the associated activity"

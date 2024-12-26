@@ -63,9 +63,9 @@ class Note(EntityMeta):
     attachment_url: Mapped[Optional[str]] = Column(
         String(500), nullable=True
     )
-    attachment_type: Mapped[Optional[AttachmentType]] = (
-        Column(SQLEnum(AttachmentType), nullable=True)
-    )
+    attachment_type: Mapped[
+        Optional[AttachmentType]
+    ] = Column(SQLEnum(AttachmentType), nullable=True)
 
     # Timestamps
     created_at: Mapped[datetime] = Column(
@@ -81,9 +81,9 @@ class Note(EntityMeta):
     )
 
     # Add attachments column
-    attachments: Mapped[Optional[List[Dict[str, Any]]]] = (
-        Column(JSONType, nullable=True)
-    )
+    attachments: Mapped[
+        Optional[List[Dict[str, Any]]]
+    ] = Column(JSONType, nullable=True)
 
     # Table constraints
     __table_args__ = (

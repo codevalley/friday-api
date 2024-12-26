@@ -15,7 +15,7 @@ This guide provides conceptual code snippets and explanations.
 
 ### 1. Domain Layer
 
-**Entities/Value Objects**:  
+**Entities/Value Objects**:
 We have `Note`, `MomentData`, `ActivityData` as domain models. Each should encapsulate validation and no external references.
 
 ```python
@@ -77,8 +77,8 @@ class ActivityData:
 
 ### 2. Application Layer Interfaces
 
-**Repositories Interfaces**:  
-Define interfaces for data persistence.  
+**Repositories Interfaces**:
+Define interfaces for data persistence.
 ```python
 # application/ports/repositories.py
 from typing import Protocol, List, Optional
@@ -100,7 +100,7 @@ class ActivityRepository(Protocol):
     # ... other methods ...
 ```
 
-**LLM Service Interface**:  
+**LLM Service Interface**:
 This interface allows plugging in OpenAI, Claude, etc.
 ```python
 # application/ports/llm_service.py
@@ -114,7 +114,7 @@ class LLMService(Protocol):
         ...
 ```
 
-**Note Processing Service Interface**:  
+**Note Processing Service Interface**:
 This is where we orchestrate note analysis. The `NoteProcessingService` uses the `LLMService` to transform note content into domain objects.
 ```python
 # application/ports/note_processing_service.py
@@ -161,7 +161,7 @@ class NoteProcessingServiceImpl(NoteProcessingService):
         return moments, activities
 ```
 
-**NoteService** – The main use case: create a note and then extract entities.  
+**NoteService** – The main use case: create a note and then extract entities.
 ```python
 # application/services/note_service.py
 from domain.note import NoteData
@@ -171,9 +171,9 @@ from application.ports.repositories import NoteRepository, MomentRepository, Act
 from application.ports.note_processing_service import NoteProcessingService
 
 class NoteService:
-    def __init__(self, 
-                 note_repo: NoteRepository, 
-                 moment_repo: MomentRepository, 
+    def __init__(self,
+                 note_repo: NoteRepository,
+                 moment_repo: MomentRepository,
                  activity_repo: ActivityRepository,
                  note_processing_svc: NoteProcessingService):
         self.note_repo = note_repo
@@ -183,8 +183,8 @@ class NoteService:
 
     def create_note(self, user_id: str, content: str) -> NoteData:
         note = NoteData(
-            id=None, 
-            user_id=user_id, 
+            id=None,
+            user_id=user_id,
             content=content,
             created_at=datetime.utcnow(),
             updated_at=None
@@ -235,7 +235,7 @@ from sqlalchemy.orm import Session
 class NoteRepositoryImpl(NoteRepository):
     def __init__(self, db: Session):
         self.db = db
-    
+
     def create(self, note: NoteData) -> NoteData:
         orm = NoteORM(
             user_id=note.user_id,
@@ -268,7 +268,7 @@ from datetime import datetime
 class OpenAIService(LLMService):
     def __init__(self, openai_client):
         self.openai_client = openai_client
-    
+
     def analyze_note(self, note_content: str) -> (List[MomentData], List[ActivityData]):
         # call OpenAI API
         response = self.openai_client.analyze_text(note_content)
