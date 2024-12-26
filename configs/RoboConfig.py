@@ -34,6 +34,12 @@ class RoboSettings(BaseModel):
         le=2.0,
         description="Temperature parameter for response generation",
     )
+    max_tokens: int = Field(
+        default=150,
+        ge=1,
+        le=4096,
+        description="Maximum number of tokens to generate",
+    )
 
     def to_domain_config(self) -> RoboConfig:
         """Convert settings to domain RoboConfig object."""
@@ -46,6 +52,7 @@ class RoboSettings(BaseModel):
                     max_retries=self.max_retries,
                     timeout_seconds=self.timeout_seconds,
                     temperature=self.temperature,
+                    max_tokens=self.max_tokens,
                 )
             raise RoboConfigError(
                 "API key and model name are required in non-test environments"
@@ -57,6 +64,7 @@ class RoboSettings(BaseModel):
             max_retries=self.max_retries,
             timeout_seconds=self.timeout_seconds,
             temperature=self.temperature,
+            max_tokens=self.max_tokens,
         )
 
 
@@ -74,6 +82,7 @@ def get_robo_settings() -> RoboSettings:
             max_retries=env.ROBO_MAX_RETRIES,
             timeout_seconds=env.ROBO_TIMEOUT_SECONDS,
             temperature=env.ROBO_TEMPERATURE,
+            max_tokens=env.ROBO_MAX_TOKENS,
         )
     except Exception as e:
         raise RoboConfigError(

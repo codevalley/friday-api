@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import Optional, Dict, Any, List
-from datetime import datetime
+from datetime import datetime, UTC
 
 
 @dataclass
@@ -13,6 +13,7 @@ class RoboConfig:
     max_retries: int = 3
     timeout_seconds: int = 30
     temperature: float = 0.7
+    max_tokens: int = 150
 
 
 @dataclass
@@ -23,7 +24,7 @@ class RoboProcessingResult:
     metadata: Dict[str, Any]
     tokens_used: int
     model_name: str
-    created_at: datetime = datetime.utcnow()
+    created_at: datetime = datetime.now(UTC)
 
 
 class RoboService(ABC):

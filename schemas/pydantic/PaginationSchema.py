@@ -1,7 +1,12 @@
 """Base schema for pagination parameters and response."""
 
 from typing import Generic, TypeVar, List
-from pydantic import BaseModel, Field, field_validator
+from pydantic import (
+    BaseModel,
+    Field,
+    field_validator,
+    ConfigDict,
+)
 
 
 T = TypeVar("T")
@@ -52,7 +57,4 @@ class PaginationResponse(BaseModel, Generic[T]):
     )
     pages: int = Field(description="Total number of pages")
 
-    class Config:
-        """Pydantic config"""
-
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)

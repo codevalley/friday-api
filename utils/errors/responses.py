@@ -6,7 +6,7 @@ easier for API consumers.
 """
 
 from typing import Optional, Any, Dict, List
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 
 
 class ErrorDetail(BaseModel):
@@ -63,10 +63,8 @@ class ErrorResponse(BaseModel):
         description="Unique identifier for the request",
     )
 
-    class Config:
-        """Pydantic model configuration."""
-
-        json_schema_extra = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "status": 400,
                 "message": "Validation error",
@@ -81,3 +79,4 @@ class ErrorResponse(BaseModel):
                 "request_id": "req-123-456",
             }
         }
+    )

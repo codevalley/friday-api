@@ -68,28 +68,51 @@ def with_retry(
     ) -> Callable[..., T]:
         @wraps(func)
         async def wrapper(*args: Any, **kwargs: Any) -> T:
+            # Convert single exception types to tuples
+            exclude_types = (
+                (exclude_on,)
+                if isinstance(exclude_on, type)
+                else exclude_on
+            )
+            retry_types = (
+                (retry_on,)
+                if isinstance(retry_on, type)
+                else retry_on
+            )
+
             last_exception = None
 
-            for attempt in range(1, max_retries + 1):
+            for attempt in range(max_retries + 1):
                 try:
-                    return await func(*args, **kwargs)
-                except exclude_on:
-                    # Don't retry if exception is in exclude list
-                    raise
-                except retry_on as e:
-                    last_exception = e
-                    if attempt == max_retries:
-                        # Don't sleep on last attempt
-                        break
+                    result = await func(*args, **kwargs)
+                    return result
+                except Exception as e:
+                    # Check if exception should be excluded first
+                    if any(
+                        isinstance(e, exc_type)
+                        for exc_type in exclude_types
+                    ):
+                        raise
 
-                    # Calculate and apply backoff
-                    delay = calculate_backoff(attempt)
+                    # Check if exception should trigger retry
+                    if not any(
+                        isinstance(e, exc_type)
+                        for exc_type in retry_types
+                    ):
+                        raise
+
+                    last_exception = e
+
+                    # If this was the last attempt, raise the exception
+                    if attempt == max_retries:
+                        raise last_exception
+
+                    # Wait before retrying with exponential backoff
+                    delay = calculate_backoff(attempt + 1)
                     await asyncio.sleep(delay)
 
-            # If we get here, all retries failed
-            raise last_exception or RuntimeError(
-                "Retry failed for unknown reason"
-            )
+            # This should never be reached
+            raise RuntimeError("Unexpected retry state")
 
         return wrapper
 

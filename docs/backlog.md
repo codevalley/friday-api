@@ -10,10 +10,10 @@
    - [x] Create basic retry mechanism for API calls
 
 2. OpenAI Implementation
-   - [ ] Implement OpenAIService class
-   - [ ] Add unit tests with mocked responses
-   - [ ] Add integration tests with real API
-   - [ ] Implement rate limiting and token tracking
+   - [x] Implement OpenAIService class
+   - [x] Add unit tests with mocked responses
+   - [x] Add integration tests with real API
+   - [x] Implement rate limiting and token tracking
 
 ### Milestone 2: Note Processing Integration
 **Goal**: Integrate Robo processing into note creation flow

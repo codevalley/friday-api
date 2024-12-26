@@ -23,6 +23,7 @@ mysqlclient = "*"
 jsonschema = "*"
 httpx = "*"
 python-json-logger = "*"
+openai = "*"
 
 [dev-packages]
 pre-commit = ">=2.18.1"

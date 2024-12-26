@@ -1,13 +1,7 @@
 from functools import lru_cache
-import os
-
 from pydantic_settings import BaseSettings
-
-
-@lru_cache
-def get_env_filename():
-    runtime_env = os.getenv("ENV")
-    return f".env.{runtime_env}" if runtime_env else ".env"
+from pydantic import SecretStr, ConfigDict
+from utils.env import get_env_filename
 
 
 class EnvironmentSettings(BaseSettings):
@@ -28,18 +22,21 @@ class EnvironmentSettings(BaseSettings):
     DATABASE_USERNAME: str
 
     # Optional Robo Configuration
-    ROBO_API_KEY: str | None = None
+    ROBO_API_KEY: SecretStr | None = None
     ROBO_MODEL_NAME: str | None = None
     ROBO_MAX_RETRIES: int = 3
     ROBO_TIMEOUT_SECONDS: int = 30
     ROBO_TEMPERATURE: float = 0.7
+    ROBO_MAX_TOKENS: int = 150
 
-    class Config:
-        env_file = get_env_filename()
-        env_file_encoding = "utf-8"
-        extra = "allow"  # Allow extra fields in environment
+    model_config = ConfigDict(
+        env_file=get_env_filename(),
+        env_file_encoding="utf-8",
+        extra="allow",  # Allow extra fields in environment
+    )
 
 
 @lru_cache
-def get_environment_variables():
+def get_environment_variables() -> EnvironmentSettings:
+    """Get environment variables."""
     return EnvironmentSettings()
