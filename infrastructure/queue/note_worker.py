@@ -13,6 +13,9 @@ from repositories.NoteRepository import NoteRepository
 from services.RoboService import get_robo_service
 from utils.retry import calculate_backoff
 from configs.Database import SessionLocal
+from orm.NoteModel import Note  # noqa
+from orm.UserModel import User  # noqa
+from orm.ActivityModel import Activity  # noqa
 
 logger = logging.getLogger(__name__)
 

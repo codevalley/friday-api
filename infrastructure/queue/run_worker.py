@@ -5,7 +5,10 @@ import logging
 from rq import Worker, Queue, Connection
 
 from configs.Logging import configure_logging
-from configs.queue_dependencies import get_redis_connection
+from configs.queue_dependencies import (
+    get_redis_connection,
+    get_redis_config,
+)
 
 
 def run_worker():
@@ -23,12 +26,13 @@ def run_worker():
     logger.info("Starting note processing worker")
 
     try:
-        # Get Redis connection
+        # Get Redis connection and config
         redis_conn = get_redis_connection()
+        redis_config = get_redis_config()
 
         # Start worker
         with Connection(redis_conn):
-            queue = Queue("note_processing")
+            queue = Queue(redis_config.queue_name)
             worker = Worker([queue])
             logger.info(
                 f"Worker listening on queue: {queue.name}"

@@ -12,6 +12,15 @@ echo "Starting test flow at $(date)" > $LOG_FILE
 
 echo -e "${BLUE}Starting test flow...${NC}"
 
+# Initialize database
+echo -e "\n${BLUE}Initializing database...${NC}"
+mysql -u root -p$DATABASE_PASSWORD $DATABASE_NAME < scripts/init_database.sql
+if [ $? -ne 0 ]; then
+    echo -e "${RED}Failed to initialize database${NC}"
+    exit 1
+fi
+echo -e "${GREEN}Database initialized successfully${NC}"
+
 BASE_URL="http://localhost:8000/v1"
 
 # Function to extract value from JSON response

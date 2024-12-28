@@ -31,7 +31,7 @@ class RQNoteQueue(QueueService):
         """
         try:
             job = self.queue.enqueue(
-                "note_worker.process_note_job",
+                "infrastructure.queue.note_worker.process_note_job",
                 args=(note_id,),
                 job_timeout="10m",
                 result_ttl=24

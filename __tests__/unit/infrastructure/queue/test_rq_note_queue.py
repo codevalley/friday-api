@@ -44,7 +44,8 @@ def test_enqueue_note_success(queue_service):
     queue_service.queue.enqueue.assert_called_once()
     call_args = queue_service.queue.enqueue.call_args
     assert (
-        call_args.args[0] == "note_worker.process_note_job"
+        call_args.args[0]
+        == "infrastructure.queue.note_worker.process_note_job"
     )
     assert call_args.kwargs["args"] == (123,)
     assert call_args.kwargs["job_timeout"] == "10m"
