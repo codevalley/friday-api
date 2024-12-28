@@ -1,57 +1,42 @@
-## Technical Debt and Improvements Backlog
+# Technical Debt and Improvements
 
-### Configuration and Code Organization 🔧
-- [x] Resolve RedisConfig duplication
-  - ✓ Removed duplicate RedisConfig class from infrastructure/redis
-  - ✓ Consolidated into configs/redis/RedisConfig.py using Pydantic settings
-  - ✓ Updated all related imports and tests
-- [x] Consolidate database connection handling
-  - ✓ Moved all database connection logic to configs/Database.py
-  - ✓ Removed duplicate get_db_connection from db_dependencies.py
-  - ✓ Fixed database schema to match ORM models
-- [ ] Review and refactor OpenAIService
-  - Convert from async to sync for background worker compatibility
-  - Simplify worker thread processing flow
+## High Priority
 
-### Code Quality and Performance 📈
-- [ ] Optimize logging implementation
-  - Remove unnecessary debug logging statements
-  - Establish clear logging guidelines
-  - Define appropriate log levels for different scenarios
-- [ ] Remove magic strings
-  - Create constants/enums for commonly used strings
-  - Establish string constant organization strategy
-- [ ] Optimize validation layers
-  - Review validation duplication across domain/services/schemas
-  - Measure and optimize validation performance
-  - Consider caching validation results where appropriate
+- [x] Review and refactor OpenAIService
+  - [x] Convert from async to sync for background worker compatibility
+  - [x] Simplify RateLimiter implementation
+  - [x] Remove redundant async/sync method variants
+  - [x] Update all tests to match synchronous implementation
+    - [x] Update OpenAIService unit tests
+    - [x] Update RateLimiter unit tests
+    - [x] Update integration tests
+    - [x] Fix test edge cases and mock behaviors
 
-### Architecture and Patterns 🏗
-- [ ] Standardize exception handling
-  - Review current domain/app/HTTP exception pattern
-  - Consider implementing consistent domain->HTTP mapping
-  - Document exception handling guidelines
-- [ ] Optimize service layer error handling
-  - Review and reduce try/catch blocks
-  - Implement more focused error handling
-  - Consider using decorators for common error patterns
-- [ ] Clarify service vs domain responsibilities
-  - Review validation placement
-  - Document layer responsibilities
-  - Create clear boundaries between layers
+- [ ] Improve error handling and retry logic
+  - [ ] Add exponential backoff to retries
+  - [ ] Implement circuit breaker pattern
+  - [ ] Add detailed error logging
 
-### API and Repository Standardization 📚
-- [ ] Standardize repository method naming
-  - Create consistent naming conventions
-  - Refactor get_by_* methods
-  - Document repository method naming guidelines
+- [ ] Enhance monitoring and observability
+  - [ ] Add structured logging
+  - [ ] Implement metrics collection
+  - [ ] Create monitoring dashboard
 
-### Documentation Updates 📝
-- [ ] Update architecture documentation
-  - Document exception handling patterns
-  - Clarify layer responsibilities
-  - Add validation flow diagrams
-- [ ] Create coding standards guide
-  - Document naming conventions
-  - Define logging guidelines
-  - Establish error handling patterns
+## Medium Priority
+
+- [ ] Code organization and documentation
+  - [ ] Add comprehensive docstrings
+  - [ ] Create API documentation
+  - [ ] Improve code comments
+
+- [ ] Testing improvements
+  - [ ] Increase test coverage
+  - [ ] Add performance tests
+  - [ ] Add integration test suite
+
+## Low Priority
+
+- [ ] Development workflow improvements
+  - [ ] Add pre-commit hooks
+  - [ ] Automate version bumping
+  - [ ] Improve CI/CD pipeline

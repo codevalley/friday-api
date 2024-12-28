@@ -1,7 +1,9 @@
+"""OpenAI service for processing text."""
+
 import logging
 from datetime import datetime, UTC
 
-from openai import AsyncOpenAI
+from openai import OpenAI
 
 from domain.exceptions import (
     RoboAPIError,
@@ -34,7 +36,7 @@ class OpenAIService:
             )
 
         self.config = config
-        self.client = AsyncOpenAI(
+        self.client = OpenAI(
             api_key=config.api_key,
             timeout=config.timeout_seconds,
         )
@@ -52,7 +54,7 @@ class OpenAIService:
             RoboRateLimitError,
         ),
     )
-    async def process_text(
+    def process_text(
         self, content: str
     ) -> RoboProcessingResult:
         """Process text content using OpenAI's API."""
@@ -63,7 +65,7 @@ class OpenAIService:
             ) + 100  # Buffer for response
 
             # Wait for rate limit capacity
-            if not await self.rate_limiter.wait_for_capacity(
+            if not self.rate_limiter.wait_for_capacity(
                 estimated_tokens
             ):
                 raise RoboRateLimitError(
@@ -71,7 +73,7 @@ class OpenAIService:
                 )
 
             # Make the API call
-            response = await self.client.chat.completions.create(
+            response = self.client.chat.completions.create(
                 model=self.config.model_name,
                 messages=[
                     {
@@ -85,7 +87,7 @@ class OpenAIService:
             )
 
             # Record actual token usage
-            await self.rate_limiter.record_usage(
+            self.rate_limiter.record_usage(
                 datetime.fromtimestamp(
                     response.created, UTC
                 ),
@@ -132,10 +134,10 @@ class OpenAIService:
                     f"OpenAI API error: {str(e)}"
                 )
 
-    async def health_check(self) -> bool:
+    def health_check(self) -> bool:
         """Check if the OpenAI service is healthy."""
         try:
-            await self.process_text("test")
+            self.process_text("test")
             return True
         except Exception as e:
             logger.error(f"Health check failed: {str(e)}")

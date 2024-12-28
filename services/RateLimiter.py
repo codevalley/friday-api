@@ -1,9 +1,8 @@
-import asyncio
-import logging
-from datetime import datetime, timedelta, UTC
-from typing import Optional
+"""Rate limiter for API calls."""
 
-logger = logging.getLogger(__name__)
+import time
+from datetime import datetime, timedelta, UTC
+from typing import List, Tuple
 
 
 class RateLimiter:
@@ -11,139 +10,109 @@ class RateLimiter:
 
     def __init__(
         self,
-        requests_per_minute: int = 60,
-        tokens_per_minute: int = 90_000,
+        requests_per_minute: int,
+        tokens_per_minute: int,
+        max_wait_seconds: int = 60,
     ):
-        """Initialize the rate limiter."""
-        self._requests_per_minute = requests_per_minute
-        self._tokens_per_minute = tokens_per_minute
-        self._request_timestamps: list[datetime] = []
-        self._token_usage: dict[datetime, int] = {}
-        self._lock = asyncio.Lock()
+        """Initialize rate limiter.
 
-    async def acquire(
-        self, estimated_tokens: Optional[int] = None
+        Args:
+            requests_per_minute: Maximum requests per minute
+            tokens_per_minute: Maximum tokens per minute
+            max_wait_seconds: Maximum seconds to wait for capacity
+        """
+        self.requests_per_minute = requests_per_minute
+        self.tokens_per_minute = tokens_per_minute
+        self.max_wait_seconds = max_wait_seconds
+        self.request_history: List[datetime] = []
+        self.token_history: List[Tuple[datetime, int]] = []
+
+    def _clean_history(self, now: datetime) -> None:
+        """Clean up history older than 1 minute.
+
+        Args:
+            now: Current timestamp
+        """
+        one_minute_ago = now - timedelta(minutes=1)
+        self.request_history = [
+            ts
+            for ts in self.request_history
+            if ts > one_minute_ago
+        ]
+        self.token_history = [
+            (ts, tokens)
+            for ts, tokens in self.token_history
+            if ts > one_minute_ago
+        ]
+
+    def _get_current_usage(
+        self, now: datetime
+    ) -> Tuple[int, int]:
+        """Get current request and token counts.
+
+        Args:
+            now: Current timestamp
+
+        Returns:
+            Tuple of (request_count, token_count)
+        """
+        self._clean_history(now)
+        request_count = len(self.request_history)
+        token_count = sum(
+            tokens for _, tokens in self.token_history
+        )
+        return request_count, token_count
+
+    def _has_capacity(
+        self, now: datetime, tokens: int
     ) -> bool:
-        """Acquire permission to make an API call."""
-        async with self._lock:
+        """Check if there is capacity for a request.
+
+        Args:
+            now: Current timestamp
+            tokens: Number of tokens needed
+
+        Returns:
+            Whether there is capacity
+        """
+        (
+            request_count,
+            token_count,
+        ) = self._get_current_usage(now)
+        return (
+            request_count < self.requests_per_minute
+            and token_count + tokens
+            <= self.tokens_per_minute
+        )
+
+    def wait_for_capacity(self, tokens: int) -> bool:
+        """Wait for rate limit capacity.
+
+        Args:
+            tokens: Number of tokens needed
+
+        Returns:
+            Whether capacity was acquired
+        """
+        start_time = time.time()
+        while (
+            time.time() - start_time < self.max_wait_seconds
+        ):
             now = datetime.now(UTC)
-            minute_ago = now - timedelta(minutes=1)
+            if self._has_capacity(now, tokens):
+                self.request_history.append(now)
+                return True
+            time.sleep(1)
+        return False
 
-            # Clean up old data
-            self._request_timestamps = [
-                ts
-                for ts in self._request_timestamps
-                if ts > minute_ago
-            ]
-            self._token_usage = {
-                ts: tokens
-                for ts, tokens in self._token_usage.items()
-                if ts > minute_ago
-            }
-
-            # Check request rate limit
-            if (
-                len(self._request_timestamps)
-                >= self._requests_per_minute
-            ):
-                return False
-
-            # Check token rate limit if tokens are provided
-            if estimated_tokens is not None:
-                current_usage = self.get_current_usage()
-                if (
-                    current_usage + estimated_tokens
-                    > self._tokens_per_minute
-                ):
-                    return False
-
-            # Record request timestamp
-            self._request_timestamps.append(now)
-            return True
-
-    async def record_usage(
+    def record_usage(
         self, timestamp: datetime, tokens: int
     ) -> None:
-        """Record token usage for a request."""
-        async with self._lock:
-            # If there's already a record for this timestamp, add to it
-            if timestamp in self._token_usage:
-                self._token_usage[timestamp] += tokens
-            else:
-                self._token_usage[timestamp] = tokens
+        """Record token usage.
 
-    def get_current_usage(self) -> int:
-        """Get the current token usage within the last minute."""
-        now = datetime.now(UTC)
-        minute_ago = now - timedelta(minutes=1)
-
-        # Calculate sum of recent tokens
-        recent_tokens = sum(
-            tokens
-            for ts, tokens in self._token_usage.items()
-            if ts > minute_ago
-        )
-        return recent_tokens
-
-    async def wait_for_capacity(
-        self, estimated_tokens: int
-    ) -> bool:
-        """Wait for rate limit capacity."""
-        # First check if we're over the per-minute limit
-        if estimated_tokens > self._tokens_per_minute:
-            return False
-
-        retries = 3
-        delay = 1.0
-        attempts = 0
-
-        while attempts < retries:
-            async with self._lock:
-                # Simulate time passing for each retry attempt
-                now = datetime.now(UTC) + timedelta(
-                    seconds=attempts * delay
-                )
-                minute_ago = now - timedelta(minutes=1)
-
-                # Clean up old records
-                self._token_usage = {
-                    ts: tokens
-                    for ts, tokens in self._token_usage.items()
-                    if ts > minute_ago
-                }
-                self._request_timestamps = [
-                    ts
-                    for ts in self._request_timestamps
-                    if ts > minute_ago
-                ]
-
-                # Calculate current usage after cleanup
-                current_usage = sum(
-                    tokens
-                    for ts, tokens in self._token_usage.items()
-                    if ts > minute_ago
-                )
-
-                # Check if we have capacity
-                if (
-                    current_usage + estimated_tokens
-                    <= self._tokens_per_minute
-                ):
-                    # Record the usage
-                    if now in self._token_usage:
-                        self._token_usage[
-                            now
-                        ] += estimated_tokens
-                    else:
-                        self._token_usage[
-                            now
-                        ] = estimated_tokens
-                    self._request_timestamps.append(now)
-                    return True
-
-            # If we don't have capacity, wait before retrying
-            attempts += 1
-            if attempts < retries:
-                await asyncio.sleep(delay * (2**attempts))
-
-        return False
+        Args:
+            timestamp: When the usage occurred
+            tokens: Number of tokens used
+        """
+        self.token_history.append((timestamp, tokens))
+        self._clean_history(datetime.now(UTC))

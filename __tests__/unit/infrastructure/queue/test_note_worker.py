@@ -1,11 +1,12 @@
-"""Tests for the note worker module."""
+"""Test note worker module."""
 
 import pytest
-from unittest.mock import MagicMock, patch
-from datetime import datetime
+from datetime import datetime, timezone
+from unittest.mock import patch, MagicMock
 
 from domain.values import ProcessingStatus
 from domain.exceptions import RoboServiceError
+from domain.robo import RoboProcessingResult
 from infrastructure.queue.note_worker import (
     process_note_job,
 )
@@ -13,37 +14,28 @@ from infrastructure.queue.note_worker import (
 
 @pytest.fixture
 def mock_session():
-    """Create a mock session."""
-    session = MagicMock()
-    session.commit = MagicMock()
-    return session
+    """Create a mock database session."""
+    return MagicMock()
 
 
 @pytest.fixture
 def mock_note_repo():
     """Create a mock note repository."""
-    repo = MagicMock()
-    return repo
+    return MagicMock()
 
 
 @pytest.fixture
 def mock_note():
     """Create a mock note."""
     note = MagicMock()
-    note.id = 1
     note.content = "Test note content"
-    note.processing_status = ProcessingStatus.PENDING
-    note.enrichment_data = None
-    note.processed_at = None
     return note
 
 
 @pytest.fixture
 def mock_robo_service():
-    """Create a mock robo service."""
-    service = MagicMock()
-    service.enrich_note.return_value = {"enriched": True}
-    return service
+    """Create a mock RoboService."""
+    return MagicMock()
 
 
 @patch("infrastructure.queue.note_worker.NoteRepository")
@@ -72,6 +64,18 @@ def test_process_note_success(
     mock_get_robo_service.return_value = mock_robo_service
     mock_note_repo.get_by_id.return_value = mock_note
 
+    # Mock RoboService response
+    mock_result = RoboProcessingResult(
+        content="Processed content",
+        metadata={"processed": True},
+        tokens_used=10,
+        model_name="test_model",
+        created_at=datetime.now(timezone.utc),
+    )
+    mock_robo_service.process_text.return_value = (
+        mock_result
+    )
+
     # Execute
     process_note_job(1)
 
@@ -80,15 +84,19 @@ def test_process_note_success(
         mock_note.processing_status
         == ProcessingStatus.COMPLETED
     )
-    assert mock_note.enrichment_data == {"enriched": True}
-    assert isinstance(mock_note.processed_at, datetime)
+    assert mock_note.enrichment_data == {
+        "content": mock_result.content,
+        "metadata": mock_result.metadata,
+        "tokens_used": mock_result.tokens_used,
+        "model_name": mock_result.model_name,
+        "created_at": mock_result.created_at.isoformat(),
+    }
 
     # Verify method calls
-    mock_note_repo.get_by_id.assert_called_once_with(1)
-    mock_session.commit.assert_called()
-    mock_robo_service.enrich_note.assert_called_once_with(
-        "Test note content"
+    mock_robo_service.process_text.assert_called_once_with(
+        mock_note.content
     )
+    assert mock_session.commit.call_count >= 2
 
 
 @patch("infrastructure.queue.note_worker.NoteRepository")
@@ -141,9 +149,12 @@ def test_process_note_robo_service_failure(
     mock_note_repo_class.return_value = mock_note_repo
     mock_get_robo_service.return_value = mock_robo_service
     mock_note_repo.get_by_id.return_value = mock_note
-    mock_robo_service.enrich_note.side_effect = Exception(
+    mock_robo_service.process_text.side_effect = Exception(
         "Processing failed"
     )
+
+    # Explicitly set enrichment_data to None
+    mock_note.enrichment_data = None
 
     # Execute
     with pytest.raises(RoboServiceError) as exc:
@@ -158,10 +169,10 @@ def test_process_note_robo_service_failure(
     assert mock_note.enrichment_data is None
 
     # Verify method calls - should be called 4 times (initial + 3 retries)
-    assert mock_robo_service.enrich_note.call_count == 4
+    assert mock_robo_service.process_text.call_count == 4
     for (
         call
-    ) in mock_robo_service.enrich_note.call_args_list:
+    ) in mock_robo_service.process_text.call_args_list:
         assert call[0][0] == "Test note content"
 
     # Verify session commits

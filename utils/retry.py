@@ -1,4 +1,3 @@
-import asyncio
 import random
 from functools import wraps
 from typing import (
@@ -13,6 +12,7 @@ from domain.exceptions import (
     RoboAPIError,
     RoboRateLimitError,
 )
+import time
 
 T = TypeVar("T")
 
@@ -52,7 +52,7 @@ def with_retry(
         Type[Exception], Tuple[Type[Exception], ...]
     ] = (RoboRateLimitError,),
 ) -> Callable[[Callable[..., T]], Callable[..., T]]:
-    """Decorator for retrying async functions with exponential backoff.
+    """Decorator for retrying functions with exponential backoff.
 
     Args:
         max_retries: Maximum number of retry attempts
@@ -67,7 +67,7 @@ def with_retry(
         func: Callable[..., T]
     ) -> Callable[..., T]:
         @wraps(func)
-        async def wrapper(*args: Any, **kwargs: Any) -> T:
+        def wrapper(*args: Any, **kwargs: Any) -> T:
             # Convert single exception types to tuples
             exclude_types = (
                 (exclude_on,)
@@ -84,7 +84,7 @@ def with_retry(
 
             for attempt in range(max_retries + 1):
                 try:
-                    result = await func(*args, **kwargs)
+                    result = func(*args, **kwargs)
                     return result
                 except Exception as e:
                     # Check if exception should be excluded first
@@ -109,7 +109,7 @@ def with_retry(
 
                     # Wait before retrying with exponential backoff
                     delay = calculate_backoff(attempt + 1)
-                    await asyncio.sleep(delay)
+                    time.sleep(delay)
 
             # This should never be reached
             raise RuntimeError("Unexpected retry state")

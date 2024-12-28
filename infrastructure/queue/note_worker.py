@@ -1,94 +1,57 @@
-"""Worker script for processing notes from the queue."""
+"""Worker module for processing notes."""
 
 import logging
-import random
 import time
 from datetime import datetime, timezone
+from typing import Optional
 from sqlalchemy.orm import Session
 
-from configs.Database import SessionLocal
 from domain.values import ProcessingStatus
 from domain.exceptions import RoboServiceError
+from domain.robo import RoboService
 from repositories.NoteRepository import NoteRepository
-from services.RoboService import RoboService
-from configs.RoboConfig import get_robo_settings
+from services.RoboService import get_robo_service
+from utils.retry import calculate_backoff
+from configs.Database import SessionLocal
 
 logger = logging.getLogger(__name__)
 
 
-def get_robo_service() -> RoboService:
-    """Get a configured RoboService instance.
-
-    Returns:
-        RoboService: Configured service instance
-    """
-    config = get_robo_settings().to_domain_config()
-    return RoboService(config)
-
-
-def calculate_backoff(
-    attempt: int,
-    base_delay: float = 1.0,
-    jitter: float = 0.1,
-) -> float:
-    """Calculate delay with exponential backoff and jitter.
-
-    Args:
-        attempt: Current attempt number (1-based)
-        base_delay: Base delay in seconds
-        jitter: Jitter factor (0-1) to add randomness
-
-    Returns:
-        Delay in seconds
-    """
-    # Calculate exponential backoff
-    delay = min(
-        base_delay * (2 ** (attempt - 1)), 60
-    )  # Cap at 60 seconds
-    # Add jitter
-    jitter_amount = delay * jitter
-    return delay + random.uniform(
-        -jitter_amount, jitter_amount
-    )
-
-
 def process_note_job(
     note_id: int,
-    session: Session = None,
-    robo_service: RoboService = None,
-    note_repository: NoteRepository = None,
+    session: Optional[Session] = None,
+    robo_service: Optional[RoboService] = None,
+    note_repository: Optional[NoteRepository] = None,
     max_retries: int = 3,
 ) -> None:
-    """
-    Process a note job from the queue.
+    """Process a note using RoboService.
 
     Args:
-        note_id: The ID of the note to process
-        session: The database session (optional, will create if not provided)
-        robo_service: The RoboService instance to use for processing
-            (optional, will create if not provided)
-        note_repository: The NoteRepository instance to use for database
-            operations (optional, will create if not provided)
-        max_retries: Maximum number of retry attempts
+        note_id: ID of note to process
+        session: Optional database session
+        robo_service: Optional RoboService instance
+        note_repository: Optional note repository
+        max_retries: Maximum number of retries
 
     Raises:
-        ValueError: If note is not found
-        RoboServiceError: If processing fails after all retries
+        ValueError: If note not found
+        RoboServiceError: If processing fails
     """
-    # Use provided session or create a new one
     session_provided = session is not None
-    if not session:
-        session = SessionLocal()
+    start_time = datetime.now(timezone.utc)
 
     try:
+        # Create session if not provided
+        if not session:
+            session = SessionLocal()
+
         # Create repository if not provided
         if not note_repository:
             note_repository = NoteRepository(session)
 
-        # Get the note within this session
+        # Get note
         note = note_repository.get_by_id(note_id)
         if not note:
-            logger.error(f"Note {note_id} not found")
             raise ValueError(f"Note {note_id} not found")
 
         logger.info(f"Processing note {note_id}")
@@ -106,10 +69,16 @@ def process_note_job(
         for attempt in range(max_retries + 1):
             try:
                 # Process the note
-                enrichment_data = robo_service.enrich_note(
+                result = robo_service.process_text(
                     note.content
                 )
-                note.enrichment_data = enrichment_data
+                note.enrichment_data = {
+                    "content": result.content,
+                    "metadata": result.metadata,
+                    "tokens_used": result.tokens_used,
+                    "model_name": result.model_name,
+                    "created_at": result.created_at.isoformat(),
+                }
 
                 # Update to COMPLETED
                 note.processing_status = (
@@ -161,3 +130,10 @@ def process_note_job(
         # Only close the session if we created it
         if not session_provided and session:
             session.close()
+
+        duration = (
+            datetime.now(timezone.utc) - start_time
+        ).total_seconds()
+        logger.info(
+            f"Note {note_id} processing completed in {duration}s"
+        )

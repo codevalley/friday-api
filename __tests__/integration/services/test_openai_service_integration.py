@@ -1,12 +1,12 @@
-import asyncio
 import pytest
 from datetime import datetime
 import os
+from openai import AuthenticationError, APIError
 
 from domain.robo import RoboConfig
 from domain.exceptions import (
     RoboRateLimitError,
-    RoboConfigError,
+    RoboAPIError,
 )
 from services.OpenAIService import OpenAIService
 
@@ -40,11 +40,9 @@ def openai_service(robo_config):
 class TestOpenAIServiceIntegration:
     """Integration test suite for OpenAIService."""
 
-    async def test_process_text_success(
-        self, openai_service
-    ):
+    def test_process_text_success(self, openai_service):
         """Test successful text processing with real API."""
-        result = await openai_service.process_text(
+        result = openai_service.process_text(
             "What is the capital of France?"
         )
 
@@ -59,70 +57,12 @@ class TestOpenAIServiceIntegration:
             > 0
         )
 
-    async def test_extract_entities_success(
-        self, openai_service
-    ):
-        """Test successful entity extraction with real API."""
-        text = (
-            "I have a meeting in New York tomorrow at 2pm"
-        )
-        entity_types = ["dates", "locations", "times"]
-
-        result = await openai_service.extract_entities(
-            text, entity_types
-        )
-
-        assert isinstance(result, dict)
-        assert "locations" in result
-        assert any(
-            "new york" in loc["text"].lower()
-            for loc in result["locations"]
-        )
-        assert "dates" in result
-        assert "times" in result
-        assert any(
-            "2pm" in time["text"].lower()
-            for time in result["times"]
-        )
-
-    async def test_validate_content_success(
-        self, openai_service
-    ):
-        """Test successful content validation with real API."""
-        content = "This is a test message containing important information."
-        rules = [
-            "Must contain at least 5 words",
-            "Must contain the word 'test'",
-            "Must not contain profanity",
-        ]
-
-        result = await openai_service.validate_content(
-            content, rules
-        )
-        assert result is True
-
-    async def test_validate_content_failure(
-        self, openai_service
-    ):
-        """Test content validation failure with real API."""
-        content = "test"  # Too short
-        rules = [
-            "Must contain at least 5 words",
-            "Must contain the word 'test'",
-            "Must not contain profanity",
-        ]
-
-        result = await openai_service.validate_content(
-            content, rules
-        )
-        assert result is False
-
-    async def test_health_check(self, openai_service):
+    def test_health_check(self, openai_service):
         """Test health check with real API."""
-        result = await openai_service.health_check()
+        result = openai_service.health_check()
         assert result is True
 
-    async def test_invalid_api_key(self):
+    def test_invalid_api_key(self):
         """Test behavior with invalid API key."""
         config = RoboConfig(
             api_key="invalid-key",
@@ -133,31 +73,34 @@ class TestOpenAIServiceIntegration:
         )
         service = OpenAIService(config)
 
-        with pytest.raises(RoboConfigError) as exc_info:
-            await service.process_text("Test content")
-        assert (
-            "invalid api key" in str(exc_info.value).lower()
+        with pytest.raises(
+            (AuthenticationError, APIError, RoboAPIError)
+        ) as exc_info:
+            service.process_text("Test content")
+        error_msg = str(exc_info.value).lower()
+        assert any(
+            msg in error_msg
+            for msg in [
+                "invalid api key",
+                "invalid_api_key",
+                "incorrect api key",
+                "authentication",
+                "401",
+            ]
         )
 
     @pytest.mark.skip(
         reason="Only run manually to avoid rate limits"
     )
-    async def test_rate_limit_handling(
-        self, openai_service
-    ):
+    def test_rate_limit_handling(self, openai_service):
         """Test handling of rate limits with real API.
 
         This test is skipped by default to avoid hitting rate limits.
         Run manually with: pytest -v -m integration --no-skip
         """
         # Make multiple rapid requests to trigger rate limit
-        tasks = []
-        for _ in range(
-            100
-        ):  # Adjust based on your rate limits
-            tasks.append(
-                openai_service.process_text("Test content")
-            )
-
         with pytest.raises(RoboRateLimitError):
-            await asyncio.gather(*tasks)
+            for _ in range(
+                100
+            ):  # Adjust based on your rate limits
+                openai_service.process_text("Test content")

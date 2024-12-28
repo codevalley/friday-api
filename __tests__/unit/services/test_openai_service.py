@@ -1,6 +1,12 @@
 import pytest
 from datetime import datetime, UTC
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import MagicMock, patch
+from openai.types.chat import (
+    ChatCompletion,
+    ChatCompletionMessage,
+)
+from openai.types.chat.chat_completion import Choice
+from openai.types import CompletionUsage
 
 from domain.robo import RoboConfig
 from domain.exceptions import (
@@ -14,19 +20,18 @@ from services.OpenAIService import OpenAIService
 @pytest.fixture
 def mock_openai_client():
     """Create a mock OpenAI client."""
-    mock_client = AsyncMock()
-    mock_client.chat.completions.create = AsyncMock()
+    mock_client = MagicMock()
     return mock_client
 
 
 @pytest.fixture
 def mock_rate_limiter():
     """Create a mock rate limiter."""
-    mock_limiter = AsyncMock()
-    mock_limiter.wait_for_capacity = AsyncMock(
+    mock_limiter = MagicMock()
+    mock_limiter.wait_for_capacity = MagicMock(
         return_value=True
     )
-    mock_limiter.record_usage = AsyncMock()
+    mock_limiter.record_usage = MagicMock()
     return mock_limiter
 
 
@@ -43,16 +48,14 @@ def test_config():
     )
 
 
-@pytest.mark.asyncio
-async def test_init_with_valid_config(test_config):
+def test_init_with_valid_config(test_config):
     """Test initialization with valid configuration."""
     service = OpenAIService(test_config)
     assert service.config == test_config
     assert service.client is not None
 
 
-@pytest.mark.asyncio
-async def test_init_without_api_key():
+def test_init_without_api_key():
     """Test initialization without API key."""
     config = RoboConfig(api_key="", model_name="test_model")
     with pytest.raises(RoboConfigError) as exc_info:
@@ -62,13 +65,12 @@ async def test_init_without_api_key():
     )
 
 
-@pytest.mark.asyncio
-async def test_process_text_success(
+def test_process_text_success(
     test_config, mock_openai_client, mock_rate_limiter
 ):
     """Test successful text processing."""
     with patch(
-        "services.OpenAIService.AsyncOpenAI",
+        "services.OpenAIService.OpenAI",
         return_value=mock_openai_client,
     ), patch(
         "services.OpenAIService.RateLimiter",
@@ -76,28 +78,40 @@ async def test_process_text_success(
     ):
         service = OpenAIService(test_config)
 
-        # Mock response
-        mock_response = MagicMock()
-        mock_response.choices = [
-            MagicMock(
-                message=MagicMock(content="Test response")
-            )
-        ]
-        mock_response.model = "test_model"
-        mock_response.usage = MagicMock(
+        # Create a proper mock response
+        mock_message = ChatCompletionMessage(
+            content="Test response",
+            role="assistant",
+            function_call=None,
+            tool_calls=None,
+        )
+        mock_usage = CompletionUsage(
             prompt_tokens=10,
             completion_tokens=20,
             total_tokens=30,
         )
-        mock_response.created = datetime.now(
-            UTC
-        ).timestamp()
-
-        mock_openai_client.chat.completions.create.return_value = (
-            mock_response
+        mock_choice = Choice(
+            finish_reason="stop",
+            index=0,
+            message=mock_message,
+            logprobs=None,
+        )
+        created_time = int(datetime.now(UTC).timestamp())
+        mock_response = ChatCompletion(
+            id="test_id",
+            choices=[mock_choice],
+            created=created_time,
+            model="test_model",
+            object="chat.completion",
+            usage=mock_usage,
+            system_fingerprint=None,
         )
 
-        result = await service.process_text("Test input")
+        mock_openai_client.chat.completions.create = (
+            MagicMock(return_value=mock_response)
+        )
+
+        result = service.process_text("Test input")
 
         assert result.content == "Test response"
         assert result.model_name == "test_model"
@@ -105,15 +119,16 @@ async def test_process_text_success(
         assert isinstance(result.created_at, datetime)
 
 
-@pytest.mark.asyncio
-async def test_process_text_rate_limit_error(
+def test_process_text_rate_limit_error(
     test_config, mock_openai_client, mock_rate_limiter
 ):
     """Test rate limit error handling."""
-    mock_rate_limiter.wait_for_capacity.return_value = False
+    mock_rate_limiter.wait_for_capacity = MagicMock(
+        return_value=False
+    )
 
     with patch(
-        "services.OpenAIService.AsyncOpenAI",
+        "services.OpenAIService.OpenAI",
         return_value=mock_openai_client,
     ), patch(
         "services.OpenAIService.RateLimiter",
@@ -122,24 +137,22 @@ async def test_process_text_rate_limit_error(
         service = OpenAIService(test_config)
 
         with pytest.raises(RoboRateLimitError) as exc_info:
-            await service.process_text("Test input")
+            service.process_text("Test input")
         assert "Failed to acquire capacity" in str(
             exc_info.value
         )
 
 
-@pytest.mark.asyncio
-async def test_process_text_api_error(
+def test_process_text_api_error(
     test_config, mock_openai_client, mock_rate_limiter
 ):
     """Test API error handling."""
-    error = Exception("API error")
-    mock_openai_client.chat.completions.create.side_effect = (
-        error
+    mock_openai_client.chat.completions.create = MagicMock(
+        side_effect=Exception("API error")
     )
 
     with patch(
-        "services.OpenAIService.AsyncOpenAI",
+        "services.OpenAIService.OpenAI",
         return_value=mock_openai_client,
     ), patch(
         "services.OpenAIService.RateLimiter",
@@ -148,51 +161,74 @@ async def test_process_text_api_error(
         service = OpenAIService(test_config)
 
         with pytest.raises(RoboAPIError) as exc_info:
-            await service.process_text("Test input")
+            service.process_text("Test input")
         assert "OpenAI API error" in str(exc_info.value)
 
 
-@pytest.mark.asyncio
-async def test_health_check_success(
+def test_health_check_success(
     test_config, mock_openai_client, mock_rate_limiter
 ):
     """Test successful health check."""
-    mock_response = MagicMock()
-    mock_response.usage = MagicMock(total_tokens=5)
-    mock_response.created = datetime.now(UTC).timestamp()
-    mock_openai_client.chat.completions.create.return_value = (
-        mock_response
+    # Create a proper mock response
+    mock_message = ChatCompletionMessage(
+        content="Test",
+        role="assistant",
+        function_call=None,
+        tool_calls=None,
+    )
+    mock_usage = CompletionUsage(
+        prompt_tokens=2,
+        completion_tokens=3,
+        total_tokens=5,
+    )
+    mock_choice = Choice(
+        finish_reason="stop",
+        index=0,
+        message=mock_message,
+        logprobs=None,
+    )
+    created_time = int(datetime.now(UTC).timestamp())
+    mock_response = ChatCompletion(
+        id="test_id",
+        choices=[mock_choice],
+        created=created_time,
+        model="test_model",
+        object="chat.completion",
+        usage=mock_usage,
+        system_fingerprint=None,
+    )
+
+    mock_openai_client.chat.completions.create = MagicMock(
+        return_value=mock_response
     )
 
     with patch(
-        "services.OpenAIService.AsyncOpenAI",
+        "services.OpenAIService.OpenAI",
         return_value=mock_openai_client,
     ), patch(
         "services.OpenAIService.RateLimiter",
         return_value=mock_rate_limiter,
     ):
         service = OpenAIService(test_config)
-        result = await service.health_check()
+        result = service.health_check()
         assert result is True
 
 
-@pytest.mark.asyncio
-async def test_health_check_failure(
+def test_health_check_failure(
     test_config, mock_openai_client, mock_rate_limiter
 ):
     """Test health check failure."""
-    error = Exception("API error")
-    mock_openai_client.chat.completions.create.side_effect = (
-        error
+    mock_openai_client.chat.completions.create = MagicMock(
+        side_effect=Exception("API error")
     )
 
     with patch(
-        "services.OpenAIService.AsyncOpenAI",
+        "services.OpenAIService.OpenAI",
         return_value=mock_openai_client,
     ), patch(
         "services.OpenAIService.RateLimiter",
         return_value=mock_rate_limiter,
     ):
         service = OpenAIService(test_config)
-        result = await service.health_check()
+        result = service.health_check()
         assert result is False

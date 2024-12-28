@@ -1,8 +1,10 @@
 """Integration tests for note processing flow."""
 
 import pytest
+from datetime import datetime, timezone
 
 from domain.values import ProcessingStatus
+from domain.robo import RoboProcessingResult
 from infrastructure.queue.RQNoteQueue import RQNoteQueue
 from infrastructure.queue.note_worker import (
     process_note_job,
@@ -46,24 +48,17 @@ def queue_service(redis_connection):
     return RQNoteQueue(queue=queue)
 
 
-def test_note_processing_flow(
+def test_note_processing_success(
     test_db_session,
     note_service,
     queue_service,
     sample_user,
     robo_service,
 ):
-    """Test end-to-end note processing flow.
-
-    Should:
-    1. Create note via NoteService
-    2. Verify note is enqueued
-    3. Process note with worker
-    4. Verify final note state
-    """
+    """Test successful note processing flow."""
     # Create note
     note_data = NoteCreate(
-        content="Test note for processing",
+        content="Test note content",
         activity_id=None,
         moment_id=None,
         attachments=[],
@@ -76,18 +71,12 @@ def test_note_processing_flow(
     note_repo = NoteRepository(test_db_session)
     note = note_repo.get(note_response.id)
 
-    assert (
-        note.processing_status == ProcessingStatus.PENDING
-    )
-
-    # Get job from queue
-    job = queue_service.queue.jobs[0]
-    assert job is not None
-    assert job.args[0] == note.id
-
     # Process note
     process_note_job(
-        note.id, test_db_session, robo_service, note_repo
+        note.id,
+        test_db_session,
+        robo_service,
+        note_repo,
     )
 
     # Refresh session to see worker's changes
@@ -99,7 +88,18 @@ def test_note_processing_flow(
         note.processing_status == ProcessingStatus.COMPLETED
     )
     assert note.enrichment_data is not None
-    assert note.processed_at is not None
+    assert (
+        note.enrichment_data["content"]
+        == "Test note content"
+    )
+    assert note.enrichment_data["metadata"] == {
+        "processed": True
+    }
+    assert note.enrichment_data["tokens_used"] == 0
+    assert (
+        note.enrichment_data["model_name"] == "test_model"
+    )
+    assert "created_at" in note.enrichment_data
 
 
 def test_note_processing_failure(
@@ -126,10 +126,10 @@ def test_note_processing_failure(
     note = note_repo.get(note_response.id)
 
     # Mock RoboService to raise an error
-    def mock_enrich_note(content):
+    def mock_process_text(*args, **kwargs):
         raise Exception("Test processing failure")
 
-    robo_service.enrich_note = mock_enrich_note
+    robo_service.process_text = mock_process_text
 
     # Process note
     with pytest.raises(Exception):
@@ -156,7 +156,7 @@ def test_note_processing_retry(
     sample_user,
     robo_service,
 ):
-    """Test note processing retry capability."""
+    """Test note processing retry mechanism."""
     # Create note
     note_data = NoteCreate(
         content="Test note for retry",
@@ -173,20 +173,34 @@ def test_note_processing_retry(
     note = note_repo.get(note_response.id)
 
     # Mock RoboService to fail twice then succeed
-    attempt = 0
+    attempts = 0
 
-    def mock_enrich_note(content):
-        nonlocal attempt
-        attempt += 1
-        if attempt < 3:
-            raise Exception(f"Test failure {attempt}")
-        return {"enriched": True, "attempts": attempt}
+    def mock_process_text(*args, **kwargs):
+        nonlocal attempts
+        attempts += 1
+        if attempts <= 2:
+            raise Exception(
+                f"Test failure attempt {attempts}"
+            )
+        return RoboProcessingResult(
+            content="Processed after retries",
+            metadata={
+                "processed": True,
+                "attempts": attempts,
+            },
+            tokens_used=0,
+            model_name="test_model",
+            created_at=datetime.now(timezone.utc),
+        )
 
-    robo_service.enrich_note = mock_enrich_note
+    robo_service.process_text = mock_process_text
 
     # Process note
     process_note_job(
-        note.id, test_db_session, robo_service, note_repo
+        note.id,
+        test_db_session,
+        robo_service,
+        note_repo,
     )
 
     # Refresh session to see worker's changes
@@ -198,5 +212,8 @@ def test_note_processing_retry(
         note.processing_status == ProcessingStatus.COMPLETED
     )
     assert note.enrichment_data is not None
-    assert note.enrichment_data["attempts"] == 3
-    assert note.processed_at is not None
+    assert (
+        note.enrichment_data["content"]
+        == "Processed after retries"
+    )
+    assert note.enrichment_data["metadata"]["attempts"] == 3

@@ -31,7 +31,7 @@ class RoboService(ABC):
     """Interface for Robo service operations."""
 
     @abstractmethod
-    async def process_text(
+    def process_text(
         self,
         text: str,
         context: Optional[Dict[str, Any]] = None,
@@ -40,20 +40,20 @@ class RoboService(ABC):
         pass
 
     @abstractmethod
-    async def extract_entities(
+    def extract_entities(
         self, text: str, entity_types: List[str]
     ) -> Dict[str, List[Dict[str, Any]]]:
         """Extract specified entity types from text."""
         pass
 
     @abstractmethod
-    async def validate_content(
+    def validate_content(
         self, content: str, validation_rules: Dict[str, Any]
     ) -> Dict[str, Any]:
         """Validate content against specified rules."""
         pass
 
     @abstractmethod
-    async def health_check(self) -> bool:
+    def health_check(self) -> bool:
         """Check if the service is operational."""
         pass
