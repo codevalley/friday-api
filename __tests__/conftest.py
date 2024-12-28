@@ -5,6 +5,7 @@ import sys
 import uuid
 import warnings
 import pytest
+import fakeredis
 
 # Standard library imports
 from datetime import datetime, timezone
@@ -55,61 +56,29 @@ TEST_SQLALCHEMY_DATABASE_URL = (
 
 
 @pytest.fixture(scope="session")
-def test_engine():
-    """Create test database engine."""
-    engine = create_engine(
-        TEST_SQLALCHEMY_DATABASE_URL,
-        echo=True,  # Enable SQL logging for debugging
-        pool_pre_ping=True,  # Enable connection health checks
-        pool_recycle=3600,  # Recycle connections after 1 hour
-    )
-    return engine
-
-
-@pytest.fixture(scope="session")
-def test_session_factory(test_engine):
-    """Create test session factory."""
-    return sessionmaker(
-        autocommit=False,
-        autoflush=False,
-        bind=test_engine,
-        expire_on_commit=False,  # Prevent expired objects after commit
-    )
-
-
-@pytest.fixture(scope="session")
-def event_loop() -> Generator:
-    """Create an instance of the default event loop for the test session."""
-    try:
-        loop = asyncio.get_running_loop()
-    except RuntimeError:
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-    yield loop
-    loop.close()
+def redis_connection():
+    """Create a fake Redis connection for testing."""
+    return fakeredis.FakeStrictRedis()
 
 
 @pytest.fixture(scope="function")
-def test_db_session(test_engine, test_session_factory):
-    """Create a fresh database session for a test."""
-    # Drop and recreate tables before running any tests
-    connection = test_engine.connect()
-    transaction = connection.begin()
+def test_db_engine():
+    """Create a test database engine."""
+    engine = create_engine(TEST_SQLALCHEMY_DATABASE_URL)
+    Base.metadata.create_all(bind=engine)
+    yield engine
+    Base.metadata.drop_all(bind=engine)
 
-    try:
-        # Drop all tables in a transaction
-        Base.metadata.drop_all(bind=connection)
-        # Create all tables in the same transaction
-        Base.metadata.create_all(bind=connection)
-        transaction.commit()
-    except Exception as e:
-        transaction.rollback()
-        raise e
-    finally:
-        connection.close()
 
-    # Create session for the test
-    session = test_session_factory()
+@pytest.fixture(scope="function")
+def test_db_session(test_db_engine):
+    """Create a new database session for testing."""
+    TestingSessionLocal = sessionmaker(
+        autocommit=False,
+        autoflush=False,
+        bind=test_db_engine,
+    )
+    session = TestingSessionLocal()
     try:
         yield session
     finally:

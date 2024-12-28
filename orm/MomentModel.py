@@ -12,7 +12,13 @@ from datetime import datetime, timezone
 from jsonschema import validate as validate_json_schema
 import json
 from sqlalchemy.orm import Session
-from typing import Any, Dict, cast, TYPE_CHECKING, Optional
+from typing import (
+    Any,
+    Dict,
+    cast,
+    TYPE_CHECKING,
+    Optional,
+)
 
 from orm.BaseModel import EntityMeta
 

@@ -1,156 +1,125 @@
+"""Note ORM model."""
+
+from datetime import datetime
+from typing import Dict, Any
 from sqlalchemy import (
     Column,
     Integer,
     String,
-    DateTime,
     ForeignKey,
-    CheckConstraint,
+    JSON,
+    DateTime,
     Enum as SQLEnum,
 )
-from sqlalchemy.orm import relationship, Mapped
-from datetime import datetime
-from typing import Optional, List, Dict, Any
-from orm.BaseModel import EntityMeta
-from orm.UserModel import User
-from domain.note import NoteData
-from domain.values import AttachmentType, ProcessingStatus
-from orm.types import JSONType
+from sqlalchemy.orm import relationship
+
+from domain.values import ProcessingStatus
+from .BaseModel import Base
 
 
-class Note(EntityMeta):
-    """Note Model represents a user's note in the system.
-
-    This model stores note content and optional attachments.
-    Each note is associated with a user and can have various types of
-    attachments (voice, photo, file).
+class Note(Base):
+    """Note ORM model.
 
     Attributes:
-        id: Unique identifier for the note
-        content: The text content of the note
-        user_id: ID of the user who owns this note
-        activity_id: ID of the activity associated with this note
-        moment_id: ID of the moment associated with this note
-        attachment_url: Optional URL to an attachment
-        attachment_type: Type of the attachment (if any)
-        created_at: Timestamp when the note was created
-        updated_at: Timestamp when the note was last updated
-        owner: Relationship to the User model
-        processing_status: Processing status of the note
+        id: Primary key
+        content: Note content
+        user_id: ID of the user who created the note
+        activity_id: Optional ID of associated activity
+        moment_id: Optional ID of associated moment
+        attachments: List of attachments
+        processing_status: Current processing status
+        enrichment_data: Data from note processing
+        processed_at: When the note was processed
+        created_at: When the note was created
+        updated_at: When the note was last updated
     """
 
     __tablename__ = "notes"
 
-    # Primary key
-    id: Mapped[int] = Column(
-        Integer, primary_key=True, index=True
+    id = Column(Integer, primary_key=True)
+    content = Column(String(4096), nullable=False)
+    user_id = Column(
+        String(36), ForeignKey("users.id"), nullable=False
     )
-
-    # Content fields
-    content: Mapped[str] = Column(
-        String(2000), nullable=False
+    activity_id = Column(
+        Integer,
+        ForeignKey("activities.id"),
+        nullable=True,
     )
-    user_id: Mapped[str] = Column(
-        String(36),
-        ForeignKey("users.id", ondelete="CASCADE"),
-        nullable=False,
-        index=True,
-    )
-    activity_id: Mapped[Optional[int]] = Column(
-        Integer, ForeignKey("activities.id"), nullable=True
-    )
-    moment_id: Mapped[Optional[int]] = Column(
+    moment_id = Column(
         Integer, ForeignKey("moments.id"), nullable=True
     )
-    attachment_url: Mapped[Optional[str]] = Column(
-        String(500), nullable=True
+    attachments = Column(JSON, nullable=False, default=list)
+    processing_status = Column(
+        SQLEnum(ProcessingStatus),
+        nullable=False,
+        default=ProcessingStatus.PENDING,
+        server_default=ProcessingStatus.PENDING.value,
     )
-    attachment_type: Mapped[
-        Optional[AttachmentType]
-    ] = Column(SQLEnum(AttachmentType), nullable=True)
-
-    # Timestamps
-    created_at: Mapped[datetime] = Column(
-        DateTime, nullable=False, default=datetime.utcnow
+    enrichment_data = Column(
+        JSON, nullable=True, default=None
     )
-    updated_at: Mapped[Optional[datetime]] = Column(
-        DateTime, nullable=True, onupdate=datetime.utcnow
+    processed_at = Column(DateTime, nullable=True)
+    created_at = Column(
+        DateTime,
+        nullable=False,
+        default=datetime.utcnow,
+    )
+    updated_at = Column(
+        DateTime,
+        nullable=True,
+        onupdate=datetime.utcnow,
     )
 
     # Relationships
-    owner: Mapped[User] = relationship(
-        "User", back_populates="notes"
-    )
+    owner = relationship("User", back_populates="notes")
 
-    # Add attachments column
-    attachments: Mapped[
-        Optional[List[Dict[str, Any]]]
-    ] = Column(JSONType, nullable=True)
+    def __init__(self, **kwargs):
+        """Initialize note with default processing status if not provided."""
+        if "processing_status" not in kwargs:
+            kwargs[
+                "processing_status"
+            ] = ProcessingStatus.PENDING
+        super().__init__(**kwargs)
 
-    # Table constraints
-    __table_args__ = (
-        CheckConstraint(
-            "content IS NOT NULL AND content != ''",
-            name="check_content_not_empty",
-        ),
-        CheckConstraint(
-            "(attachment_url IS NULL AND attachment_type IS NULL) OR "
-            "(attachment_url IS NOT NULL AND attachment_type IS NOT NULL)",
-            name="check_attachment_consistency",
-        ),
-    )
-
-    # Processing status
-    processing_status: Mapped[ProcessingStatus] = Column(
-        SQLEnum(ProcessingStatus),
-        nullable=False,
-        default=ProcessingStatus.default,
-        server_default=ProcessingStatus.default().value,
-    )
-
-    def to_domain(self) -> NoteData:
-        """Convert ORM model to domain model.
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert note to dictionary.
 
         Returns:
-            NoteData instance with this note's data
+            Dict[str, Any]: Dictionary representation of note
         """
-        return NoteData(
-            id=self.id,
-            content=self.content,
-            user_id=self.user_id,
-            activity_id=self.activity_id,
-            moment_id=self.moment_id,
-            attachments=self.attachments,
-            created_at=self.created_at,
-            updated_at=self.updated_at,
-            processing_status=self.processing_status,
-        )
+        return {
+            "id": self.id,
+            "content": self.content,
+            "user_id": self.user_id,
+            "activity_id": self.activity_id,
+            "moment_id": self.moment_id,
+            "attachments": self.attachments or [],
+            "processing_status": self.processing_status,
+            "enrichment_data": self.enrichment_data,
+            "processed_at": self.processed_at,
+            "created_at": self.created_at,
+            "updated_at": self.updated_at,
+        }
 
     @classmethod
-    def from_domain(cls, domain: NoteData) -> "Note":
-        """Create Note model from domain data.
+    def from_dict(cls, data: Dict[str, Any]) -> "Note":
+        """Create note from dictionary.
 
         Args:
-            domain: NoteData instance with the note data
+            data: Dictionary data
 
         Returns:
-            Note ORM model instance
+            Note: Created note instance
         """
-        return cls(
-            id=domain.id,
-            content=domain.content,
-            user_id=domain.user_id,
-            activity_id=domain.activity_id,
-            moment_id=domain.moment_id,
-            attachments=domain.attachments,
-            created_at=domain.created_at,
-            updated_at=domain.updated_at,
-            processing_status=domain.processing_status,
-        )
+        return cls(**data)
 
-    def __repr__(self) -> str:
-        """String representation of the note.
+    def update(self, data: Dict[str, Any]) -> None:
+        """Update note with dictionary data.
 
-        Returns:
-            String representation including id and user_id
+        Args:
+            data: Dictionary of fields to update
         """
-        return f"<Note(id={self.id}, user_id='{self.user_id}')>"
+        for key, value in data.items():
+            if hasattr(self, key):
+                setattr(self, key, value)

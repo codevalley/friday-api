@@ -1,23 +1,22 @@
-from typing import Optional, List, Dict, Any
+"""Repository for managing notes in the database."""
+
+from typing import List, Dict, Any, Optional
 from sqlalchemy.orm import Session
+
+from domain.values import ProcessingStatus
 from orm.NoteModel import Note
-from .BaseRepository import BaseRepository
 
 
-class NoteRepository(BaseRepository[Note, int]):
-    """Repository for managing Note entities in the database.
+class NoteRepository:
+    """Repository for managing notes in the database."""
 
-    This repository handles CRUD operations for notes, including
-    proper conversion between domain and ORM models.
-    """
-
-    def __init__(self, db: Session):
-        """Initialize the repository with a database session.
+    def __init__(self, session: Session):
+        """Initialize repository with database session.
 
         Args:
-            db: SQLAlchemy database session
+            session: SQLAlchemy database session
         """
-        super().__init__(db, Note)
+        self.session = session
 
     def create(
         self,
@@ -26,26 +25,83 @@ class NoteRepository(BaseRepository[Note, int]):
         activity_id: Optional[int] = None,
         moment_id: Optional[int] = None,
         attachments: Optional[List[Dict[str, Any]]] = None,
+        processing_status: ProcessingStatus = ProcessingStatus.PENDING,
     ) -> Note:
-        """Create a new note."""
+        """Create a new note.
+
+        Args:
+            content: Note content
+            user_id: ID of the user creating the note
+            activity_id: Optional ID of associated activity
+            moment_id: Optional ID of associated moment
+            attachments: Optional list of attachments
+            processing_status: Initial processing status
+
+        Returns:
+            Note: Created note
+        """
         note = Note(
             content=content,
             user_id=user_id,
             activity_id=activity_id,
             moment_id=moment_id,
-            attachments=(
-                attachments if attachments else None
-            ),
+            attachments=attachments or [],
+            processing_status=processing_status,
         )
-        self.db.add(note)
-        self.db.commit()
-        self.db.refresh(note)
+        self.session.add(note)
+        self.session.flush()  # Ensure note gets an ID
         return note
 
+    def get_by_id(self, note_id: int) -> Optional[Note]:
+        """Get note by ID.
+
+        Args:
+            note_id: ID of the note to retrieve
+
+        Returns:
+            Note if found, None otherwise
+        """
+        return self.session.get(Note, note_id)
+
+    def get(self, note_id: int) -> Optional[Note]:
+        """Get note by ID (alias for get_by_id).
+
+        Args:
+            note_id: ID of the note to retrieve
+
+        Returns:
+            Note if found, None otherwise
+        """
+        return self.get_by_id(note_id)
+
+    def get_by_user(
+        self, note_id: int, user_id: str
+    ) -> Optional[Note]:
+        """Get note by ID and user ID.
+
+        Args:
+            note_id: ID of the note to retrieve
+            user_id: ID of the user who owns the note
+
+        Returns:
+            Note if found and owned by user, None otherwise
+        """
+        return (
+            self.session.query(Note)
+            .filter(
+                Note.id == note_id,
+                Note.user_id == user_id,
+            )
+            .first()
+        )
+
     def list_notes(
-        self, user_id: str, skip: int = 0, limit: int = 100
+        self,
+        user_id: str,
+        skip: int = 0,
+        limit: int = 50,
     ) -> List[Note]:
-        """List notes for a specific user with pagination.
+        """List notes for a user with pagination.
 
         Args:
             user_id: ID of the user whose notes to list
@@ -53,10 +109,10 @@ class NoteRepository(BaseRepository[Note, int]):
             limit: Maximum number of records to return
 
         Returns:
-            List of Note ORM model instances
+            List[Note]: List of notes
         """
         return (
-            self.db.query(Note)
+            self.session.query(Note)
             .filter(Note.user_id == user_id)
             .order_by(Note.created_at.desc())
             .offset(skip)
@@ -64,37 +120,53 @@ class NoteRepository(BaseRepository[Note, int]):
             .all()
         )
 
-    def get_by_user(
-        self, note_id: int, user_id: str
-    ) -> Optional[Note]:
-        """Get a specific note by ID and user ID.
-
-        Args:
-            note_id: ID of the note to retrieve
-            user_id: ID of the user who owns the note
-
-        Returns:
-            Note ORM model instance if found, None otherwise
-        """
-        return (
-            self.db.query(Note)
-            .filter(
-                Note.id == note_id, Note.user_id == user_id
-            )
-            .first()
-        )
-
     def count_user_notes(self, user_id: str) -> int:
-        """Count total number of notes for a user.
+        """Count total notes for a user.
 
         Args:
             user_id: ID of the user whose notes to count
 
         Returns:
-            Total number of notes
+            int: Total number of notes
         """
         return (
-            self.db.query(Note)
+            self.session.query(Note)
             .filter(Note.user_id == user_id)
             .count()
         )
+
+    def update(
+        self, note_id: int, data: Dict[str, Any]
+    ) -> Note:
+        """Update a note.
+
+        Args:
+            note_id: ID of the note to update
+            data: Dictionary of fields to update
+
+        Returns:
+            Note: Updated note
+
+        Raises:
+            ValueError: If note is not found
+        """
+        note = self.get_by_id(note_id)
+        if not note:
+            raise ValueError(f"Note {note_id} not found")
+
+        for key, value in data.items():
+            if key == "processing_status":
+                if isinstance(value, ProcessingStatus):
+                    # Keep as enum if it's already an enum
+                    setattr(note, key, value)
+                else:
+                    # Convert string to enum if it's a string
+                    setattr(
+                        note, key, ProcessingStatus(value)
+                    )
+            else:
+                setattr(note, key, value)
+
+        self.session.add(note)
+        self.session.flush()  # Send changes to DB
+        return note

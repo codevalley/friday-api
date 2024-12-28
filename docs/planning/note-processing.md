@@ -1,378 +1,572 @@
-Below is a detailed, step-by-step guide illustrating how to implement the scenario where notes are processed to extract other entities (moments, activities), and how a generic LLM (Large Language Model) service can be integrated. We’ll show how to structure the code and define interfaces so that the system can switch between OpenAI, Claude, or another LLM provider without changing the application logic.
+# Note Processing service
 
-We’ll follow the layered (clean architecture-like) approach:
+Below is a **step-by-step** guide on how to integrate **Redis RQ** into your existing architecture so that the **NoteService** can enqueue notes for asynchronous enrichment, and a separate worker process can consume and process those notes using your **RoboService** (LLM integration).
 
-- **Domain Layer**: Pure business logic (models, rules)
-- **Application Layer (Services)**: Orchestrates use-cases, calls domain logic, uses repositories and external services via interfaces
-- **Infrastructure Layer**: Actual implementations of repositories (ORM), LLM APIs (OpenAI, Claude), and other I/O tasks
-- **Presentation Layer (Routers/Controllers)**: HTTP endpoints, GraphQL resolvers, etc.
+## Key Design Decisions
 
-This guide provides conceptual code snippets and explanations.
+### Synchronous Processing
+- The worker process is synchronous (no async/await needed)
+- One job processed at a time per worker
+- RQ handles job distribution and queuing
+- RoboService calls are synchronous for simplicity and reliability
+- Multiple workers can be spawned for parallel processing
+
+### State Management
+```python
+class ProcessingStatus(str, Enum):
+    QUEUED = "queued"
+    PROCESSING = "processing"
+    COMPLETED = "completed"
+    FAILED = "failed"
+    ERROR = "error"
+
+    @classmethod
+    def valid_transitions(cls) -> Dict[str, List[str]]:
+        return {
+            cls.QUEUED: [cls.PROCESSING],
+            cls.PROCESSING: [cls.COMPLETED, cls.FAILED, cls.ERROR],
+            cls.COMPLETED: [],  # Terminal state
+            cls.FAILED: [],     # Terminal state
+            cls.ERROR: []       # Terminal state
+        }
+```
 
 ---
 
-## Step-by-Step Implementation Guide
+## 1. Install and Configure Redis + RQ
 
-### 1. Domain Layer
+### 1.1. Install Dependencies
 
-**Entities/Value Objects**:
-We have `Note`, `MomentData`, `ActivityData` as domain models. Each should encapsulate validation and no external references.
+1. **Redis Server**
+   You'll need a running Redis instance. Install it locally or use a managed service.
+
+2. **Python Packages**
+   - `redis`: for Python Redis connectivity
+   - `rq`: for the RQ job queue
+
+```bash
+pip install rq redis
+```
+
+### 1.2. Redis Configuration
+
+Environment variables needed:
+```env
+REDIS_HOST=localhost
+REDIS_PORT=6379
+REDIS_DB=0
+REDIS_PASSWORD=  # Optional
+REDIS_SSL=false  # Optional
+REDIS_TIMEOUT=10  # Connection timeout
+QUEUE_JOB_TIMEOUT=600  # Maximum time a job can run (10 minutes)
+QUEUE_JOB_TTL=3600  # How long jobs can stay in queue (1 hour)
+```
+
+### 1.3. Create Redis Connection Manager
 
 ```python
-# domain/note.py
-from dataclasses import dataclass
+# configs/RedisConnection.py
+import os
+from redis import Redis
 from typing import Optional
-from datetime import datetime
+from functools import lru_cache
 
-@dataclass
-class NoteData:
-    id: Optional[int]
-    user_id: str
-    content: str
-    created_at: datetime
-    updated_at: Optional[datetime] = None
+class RedisConfig:
+    def __init__(self):
+        self.host = os.getenv("REDIS_HOST", "localhost")
+        self.port = int(os.getenv("REDIS_PORT", 6379))
+        self.db = int(os.getenv("REDIS_DB", 0))
+        self.password = os.getenv("REDIS_PASSWORD")
+        self.ssl = os.getenv("REDIS_SSL", "false").lower() == "true"
+        self.timeout = int(os.getenv("REDIS_TIMEOUT", 10))
 
-    def validate(self):
-        if not self.content or not self.user_id:
-            raise ValueError("Invalid note data")
-```
-
-```python
-# domain/moment.py
-from dataclasses import dataclass
-from typing import Optional, Dict, Any
-from datetime import datetime
-
-@dataclass
-class MomentData:
-    id: Optional[int]
-    user_id: str
-    activity_id: int
-    data: Dict[str, Any]
-    timestamp: datetime
-    # Validate within __post_init__ or separate method
-```
-
-```python
-# domain/activity.py
-from dataclasses import dataclass
-from typing import Optional, Dict, Any
-from datetime import datetime
-
-@dataclass
-class ActivityData:
-    id: Optional[int]
-    user_id: str
-    name: str
-    description: str
-    activity_schema: Dict[str, Any]
-    created_at: datetime
-    updated_at: Optional[datetime] = None
-    # Validate as needed
-```
-
-**No references to HTTP, LLM, or parsing logic here.** Just pure data models and basic validation rules.
-
----
-
-### 2. Application Layer Interfaces
-
-**Repositories Interfaces**:
-Define interfaces for data persistence.
-```python
-# application/ports/repositories.py
-from typing import Protocol, List, Optional
-from domain.note import NoteData
-from domain.moment import MomentData
-from domain.activity import ActivityData
-
-class NoteRepository(Protocol):
-    def create(self, note: NoteData) -> NoteData: ...
-    def get(self, note_id: int) -> Optional[NoteData]: ...
-    # ... other methods ...
-
-class MomentRepository(Protocol):
-    def create(self, moment: MomentData) -> MomentData: ...
-    # ... other methods ...
-
-class ActivityRepository(Protocol):
-    def create(self, activity: ActivityData) -> ActivityData: ...
-    # ... other methods ...
-```
-
-**LLM Service Interface**:
-This interface allows plugging in OpenAI, Claude, etc.
-```python
-# application/ports/llm_service.py
-from typing import Protocol, List
-from domain.moment import MomentData
-from domain.activity import ActivityData
-
-class LLMService(Protocol):
-    def analyze_note(self, note_content: str) -> (List[MomentData], List[ActivityData]):
-        """Analyze the note content and extract moments and activities."""
-        ...
-```
-
-**Note Processing Service Interface**:
-This is where we orchestrate note analysis. The `NoteProcessingService` uses the `LLMService` to transform note content into domain objects.
-```python
-# application/ports/note_processing_service.py
-from typing import Protocol, List
-from domain.moment import MomentData
-from domain.activity import ActivityData
-
-class NoteProcessingService(Protocol):
-    def extract_entities_from_note(self, note_content: str, user_id: str) -> (List[MomentData], List[ActivityData]):
-        """Extract entities (moments, activities) from the note content."""
-        ...
+@lru_cache()
+def get_redis_connection() -> Redis:
+    config = RedisConfig()
+    return Redis(
+        host=config.host,
+        port=config.port,
+        db=config.db,
+        password=config.password,
+        ssl=config.ssl,
+        socket_timeout=config.timeout,
+        decode_responses=True
+    )
 ```
 
 ---
 
-### 3. Application Layer Implementations (Services)
+## 2. Create a NoteProcessingQueue Wrapper
 
-We define a concrete `NoteProcessingServiceImpl` that uses the `LLMService`:
+### 2.1. Queue Wrapper Class
 
 ```python
-# application/services/note_processing_service_impl.py
-from typing import List
-from domain.moment import MomentData
-from domain.activity import ActivityData
-from application.ports.llm_service import LLMService
-from application.ports.note_processing_service import NoteProcessingService
+# queues/NoteProcessingQueue.py
+from rq import Queue
 from datetime import datetime
-
-class NoteProcessingServiceImpl(NoteProcessingService):
-    def __init__(self, llm_service: LLMService):
-        self.llm_service = llm_service
-
-    def extract_entities_from_note(self, note_content: str, user_id: str) -> (List[MomentData], List[ActivityData]):
-        # Use LLM to analyze
-        moments, activities = self.llm_service.analyze_note(note_content)
-        # Add user_id, timestamps etc. to returned domain objects
-        now = datetime.utcnow()
-        for m in moments:
-            m.user_id = user_id
-            # Validate if needed
-        for a in activities:
-            a.user_id = user_id
-            # Validate if needed
-        return moments, activities
-```
-
-**NoteService** – The main use case: create a note and then extract entities.
-```python
-# application/services/note_service.py
-from domain.note import NoteData
-from datetime import datetime
+from configs.RedisConnection import get_redis_connection
 from typing import Optional
-from application.ports.repositories import NoteRepository, MomentRepository, ActivityRepository
-from application.ports.note_processing_service import NoteProcessingService
 
-class NoteService:
-    def __init__(self,
-                 note_repo: NoteRepository,
-                 moment_repo: MomentRepository,
-                 activity_repo: ActivityRepository,
-                 note_processing_svc: NoteProcessingService):
-        self.note_repo = note_repo
-        self.moment_repo = moment_repo
-        self.activity_repo = activity_repo
-        self.note_processing_svc = note_processing_svc
+class NoteProcessingQueue:
+    """Wraps RQ queue for note enrichment tasks."""
 
-    def create_note(self, user_id: str, content: str) -> NoteData:
-        note = NoteData(
-            id=None,
-            user_id=user_id,
-            content=content,
-            created_at=datetime.utcnow(),
-            updated_at=None
+    def __init__(self):
+        self.redis_conn = get_redis_connection()
+        self.queue = Queue(
+            "note_enrichment",
+            connection=self.redis_conn,
+            default_timeout=os.getenv("QUEUE_JOB_TIMEOUT", 600)
         )
-        note.validate()
-        saved_note = self.note_repo.create(note)
 
-        # After creating note, extract entities
-        moments, activities = self.note_processing_svc.extract_entities_from_note(content, user_id)
-        for m in moments:
-            self.moment_repo.create(m)
-        for a in activities:
-            self.activity_repo.create(a)
+    def enqueue_process_note(self, note_id: int) -> Optional[str]:
+        """Enqueue a job to process a note."""
+        try:
+            job = self.queue.enqueue(
+                "note_worker.process_note_job",
+                note_id,
+                job_id=f"note_processing_{note_id}",
+                meta={
+                    'note_id': note_id,
+                    'queued_at': datetime.utcnow().isoformat()
+                }
+            )
+            return job.id
+        except Exception as e:
+            logger.error(f"Failed to enqueue note {note_id}: {str(e)}")
+            return None
 
-        return saved_note
+    def get_queue_health(self) -> dict:
+        """Get queue health metrics."""
+        return {
+            "queue_size": len(self.queue),
+            "failed_jobs": len(self.queue.failed_job_registry),
+            "scheduled_jobs": len(self.queue.scheduled_job_registry)
+        }
 ```
 
 ---
 
-### 4. Infrastructure Layer
+## 3. Worker Implementation
 
-**ORM Models** (using SQLAlchemy as example):
+### 3.1. Worker Function
+
 ```python
-# infrastructure/orm/NoteModel.py
-from sqlalchemy import Column, Integer, String, DateTime
-from sqlalchemy.orm import declarative_base
-Base = declarative_base()
+# note_worker.py
+import logging
+from typing import Optional
+from configs.Database import SessionLocal
+from repositories.NoteRepository import NoteRepository
+from services.RoboService import get_robo_service
+from datetime import datetime, timezone
 
-class NoteORM(Base):
-    __tablename__ = "notes"
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    user_id = Column(String(36), nullable=False)
-    content = Column(String, nullable=False)
-    created_at = Column(DateTime, nullable=False)
-    updated_at = Column(DateTime, nullable=True)
+logger = logging.getLogger(__name__)
+
+class NoteProcessingError(Exception): pass
+class RoboServiceError(NoteProcessingError): pass
+
+def process_note_job(note_id: int):
+    """Worker function that RQ calls to enrich a note."""
+    start_time = datetime.now()
+    logger.info(f"Starting processing of note {note_id}")
+
+    try:
+        with SessionLocal() as db:
+            with db.begin():
+                note_repo = NoteRepository(db)
+                note = note_repo.get(note_id)
+
+                if not note:
+                    raise NoteProcessingError(f"Note {note_id} not found")
+
+                # Update status to PROCESSING
+                note_repo.update_status(note_id, ProcessingStatus.PROCESSING)
+
+                # Process with RoboService
+                robo_service = get_robo_service()
+                try:
+                    result = robo_service.enrich_note(note.content)
+                except Exception as e:
+                    raise RoboServiceError(f"RoboService failed: {str(e)}")
+
+                # Update note with results
+                note_repo.update(note_id, {
+                    "enrichment_data": result,
+                    "processing_status": ProcessingStatus.COMPLETED,
+                    "processed_at": datetime.now(timezone.utc)
+                })
+
+    except Exception as e:
+        logger.error(f"Failed to process note {note_id}: {str(e)}")
+        with SessionLocal() as db:
+            with db.begin():
+                NoteRepository(db).update_status(
+                    note_id,
+                    ProcessingStatus.FAILED
+                )
+        raise
+
+    finally:
+        duration = (datetime.now() - start_time).total_seconds()
+        logger.info(f"Note {note_id} processing completed in {duration}s")
 ```
 
-Similarly for Moments, Activities ORM models.
+### 3.2. Worker Process Management
 
-**Repositories Implementations**:
+Create a worker management script:
+
 ```python
-# infrastructure/repositories/note_repository_impl.py
-from application.ports.repositories import NoteRepository
-from domain.note import NoteData
-from infrastructure.orm.NoteModel import NoteORM
-from sqlalchemy.orm import Session
+# run_worker.py
+import sys
+import logging
+from rq import Worker, Queue, Connection
+from configs.RedisConnection import get_redis_connection
+from configs.Logging import setup_logging
 
-class NoteRepositoryImpl(NoteRepository):
-    def __init__(self, db: Session):
-        self.db = db
+def run_worker():
+    setup_logging()
+    redis_conn = get_redis_connection()
 
-    def create(self, note: NoteData) -> NoteData:
-        orm = NoteORM(
-            user_id=note.user_id,
-            content=note.content,
-            created_at=note.created_at,
-            updated_at=note.updated_at
-        )
-        self.db.add(orm)
-        self.db.commit()
-        self.db.refresh(orm)
-        note.id = orm.id
-        return note
-    # Implement other methods similarly
+    try:
+        with Connection(redis_conn):
+            worker = Worker(['note_enrichment'])
+            worker.work(with_scheduler=True)
+    except KeyboardInterrupt:
+        logger.info("Worker shutting down gracefully...")
+        sys.exit(0)
+
+if __name__ == '__main__':
+    run_worker()
 ```
 
-**LLMService Implementations**:
-We have a generic `LLMService`. We can have multiple concrete classes:
+---
 
-- `OpenAIService` implementing `LLMService`
-- `ClaudeService` implementing `LLMService`
+## 4. Testing Strategy
+
+### 4.1. Unit Tests
 
 ```python
-# infrastructure/llm/openai_service.py
-from application.ports.llm_service import LLMService
-from domain.moment import MomentData
-from domain.activity import ActivityData
-from typing import List
+# test_note_worker.py
+def test_process_note_job_success(mocker):
+    # Mock dependencies
+    db_mock = mocker.patch('note_worker.SessionLocal')
+    note_repo_mock = mocker.patch('note_worker.NoteRepository')
+    robo_service_mock = mocker.patch('note_worker.get_robo_service')
+
+    # Setup mocks
+    note_mock = mocker.Mock(id=1, content="test content")
+    note_repo_mock.return_value.get.return_value = note_mock
+    robo_service_mock.return_value.enrich_note.return_value = {"enriched": True}
+
+    # Run job
+    process_note_job(1)
+
+    # Verify
+    note_repo_mock.return_value.update_status.assert_called_with(
+        1, ProcessingStatus.PROCESSING
+    )
+    note_repo_mock.return_value.update.assert_called()
+```
+
+### 4.2. Integration Tests
+
+```python
+# test_note_processing_integration.py
+import pytest
+from rq import Queue
+from time import sleep
+
+def test_note_processing_flow(test_db, redis_conn):
+    # Create a note
+    note = create_test_note(test_db)
+
+    # Enqueue for processing
+    queue = Queue('note_enrichment', connection=redis_conn)
+    job = queue.enqueue('note_worker.process_note_job', note.id)
+
+    # Wait for processing
+    max_wait = 30  # seconds
+    while job.get_status() != 'finished' and max_wait > 0:
+        sleep(1)
+        max_wait -= 1
+
+    # Verify results
+    processed_note = get_note(test_db, note.id)
+    assert processed_note.processing_status == ProcessingStatus.COMPLETED
+    assert processed_note.enrichment_data is not None
+```
+
+---
+
+## 5. Monitoring & Observability
+
+### 5.1. Logging Configuration
+
+```python
+# configs/Logging.py
+import logging
+import json
 from datetime import datetime
 
-class OpenAIService(LLMService):
-    def __init__(self, openai_client):
-        self.openai_client = openai_client
+class JSONFormatter(logging.Formatter):
+    def format(self, record):
+        log_data = {
+            'timestamp': datetime.utcnow().isoformat(),
+            'level': record.levelname,
+            'message': record.getMessage(),
+            'module': record.module
+        }
+        if hasattr(record, 'note_id'):
+            log_data['note_id'] = record.note_id
+        return json.dumps(log_data)
 
-    def analyze_note(self, note_content: str) -> (List[MomentData], List[ActivityData]):
-        # call OpenAI API
-        response = self.openai_client.analyze_text(note_content)
-        # Extract structured data from response
-        # For example, response might be JSON with "moments" and "activities"
-        moments = [MomentData(id=None, user_id="", activity_id=1, data={"example": "data"}, timestamp=datetime.utcnow())]
-        activities = [ActivityData(id=None, user_id="", name="reading", description="Reading a book", activity_schema={}, created_at=datetime.utcnow())]
-        return moments, activities
+def setup_logging():
+    handler = logging.StreamHandler()
+    handler.setFormatter(JSONFormatter())
+    logging.getLogger().addHandler(handler)
+    logging.getLogger().setLevel(logging.INFO)
 ```
 
-A `ClaudeService` would implement the same `LLMService` interface but call Claude’s API.
+### 5.2. Health Checks
 
-**NoteProcessingServiceImpl** just depends on `LLMService`, so we can inject either `OpenAIService` or `ClaudeService`.
-
----
-
-### 5. Presentation Layer (Routers)
-
-**FastAPI Router** as example:
 ```python
-# presentation/routers/note_router.py
-from fastapi import APIRouter, Depends
-from application.services.note_service import NoteService
+# monitoring/health.py
+from rq import Worker
+from configs.RedisConnection import get_redis_connection
+from queues.NoteProcessingQueue import NoteProcessingQueue
 
-router = APIRouter()
+def get_system_health():
+    redis = get_redis_connection()
+    queue = NoteProcessingQueue()
 
-@router.post("/notes")
-def create_note_endpoint(
-    user_id: str,
-    content: str,
-    note_service: NoteService = Depends(...)
-):
-    note = note_service.create_note(user_id, content)
     return {
-        "id": note.id,
-        "user_id": note.user_id,
-        "content": note.content,
-        "created_at": note.created_at.isoformat()
+        "redis_connected": redis.ping(),
+        "queue_stats": queue.get_queue_health(),
+        "workers": {
+            "count": len(Worker.all(redis)),
+            "active": len([w for w in Worker.all(redis) if w.state == 'busy'])
+        }
     }
 ```
 
-We’ll need to wire dependencies using something like `Depends()` in FastAPI. For example, we might have a `get_note_service()` dependency that constructs the `NoteService` with the required repositories and `NoteProcessingService`.
+---
+
+## Implementation Order
+
+1. Set up Redis and basic configuration
+2. Implement NoteProcessingQueue wrapper
+3. Create basic worker with logging
+4. Add error handling and state management
+5. Implement health checks and monitoring
+6. Add comprehensive tests
+7. Deploy and scale workers as needed
 
 ---
 
-### 6. Wiring Everything Up (Composition Root)
+## Notes and Best Practices
 
-In your main application startup code:
+1. **Synchronous Processing**
+   - Keep worker code synchronous for simplicity
+   - Use multiple workers for parallelism instead of async code
+   - RQ handles the concurrent job distribution
 
-```python
-# main.py or app.py
-from fastapi import FastAPI
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
-from infrastructure.repositories.note_repository_impl import NoteRepositoryImpl
-from infrastructure.llm.openai_service import OpenAIService
-from application.services.note_processing_service_impl import NoteProcessingServiceImpl
-from application.services.note_service import NoteService
-from presentation.routers.note_router import router as note_router
+2. **Error Handling**
+   - Always update note status on failure
+   - Log errors with context
+   - Consider retry strategies for transient failures
 
-app = FastAPI()
+3. **Monitoring**
+   - Use structured logging
+   - Implement health checks
+   - Monitor queue size and processing times
 
-# Setup DB
-engine = create_engine("sqlite:///example.db")
-SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False)
+4. **Scaling**
+   - Run multiple workers for parallel processing
+   - Monitor Redis memory usage
+   - Consider job prioritization if needed
 
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
-
-def get_note_service(db=Depends(get_db)):
-    note_repo = NoteRepositoryImpl(db)
-    moment_repo = ... # Implement similarly
-    activity_repo = ... # Implement similarly
-
-    # Choose LLM backend
-    openai_client = ... # your openAI API client
-    llm_service = OpenAIService(openai_client)
-    note_processing_svc = NoteProcessingServiceImpl(llm_service)
-
-    return NoteService(note_repo, moment_repo, activity_repo, note_processing_svc)
-
-app.include_router(note_router, dependencies=[Depends(get_note_service)])
-```
-
-You would actually define a `get_note_service` dependency that returns a `NoteService` instance with all dependencies injected. In a more complex setup, you’d likely have a dedicated dependency injection library or a factory function.
+5. **Development Workflow**
+   - Use local Redis for development
+   - Run integration tests with temporary Redis instance
+   - Monitor worker logs during development
 
 ---
 
-### Summary
+## Feature Development Plan
 
-- **Domain Layer**: Just data structures and validation.
-- **Application Layer**: Defines interfaces (ports) for repositories and LLM service. Implements `NoteService` and `NoteProcessingService` to orchestrate logic.
-- **Infrastructure Layer**: Implements repositories (ORM), LLM services (OpenAI), and any adapters.
-- **Presentation Layer**: Routers (FastAPI) that handle HTTP requests and call `NoteService`.
-- **LLMService is generic**: `NoteProcessingServiceImpl` depends on `LLMService`. By swapping the `LLMService` implementation from `OpenAIService` to `ClaudeService` at injection time, we can easily switch the LLM provider without changing the business logic.
+### Epic 1: Core Infrastructure Setup
+1. Redis Integration
+   - [x] Install and configure Redis locally
+   - [x] Set up Redis connection management
+     - Created `RedisConfig` for configuration management
+     - Implemented `RedisConnection` with health checks
+     - Added error handling for connection failures
+   - [x] Add Redis health check
+   - [ ] Document Redis setup process
 
-This approach ensures:
-- LLM providers are easily swappable.
-- The note processing logic is separate from the LLM integration.
-- Domain remains free of external service logic.
-- The application service orchestrates workflow and can handle multiple entity creations triggered by one event (adding a note triggers extracting and storing moments/activities).
+2. Queue Management
+   - [x] Define queue service interface (`QueueService`)
+   - [ ] Create NoteProcessingQueue implementation
+   - [ ] Add queue monitoring
+   - [ ] Set up queue configuration
 
-This step-by-step guide and the provided code snippets should help you implement the architecture with a generic LLM service and a `NoteProcessingService` that leverages it.
+### Epic 2: Worker Implementation
+1. Basic Worker
+   - [ ] Create worker process
+   - [ ] Implement job processing logic
+   - [ ] Add worker management script
+   - [ ] Set up logging
+
+2. Error Handling
+   - [ ] Implement error types
+   - [ ] Add status updates on failure
+   - [ ] Set up error logging
+   - [ ] Add transaction management
+
+3. Monitoring
+   - [ ] Add structured logging
+   - [ ] Implement health checks
+   - [ ] Create monitoring dashboard
+   - [ ] Set up alerts
+
+### Epic 3: Testing & Validation
+1. Unit Tests
+   - [ ] Test queue operations
+   - [ ] Test worker processing
+   - [ ] Test error handling
+   - [ ] Test state transitions
+
+2. Integration Tests
+   - [ ] Set up test environment
+   - [ ] Create end-to-end tests
+   - [ ] Test failure scenarios
+   - [ ] Validate monitoring
+
+### Epic 4: Documentation & Developer Experience
+1. Setup Guide
+   - [ ] Write Redis setup instructions
+   - [ ] Document worker deployment
+   - [ ] Create troubleshooting guide
+   - [ ] Add configuration reference
+
+2. Monitoring Guide
+   - [ ] Document available commands
+   - [ ] Explain monitoring tools
+   - [ ] Add debugging tips
+   - [ ] Create runbook
+
+---
+
+## Developer Guide
+
+### Getting Started
+
+1. **Install Redis**
+   ```bash
+   # macOS
+   brew install redis
+   brew services start redis
+
+   # Ubuntu
+   sudo apt-get install redis-server
+   sudo systemctl start redis
+   ```
+
+2. **Install Python Dependencies**
+   ```bash
+   pip install rq redis
+   ```
+
+3. **Configure Environment**
+   ```bash
+   # Copy example env file
+   cp .env.example .env
+
+   # Edit .env with your settings
+   REDIS_HOST=localhost
+   REDIS_PORT=6379
+   ```
+
+4. **Start Worker**
+   ```bash
+   # Basic worker
+   rq worker note_enrichment
+
+   # With scheduler (for monitoring)
+   rq worker --with-scheduler note_enrichment
+   ```
+
+### Monitoring Jobs
+
+1. **View Queue Information**
+   ```bash
+   # Show queue stats
+   rq info
+
+   # Show specific queue
+   rq info note_enrichment
+   ```
+
+2. **Monitor Workers**
+   ```bash
+   # List workers
+   rq workers
+
+   # Watch worker logs
+   rq worker note_enrichment --verbose
+   ```
+
+3. **Job Management**
+   ```bash
+   # List failed jobs
+   rq list failed
+
+   # List scheduled jobs
+   rq list scheduled
+
+   # View job details
+   rq job <job_id>
+   ```
+
+### Troubleshooting
+
+1. **Common Issues**
+   - Redis connection refused
+   - Worker not processing jobs
+   - Jobs failing silently
+
+2. **Debug Commands**
+   ```bash
+   # Check Redis connection
+   redis-cli ping
+
+   # Monitor Redis in real-time
+   redis-cli monitor
+
+   # Clear all queues (development only)
+   rq empty note_enrichment
+   ```
+
+3. **Logging**
+   - Worker logs: `logs/worker.log`
+   - Redis logs: System dependent
+   - Application logs: `logs/app.log`
+
+### Best Practices
+
+1. **Development**
+   - Use local Redis instance
+   - Run worker in verbose mode
+   - Monitor queue sizes
+   - Check failed jobs regularly
+
+2. **Testing**
+   - Mock Redis in unit tests
+   - Use temporary Redis for integration tests
+   - Test failure scenarios
+   - Validate state transitions
+
+3. **Deployment**
+   - Use separate Redis instance
+   - Run multiple workers
+   - Monitor memory usage
+   - Set up log rotation

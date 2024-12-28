@@ -19,20 +19,48 @@
 **Goal**: Integrate Robo processing into note creation flow
 
 1. Domain Updates
-   - [ ] Add Robo processing status to NoteData
-   - [ ] Add validation rules for Robo processing
-   - [ ] Create RoboProcessingResult value object
+   - [x] Add Robo processing status to NoteData
+   - [x] Add validation rules for Robo processing
+   - [x] Create RoboProcessingResult value object
 
 2. Service Integration
    - [ ] Update NoteService to use RoboService
+     - [x] Decision: Keep NoteService focused on immediate saves
+     - [ ] Add queue integration point
    - [ ] Add async processing capability
+     - [x] Decision: Use Redis-based queue for production
+     - [ ] Implement NoteProcessingQueue
+     - [ ] Set up worker processes
    - [ ] Implement error handling and recovery
+     - [x] Decision: Three-tier error handling (immediate retry, backoff, dead letter)
+     - [ ] Implement error hierarchy
+     - [ ] Add recovery strategies
+     - [ ] Set up monitoring
    - [ ] Add unit tests for new functionality
 
 3. Repository Updates
-   - [ ] Add temporary status tracking for Robo processing
+   - [x] Add temporary status tracking for Robo processing
    - [ ] Implement cleanup mechanism for old processing statuses
    - [ ] Add indices for efficient status queries
+
+### Implementation Details
+1. Queue System (Redis-based)
+   - [ ] Set up Redis connection management
+   - [ ] Implement NoteProcessingQueue class
+   - [ ] Create worker process management
+   - [ ] Add monitoring and health checks
+
+2. Error Handling
+   - [ ] Create error hierarchy
+   - [ ] Implement retry strategies
+   - [ ] Set up dead letter queue
+   - [ ] Add error logging and metrics
+
+3. Processing Flow
+   - [ ] Implement state machine for status transitions
+   - [ ] Add transaction management
+   - [ ] Create cleanup jobs
+   - [ ] Set up monitoring
 
 ### Milestone 3: Entity Extraction
 **Goal**: Implement extraction and linking of moments/activities

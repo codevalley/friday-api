@@ -1,8 +1,10 @@
+"""Note schemas for request/response validation."""
+
 from pydantic import BaseModel, Field, ConfigDict
 from datetime import datetime
 from typing import Optional, List, Dict, Any
 from domain.note import NoteData
-from domain.values import AttachmentType, ProcessingStatus
+from domain.values import ProcessingStatus
 
 
 class NoteBase(BaseModel):
@@ -14,13 +16,9 @@ class NoteBase(BaseModel):
         max_length=2000,
         description="Content of the note",
     )
-    attachment_url: Optional[str] = Field(
-        None,
-        max_length=500,
-        description="URL of the attachment if any",
-    )
-    attachment_type: Optional[AttachmentType] = Field(
-        None, description="Type of the attachment"
+    attachments: List[Dict[str, Any]] = Field(
+        default_factory=list,
+        description="List of attachments",
     )
     processing_status: ProcessingStatus = Field(
         default_factory=ProcessingStatus.default,
@@ -36,7 +34,10 @@ class NoteCreate(BaseModel):
     )
     activity_id: Optional[int] = None
     moment_id: Optional[int] = None
-    attachments: Optional[List[Dict[str, Any]]] = None
+    attachments: List[Dict[str, Any]] = Field(
+        default_factory=list,
+        description="List of attachments",
+    )
 
     def to_domain(self, user_id: str) -> NoteData:
         """Convert to domain model.
@@ -62,10 +63,7 @@ class NoteUpdate(BaseModel):
     content: Optional[str] = Field(
         None, min_length=1, max_length=2000
     )
-    attachment_url: Optional[str] = Field(
-        None, max_length=500
-    )
-    attachment_type: Optional[AttachmentType] = None
+    attachments: Optional[List[Dict[str, Any]]] = None
     processing_status: Optional[ProcessingStatus] = Field(
         None, description="New processing status"
     )
@@ -81,7 +79,16 @@ class NoteResponse(BaseModel):
     user_id: str
     activity_id: Optional[int] = None
     moment_id: Optional[int] = None
-    attachments: Optional[List[Dict[str, Any]]] = None
+    attachments: List[Dict[str, Any]] = Field(
+        default_factory=list,
+        description="List of attachments",
+    )
+    processing_status: ProcessingStatus = Field(
+        default_factory=ProcessingStatus.default,
+        description="Processing status of the note",
+    )
+    enrichment_data: Optional[Dict[str, Any]] = None
+    processed_at: Optional[datetime] = None
     created_at: datetime
     updated_at: Optional[datetime] = None
 
@@ -104,6 +111,9 @@ class NoteResponse(BaseModel):
             activity_id=domain.activity_id,
             moment_id=domain.moment_id,
             attachments=domain.attachments,
+            processing_status=domain.processing_status,
+            enrichment_data=domain.enrichment_data,
+            processed_at=domain.processed_at,
             created_at=domain.created_at,
             updated_at=domain.updated_at,
         )

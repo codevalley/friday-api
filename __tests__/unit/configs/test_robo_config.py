@@ -1,3 +1,5 @@
+"""Test RoboConfig module."""
+
 import os
 import pytest
 from pydantic import SecretStr
@@ -6,6 +8,26 @@ from configs.RoboConfig import (
     get_robo_settings,
 )
 from domain.exceptions import RoboConfigError
+
+
+@pytest.fixture(autouse=True)
+def clear_cache():
+    """Clear the lru_cache before and after each test."""
+    get_robo_settings.cache_clear()
+    yield
+    get_robo_settings.cache_clear()
+
+
+@pytest.fixture(autouse=True)
+def setup_test_env():
+    """Set up test environment."""
+    old_env = os.environ.get("ENV")
+    os.environ["ENV"] = "test"
+    yield
+    if old_env:
+        os.environ["ENV"] = old_env
+    else:
+        del os.environ["ENV"]
 
 
 def test_robo_settings_default_values():
@@ -50,16 +72,16 @@ def test_to_domain_config_with_valid_settings():
     assert config.timeout_seconds == 30
     assert config.temperature == 0.7
     assert config.max_tokens == 150
+    assert config.is_test is True
 
 
 def test_to_domain_config_in_test_environment():
     """Test conversion to domain config in test environment."""
-    os.environ["ENV"] = "test"
     settings = RoboSettings()
     config = settings.to_domain_config()
     assert config.api_key == "test_key"
     assert config.model_name == "test_model"
-    os.environ.pop("ENV", None)
+    assert config.is_test is True
 
 
 def test_to_domain_config_missing_required_fields():
@@ -71,7 +93,6 @@ def test_to_domain_config_missing_required_fields():
     assert "API key and model name are required" in str(
         exc_info.value
     )
-    os.environ.pop("ENV", None)
 
 
 def test_get_robo_settings_success(monkeypatch):
@@ -89,7 +110,7 @@ def test_get_robo_settings_success(monkeypatch):
         return MockEnv()
 
     monkeypatch.setattr(
-        "configs.Environment.get_environment_variables",
+        "configs.RoboConfig.get_environment_variables",
         mock_get_env,
     )
 
@@ -104,14 +125,12 @@ def test_get_robo_settings_success(monkeypatch):
 
 def test_get_robo_settings_failure(monkeypatch):
     """Test failure in retrieving Robo settings."""
-    # Clear the cache before running the test
-    get_robo_settings.cache_clear()
 
     def mock_get_env():
         raise ValueError("Test error")
 
     monkeypatch.setattr(
-        "configs.Environment.get_environment_variables",
+        "configs.RoboConfig.get_environment_variables",
         mock_get_env,
     )
 

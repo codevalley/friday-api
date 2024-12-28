@@ -2,7 +2,7 @@
 
 import pytest
 from datetime import datetime, timezone
-from unittest.mock import Mock
+from unittest.mock import Mock, MagicMock
 from fastapi import HTTPException
 
 from services.NoteService import NoteService
@@ -11,12 +11,27 @@ from schemas.pydantic.NoteSchema import (
     NoteUpdate,
     NoteResponse,
 )
+from domain.values import ProcessingStatus
+from domain.exceptions import NoteContentError
 
 
 @pytest.fixture
-def note_service(test_db_session):
+def mock_queue_service():
+    """Create a mock queue service."""
+    queue = Mock()
+    queue.enqueue_note = MagicMock(return_value="job-123")
+    queue.get_queue_health = MagicMock(
+        return_value={"status": "healthy"}
+    )
+    return queue
+
+
+@pytest.fixture
+def note_service(test_db_session, mock_queue_service):
     """Create NoteService instance with test database session."""
-    return NoteService(db=test_db_session)
+    return NoteService(
+        db=test_db_session, queue_service=mock_queue_service
+    )
 
 
 @pytest.fixture
@@ -26,7 +41,7 @@ def valid_note_data():
         "content": "Test Note",
         "activity_id": None,
         "moment_id": None,
-        "attachments": None,
+        "attachments": [],
     }
 
 
@@ -42,6 +57,26 @@ def mock_note():
     note.activity_id = None
     note.moment_id = None
     note.attachments = []
+    note.processing_status = ProcessingStatus.PENDING
+    note.enrichment_data = None
+    note.processed_at = None
+
+    def mock_to_dict():
+        return {
+            "id": note.id,
+            "user_id": note.user_id,
+            "content": note.content,
+            "created_at": note.created_at,
+            "updated_at": note.updated_at,
+            "activity_id": note.activity_id,
+            "moment_id": note.moment_id,
+            "attachments": note.attachments,
+            "processing_status": note.processing_status,
+            "enrichment_data": note.enrichment_data,
+            "processed_at": note.processed_at,
+        }
+
+    note.to_dict = mock_to_dict
     return note
 
 
@@ -66,25 +101,32 @@ class TestNoteService:
         assert isinstance(result, NoteResponse)
         assert result.id == mock_note.id
         assert result.content == mock_note.content
+        assert (
+            result.processing_status
+            == ProcessingStatus.PENDING
+        )
+        note_service.queue_service.enqueue_note.assert_called_once_with(
+            mock_note.id
+        )
 
     def test_create_note_invalid_content(
         self, note_service, valid_note_data
     ):
         """Test note creation with invalid content."""
-        # Setup mocks with a Mock object that has side_effect
-        mock_create = Mock()
-        mock_create.side_effect = HTTPException(
-            status_code=400,
-            detail="Note content cannot be empty",
+        # Setup mocks to raise NoteContentError
+        note_service.note_repo.create = Mock(
+            side_effect=NoteContentError("Invalid content")
         )
-        note_service.note_repo.create = mock_create
 
-        # Create note with invalid content
+        # Create note
         note_data = NoteCreate(**valid_note_data)
         with pytest.raises(HTTPException) as exc:
             note_service.create_note(note_data, "test_user")
         assert exc.value.status_code == 400
-        assert "content" in str(exc.value.detail)
+        assert (
+            "content"
+            in str(exc.value.detail["message"]).lower()
+        )
 
     def test_get_note_success(
         self, note_service, mock_note
@@ -104,7 +146,9 @@ class TestNoteService:
 
     def test_get_note_not_found(self, note_service):
         """Test note retrieval when not found."""
-        note_service.note_repo.get = Mock(return_value=None)
+        note_service.note_repo.get_by_user = Mock(
+            return_value=None
+        )
 
         with pytest.raises(HTTPException) as exc:
             note_service.get_note(1, "test_user")
@@ -153,12 +197,19 @@ class TestNoteService:
         note_service.note_repo.get_by_user = Mock(
             return_value=mock_note
         )
-        note_service.note_repo.delete = Mock(
-            return_value=True
-        )
+
+        # Mock the session delete and commit methods
+        note_service.db.delete = Mock()
+        note_service.db.commit = Mock()
 
         result = note_service.delete_note(1, "test_user")
         assert result is True
+
+        # Verify the delete and commit were called
+        note_service.db.delete.assert_called_once_with(
+            mock_note
+        )
+        note_service.db.commit.assert_called_once()
 
     def test_delete_note_unauthorized(self, note_service):
         """Test deleting note without authorization."""

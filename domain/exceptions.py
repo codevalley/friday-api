@@ -257,3 +257,17 @@ class RoboValidationError(RoboError):
     """Raised when there's an error validating Robo inputs or outputs."""
 
     pass
+
+
+class RoboServiceError(DomainException):
+    """Raised when RoboService fails to process a note."""
+
+    def __init__(
+        self, message: str = "Failed to process note"
+    ):
+        """Initialize RoboService error.
+
+        Args:
+            message: Error message
+        """
+        super().__init__(message, code="ROBO_SERVICE_ERROR")

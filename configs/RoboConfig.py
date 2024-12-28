@@ -1,61 +1,49 @@
-from functools import lru_cache
-from pydantic import BaseModel, Field, SecretStr
+"""RoboService configuration module."""
+
 import os
+from functools import lru_cache
+from pydantic import SecretStr
+from pydantic_settings import BaseSettings
+from typing import Optional
 
-from domain.robo import RoboConfig
 from domain.exceptions import RoboConfigError
+from configs.Environment import get_environment_variables
 
 
-class RoboSettings(BaseModel):
-    """Pydantic model for Robo configuration settings."""
+class RoboSettings(BaseSettings):
+    """RoboService configuration settings."""
 
-    api_key: SecretStr | None = Field(
-        None, description="API key for Robo service"
-    )
-    model_name: str | None = Field(
-        None,
-        description="Model name to use for Robo service",
-    )
-    max_retries: int = Field(
-        default=3,
-        ge=1,
-        le=10,
-        description="Maximum number of retry attempts",
-    )
-    timeout_seconds: int = Field(
-        default=30,
-        ge=1,
-        le=300,
-        description="Timeout in seconds for API calls",
-    )
-    temperature: float = Field(
-        default=0.7,
-        ge=0.0,
-        le=2.0,
-        description="Temperature parameter for response generation",
-    )
-    max_tokens: int = Field(
-        default=150,
-        ge=1,
-        le=4096,
-        description="Maximum number of tokens to generate",
-    )
+    api_key: Optional[SecretStr] = None
+    model_name: Optional[str] = None
+    max_retries: int = 3
+    timeout_seconds: int = 30
+    temperature: float = 0.7
+    max_tokens: int = 150
 
-    def to_domain_config(self) -> RoboConfig:
-        """Convert settings to domain RoboConfig object."""
+    def to_domain_config(self) -> "RoboConfig":
+        """Convert settings to domain config.
+
+        Returns:
+            RoboConfig: Domain configuration object
+
+        Raises:
+            RoboConfigError: If required fields are missing in production
+        """
+        env = os.getenv("ENV", "").lower()
+        if env == "test":
+            return RoboConfig(
+                api_key="test_key",
+                model_name="test_model",
+                max_retries=self.max_retries,
+                timeout_seconds=self.timeout_seconds,
+                temperature=self.temperature,
+                max_tokens=self.max_tokens,
+                is_test=True,
+            )
+
         if not self.api_key or not self.model_name:
-            if os.getenv("ENV") == "test":
-                # Return test configuration
-                return RoboConfig(
-                    api_key="test_key",
-                    model_name="test_model",
-                    max_retries=self.max_retries,
-                    timeout_seconds=self.timeout_seconds,
-                    temperature=self.temperature,
-                    max_tokens=self.max_tokens,
-                )
             raise RoboConfigError(
-                "API key and model name are required in non-test environments"
+                "API key and model name are required in non-test environment"
             )
 
         return RoboConfig(
@@ -65,17 +53,60 @@ class RoboSettings(BaseModel):
             timeout_seconds=self.timeout_seconds,
             temperature=self.temperature,
             max_tokens=self.max_tokens,
+            is_test=False,
         )
 
+    class Config:
+        """Pydantic configuration."""
 
-@lru_cache
+        env_prefix = "ROBO_"
+
+
+class RoboConfig:
+    """Domain configuration for RoboService."""
+
+    def __init__(
+        self,
+        api_key: str,
+        model_name: str,
+        max_retries: int = 3,
+        timeout_seconds: int = 30,
+        temperature: float = 0.7,
+        max_tokens: int = 150,
+        is_test: bool = False,
+    ):
+        """Initialize RoboConfig.
+
+        Args:
+            api_key: API key for the service
+            model_name: Model name to use
+            max_retries: Maximum number of retries
+            timeout_seconds: Timeout in seconds
+            temperature: Temperature parameter for generation
+            max_tokens: Maximum tokens to generate
+            is_test: Whether this is a test configuration
+        """
+        self.api_key = api_key
+        self.model_name = model_name
+        self.max_retries = max_retries
+        self.timeout_seconds = timeout_seconds
+        self.temperature = temperature
+        self.max_tokens = max_tokens
+        self.is_test = is_test
+
+
+@lru_cache()
 def get_robo_settings() -> RoboSettings:
-    """Get Robo settings from environment variables."""
+    """Get RoboService settings with caching.
+
+    Returns:
+        RoboSettings: Service settings
+
+    Raises:
+        RoboConfigError: If settings cannot be loaded
+    """
     try:
-        from .Environment import get_environment_variables
-
         env = get_environment_variables()
-
         return RoboSettings(
             api_key=env.ROBO_API_KEY,
             model_name=env.ROBO_MODEL_NAME,

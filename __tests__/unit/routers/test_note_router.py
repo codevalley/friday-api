@@ -34,7 +34,7 @@ def mock_note_service():
             updated_at=None,
             activity_id=None,
             moment_id=None,
-            attachments=None,
+            attachments=[],
         )
 
     # Set up the mock methods
@@ -71,7 +71,7 @@ def valid_note_data():
         "content": "Test Note",
         "activity_id": None,
         "moment_id": None,
-        "attachments": None,
+        "attachments": [],
     }
 
 
@@ -155,7 +155,7 @@ class TestNoteRouter:
         )
         assert response_data["activity_id"] is None
         assert response_data["moment_id"] is None
-        assert response_data["attachments"] is None
+        assert response_data["attachments"] == []
         assert "created_at" in response_data
         assert response_data["updated_at"] is None
 

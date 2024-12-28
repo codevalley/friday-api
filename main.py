@@ -1,46 +1,33 @@
 """Main application module."""
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from strawberry import Schema
-from strawberry.fastapi import GraphQLRouter
 
 from configs.Environment import get_environment_variables
-from configs.GraphQL import get_graphql_context
 from configs.Logging import configure_logging
-from metadata.Tags import Tags
+from configs.OpenAPI import configure_openapi
+from configs.queue_dependencies import get_queue_service
 from routers.v1.ActivityRouter import (
-    router as ActivityRouter,
+    router as activity_router,
 )
-from routers.v1.MomentRouter import router as MomentRouter
-from routers.v1.AuthRouter import router as AuthRouter
-from routers.v1.NoteRouter import router as NoteRouter
-from schemas.graphql.Query import Query
-from schemas.graphql.Mutation import Mutation
+from routers.v1.AuthRouter import router as auth_router
+from routers.v1.MomentRouter import router as moment_router
+from routers.v1.NoteRouter import router as note_router
 from utils.middleware.request_logging import (
     RequestLoggingMiddleware,
 )
-from utils.error_handlers import handle_global_exception
-from utils.errors.handlers import configure_error_handlers
 
-# Load environment variables
+# Get environment variables
 env = get_environment_variables()
 
-# Determine if we're in test mode
-# is_test = env.ENV_STATE == "test"
-
 # Configure logging
-configure_logging(is_test=False)
+configure_logging()
 
-# Create FastAPI application
-app = FastAPI(
-    title=env.APP_NAME,
-    version=env.API_VERSION,
-    openapi_tags=Tags,
-    openapi_url="/openapi.json",
-    docs_url="/docs",
-    redoc_url="/redoc",
-)
+# Create FastAPI app
+app = FastAPI()
+
+# Configure OpenAPI
+configure_openapi(app)
 
 # Add CORS middleware
 app.add_middleware(
@@ -54,29 +41,19 @@ app.add_middleware(
 # Add request logging middleware
 app.add_middleware(RequestLoggingMiddleware)
 
-# Include routers
-app.include_router(ActivityRouter)
-app.include_router(MomentRouter)
-app.include_router(AuthRouter)
-app.include_router(NoteRouter)
-
-# GraphQL Configuration
-schema = Schema(query=Query, mutation=Mutation)
-graphql = GraphQLRouter(
-    schema,
-    context_getter=get_graphql_context,
-    graphql_ide="graphiql",
-)
-app.include_router(graphql, prefix="/graphql")
-
-# Configure error handlers
-configure_error_handlers(app)
+# Add routers
+app.include_router(auth_router)
+app.include_router(activity_router)
+app.include_router(moment_router)
+app.include_router(note_router)
 
 
-# Add error handlers
-@app.exception_handler(Exception)
-async def global_exception_handler(
-    request: Request, exc: Exception
-):
-    """Global exception handler for all unhandled exceptions."""
-    return await handle_global_exception(request, exc)
+# Add dependencies
+def get_queue_service_override():
+    """Override QueueService dependency."""
+    return get_queue_service()
+
+
+app.dependency_overrides[
+    get_queue_service
+] = get_queue_service_override

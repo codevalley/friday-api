@@ -1,11 +1,15 @@
+"""FastAPI dependency providers."""
+
 from fastapi import Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from typing import Optional
 from configs.Database import get_db_connection
 from configs.OpenAPI import security
+from configs.queue_dependencies import get_queue_service
 from repositories.UserRepository import UserRepository
 from utils.security import verify_token
 from orm.UserModel import User
+from domain.ports.QueueService import QueueService
 from fastapi.security import HTTPAuthorizationCredentials
 
 
@@ -70,3 +74,8 @@ async def get_optional_user(
         return user
     except Exception:
         return None
+
+
+def get_queue() -> QueueService:
+    """Get queue service instance."""
+    return get_queue_service()
