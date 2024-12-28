@@ -21,8 +21,10 @@ def get_redis_config() -> RedisConfig:
 def get_queue() -> Queue:
     """Get RQ queue instance."""
     redis_config = get_redis_config()
-    redis_conn = get_redis_connection(redis_config)
-    return Queue("note_processing", connection=redis_conn)
+    redis_conn = get_redis_connection()
+    return Queue(
+        redis_config.queue_name, connection=redis_conn
+    )
 
 
 @lru_cache()

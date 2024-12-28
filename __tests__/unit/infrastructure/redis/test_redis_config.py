@@ -2,7 +2,7 @@
 
 import pytest
 from unittest.mock import patch
-from infrastructure.redis.RedisConfig import RedisConfig
+from configs.redis.RedisConfig import RedisConfig
 
 
 def test_redis_config_defaults():
@@ -14,6 +14,7 @@ def test_redis_config_defaults():
     assert config.password is None
     assert config.ssl is False
     assert config.timeout == 10
+    assert config.decode_responses is True
     assert config.job_timeout == 600
     assert config.job_ttl == 3600
     assert config.queue_name == "note_enrichment"
@@ -67,3 +68,20 @@ def test_redis_config_invalid_db():
     ):
         with pytest.raises(ValueError):
             RedisConfig()
+
+
+def test_redis_config_queue_settings():
+    """Test queue-specific settings."""
+    with patch.dict(
+        "os.environ",
+        {
+            "REDIS_JOB_TIMEOUT": "300",
+            "REDIS_JOB_TTL": "1800",
+            "REDIS_QUEUE_NAME": "test_queue",
+        },
+        clear=True,
+    ):
+        config = RedisConfig()
+        assert config.job_timeout == 300
+        assert config.job_ttl == 1800
+        assert config.queue_name == "test_queue"

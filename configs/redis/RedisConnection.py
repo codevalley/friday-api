@@ -1,25 +1,53 @@
-"""Redis connection module."""
+"""Redis connection management."""
 
+from functools import lru_cache
 from redis import Redis
-
 from configs.redis.RedisConfig import RedisConfig
 
 
-def get_redis_connection(config: RedisConfig) -> Redis:
-    """Get Redis connection.
+class RedisConnectionError(Exception):
+    """Raised when Redis connection fails."""
 
-    Args:
-        config: Redis configuration
+    pass
+
+
+@lru_cache()
+def get_redis_connection() -> Redis:
+    """Get Redis connection with caching.
 
     Returns:
-        Redis: Redis connection instance
+        Redis client instance
+
+    Raises:
+        RedisConnectionError: If connection fails
     """
-    return Redis(
-        host=config.host,
-        port=config.port,
-        db=config.db,
-        password=config.password,
-        ssl=config.ssl,
-        socket_timeout=config.timeout,
-        decode_responses=True,
-    )
+    config = RedisConfig()
+    try:
+        params = config.get_connection_params()
+        client = Redis(**params)
+        # Test connection
+        if not client.ping():
+            raise RedisConnectionError("Redis ping failed")
+        return client
+    except Exception as e:
+        raise RedisConnectionError(
+            f"Failed to connect to Redis: {str(e)}"
+        )
+
+
+def check_redis_health() -> dict:
+    """Check Redis connection health.
+
+    Returns:
+        Dict containing health check results
+    """
+    try:
+        client = get_redis_connection()
+        if not client.ping():
+            return {
+                "status": "unhealthy",
+                "error": "Redis ping failed",
+            }
+        return {"status": "healthy", "error": None}
+    except Exception as e:
+        return {"status": "unhealthy", "error": str(e)}

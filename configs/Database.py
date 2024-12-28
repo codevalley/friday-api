@@ -7,13 +7,8 @@ import time
 
 # Configure SQLAlchemy logging
 logging.basicConfig()
-# Log all SQL statements
 logging.getLogger("sqlalchemy.engine").setLevel(
     logging.INFO
-)
-# For even more detailed logging including parameters:
-logging.getLogger("sqlalchemy.engine").setLevel(
-    logging.DEBUG
 )
 
 env = get_environment_variables()
@@ -80,6 +75,15 @@ SessionLocal = sessionmaker(
 
 
 def get_db_connection():
+    """FastAPI dependency for database connection.
+
+    This is used as a dependency in FastAPI route handlers.
+    It yields a database session that will be closed after
+    the request is complete.
+
+    Yields:
+        SQLAlchemy session that will be automatically closed
+    """
     db = SessionLocal()
     try:
         yield db

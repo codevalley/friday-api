@@ -3,7 +3,7 @@
 import pytest
 from unittest.mock import MagicMock, patch
 from redis import Redis
-from infrastructure.redis.RedisConnection import (
+from configs.redis.RedisConnection import (
     get_redis_connection,
     check_redis_health,
     RedisConnectionError,
@@ -22,7 +22,7 @@ def mock_redis(monkeypatch):
     mock = MagicMock(spec=Redis)
     mock.ping.return_value = True
     with patch(
-        "infrastructure.redis.RedisConnection.Redis",
+        "configs.redis.RedisConnection.Redis",
         return_value=mock,
     ):
         yield mock

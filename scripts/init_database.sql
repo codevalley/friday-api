@@ -65,19 +65,19 @@ CREATE TABLE IF NOT EXISTS notes (
     moment_id INT NULL,
 
     -- Changed attachment columns
-    attachment_url VARCHAR(500) NULL,
-    attachment_type ENUM('IMAGE', 'DOCUMENT', 'LINK') NULL,  -- Updated enum values
-    attachments JSON NULL,  -- New column for structured attachments
+    attachments JSON NULL,  -- Structured attachments
 
-    -- Processing status
+    -- Processing status and data
     processing_status ENUM(
-        'not_processed',
-        'pending',
-        'processing',
-        'completed',
-        'failed',
-        'skipped'
-    ) NOT NULL DEFAULT 'not_processed',
+        'NOT_PROCESSED',
+        'PENDING',
+        'PROCESSING',
+        'COMPLETED',
+        'FAILED',
+        'SKIPPED'
+    ) NOT NULL DEFAULT 'NOT_PROCESSED',
+    enrichment_data JSON NULL,  -- Data from note processing
+    processed_at TIMESTAMP NULL,  -- When the note was processed
 
     -- Timestamps
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -85,14 +85,11 @@ CREATE TABLE IF NOT EXISTS notes (
 
     -- Foreign keys and constraints
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-    FOREIGN KEY (activity_id) REFERENCES activities(id),  -- New FK
-    FOREIGN KEY (moment_id) REFERENCES moments(id),  -- New FK
+    FOREIGN KEY (activity_id) REFERENCES activities(id),
+    FOREIGN KEY (moment_id) REFERENCES moments(id),
 
     -- Data validation
-    CONSTRAINT check_content_not_empty CHECK (content != ''),
-    CONSTRAINT check_attachment_consistency
-        CHECK ((attachment_url IS NULL AND attachment_type IS NULL) OR
-               (attachment_url IS NOT NULL AND attachment_type IS NOT NULL))
+    CONSTRAINT check_content_not_empty CHECK (content != '')
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- Add indexes for better query performance
@@ -105,4 +102,4 @@ CREATE INDEX idx_moments_timestamp ON moments(timestamp);
 -- Indexes for notes table
 CREATE INDEX idx_notes_user_id ON notes(user_id);
 CREATE INDEX idx_notes_created_at ON notes(created_at);
-CREATE INDEX idx_notes_attachment_type ON notes(attachment_type);
+CREATE INDEX idx_notes_processing_status ON notes(processing_status);

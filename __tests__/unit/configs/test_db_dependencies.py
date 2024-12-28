@@ -3,7 +3,7 @@
 import pytest
 from sqlalchemy import text
 from sqlalchemy.orm import Session
-from configs.db_dependencies import get_db_connection
+from configs.Database import get_db_connection
 
 
 @pytest.fixture

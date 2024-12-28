@@ -1,51 +1,57 @@
-## Robo Integration Initiative
+## Technical Debt and Improvements Backlog
 
-### Milestone 1: Configuration Management ✅
-- [x] Create RoboConfig class with required fields
-- [x] Add environment variable support
-- [x] Implement configuration validation
-- [x] Add test configuration support
-- [x] Create unit tests for configuration
+### Configuration and Code Organization 🔧
+- [x] Resolve RedisConfig duplication
+  - ✓ Removed duplicate RedisConfig class from infrastructure/redis
+  - ✓ Consolidated into configs/redis/RedisConfig.py using Pydantic settings
+  - ✓ Updated all related imports and tests
+- [x] Consolidate database connection handling
+  - ✓ Moved all database connection logic to configs/Database.py
+  - ✓ Removed duplicate get_db_connection from db_dependencies.py
+  - ✓ Fixed database schema to match ORM models
+- [ ] Review and refactor OpenAIService
+  - Convert from async to sync for background worker compatibility
+  - Simplify worker thread processing flow
 
-### Milestone 2: OpenAI Implementation ✅
-- [x] Implement OpenAIService class
-- [x] Add retry mechanism with exponential backoff
-- [x] Implement rate limiting and token tracking
-- [x] Add unit tests with mocked responses
-- [x] Add integration tests with real API
-- [x] Fix test coverage and deprecation warnings
+### Code Quality and Performance 📈
+- [ ] Optimize logging implementation
+  - Remove unnecessary debug logging statements
+  - Establish clear logging guidelines
+  - Define appropriate log levels for different scenarios
+- [ ] Remove magic strings
+  - Create constants/enums for commonly used strings
+  - Establish string constant organization strategy
+- [ ] Optimize validation layers
+  - Review validation duplication across domain/services/schemas
+  - Measure and optimize validation performance
+  - Consider caching validation results where appropriate
 
-### Milestone 3: Domain Updates 🚧
-- [ ] Define message processing interfaces
-- [ ] Create message validation rules
-- [ ] Implement message transformation logic
-- [ ] Add unit tests for domain logic
-- [ ] Create integration tests for message flow
+### Architecture and Patterns 🏗
+- [ ] Standardize exception handling
+  - Review current domain/app/HTTP exception pattern
+  - Consider implementing consistent domain->HTTP mapping
+  - Document exception handling guidelines
+- [ ] Optimize service layer error handling
+  - Review and reduce try/catch blocks
+  - Implement more focused error handling
+  - Consider using decorators for common error patterns
+- [ ] Clarify service vs domain responsibilities
+  - Review validation placement
+  - Document layer responsibilities
+  - Create clear boundaries between layers
 
-### Milestone 4: API Integration
-- [ ] Create API endpoints for message processing
-- [ ] Implement request validation
-- [ ] Add rate limiting for API endpoints
-- [ ] Create API documentation
-- [ ] Add integration tests for API endpoints
+### API and Repository Standardization 📚
+- [ ] Standardize repository method naming
+  - Create consistent naming conventions
+  - Refactor get_by_* methods
+  - Document repository method naming guidelines
 
-### Milestone 5: Monitoring and Logging
-- [ ] Add structured logging
-- [ ] Implement error tracking
-- [ ] Create usage metrics
-- [ ] Add performance monitoring
-- [ ] Set up alerting
-
-### Milestone 6: Documentation and Examples
-- [ ] Create API documentation
-- [ ] Add usage examples
-- [ ] Document configuration options
-- [ ] Create troubleshooting guide
-- [ ] Add deployment instructions
-
-## Test Coverage Improvements ✅
-- [x] Add unit tests for OpenAIService
-- [x] Add unit tests for RateLimiter
-- [x] Add unit tests for retry decorator
-- [x] Fix deprecation warnings
-- [x] Improve test coverage for core components
+### Documentation Updates 📝
+- [ ] Update architecture documentation
+  - Document exception handling patterns
+  - Clarify layer responsibilities
+  - Add validation flow diagrams
+- [ ] Create coding standards guide
+  - Document naming conventions
+  - Define logging guidelines
+  - Establish error handling patterns
