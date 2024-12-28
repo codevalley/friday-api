@@ -1,7 +1,7 @@
 """Domain model for Moment."""
 
 from dataclasses import dataclass
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timezone, timedelta, UTC
 from typing import Dict, Any, Optional, TypeVar, Type
 
 from domain.exceptions import (
@@ -265,8 +265,8 @@ class MomentData:
         activity_id = data.get("activity_id") or data.get(
             "activityId"
         )
-        timestamp = (
-            data.get("timestamp") or datetime.utcnow()
+        timestamp = data.get("timestamp") or datetime.now(
+            UTC
         )
         created_at = data.get("created_at") or data.get(
             "createdAt"

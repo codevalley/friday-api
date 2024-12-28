@@ -1,5 +1,5 @@
 from typing import List, Optional, Dict, Any, Union
-from datetime import datetime
+from datetime import datetime, UTC
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import desc, func
 
@@ -59,7 +59,7 @@ class MomentRepository(BaseRepository[MomentModel, int]):
             activity_id=instance_or_activity_id,
             data=data,
             user_id=user_id,
-            timestamp=timestamp or datetime.utcnow(),
+            timestamp=timestamp or datetime.now(UTC),
         )
         # Validate data before saving
         moment.validate_data(self.db)

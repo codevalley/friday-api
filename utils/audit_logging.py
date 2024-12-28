@@ -3,7 +3,7 @@
 import logging
 from enum import Enum
 from typing import Any, Dict, Optional
-from datetime import datetime
+from datetime import datetime, UTC
 
 
 logger = logging.getLogger(__name__)
@@ -43,7 +43,7 @@ def log_audit_event(
     event_data = {
         "event_type": event_type.value,
         "user_id": user_id,
-        "timestamp": datetime.utcnow().isoformat(),
+        "timestamp": datetime.now(UTC).isoformat(),
         "resource_id": resource_id,
         **(details or {}),
     }

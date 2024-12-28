@@ -1,7 +1,7 @@
 """Test BaseModel class."""
 
 import pytest
-from datetime import datetime
+from datetime import datetime, UTC
 from sqlalchemy import Column, Integer, String, DateTime
 from sqlalchemy.exc import IntegrityError
 
@@ -18,7 +18,9 @@ class TestTableModel(EntityMeta):
     name = Column(String(50), nullable=False)
     description = Column(String(200))
     created_at = Column(
-        DateTime, nullable=False, default=datetime.utcnow
+        DateTime,
+        nullable=False,
+        default=lambda: datetime.now(UTC),
     )
 
 
@@ -56,7 +58,7 @@ def test_column_validation(test_db_session):
 
 def test_to_dict_conversion():
     """Test conversion of model instance to dictionary."""
-    now = datetime.utcnow()
+    now = datetime.now(UTC)
     model = TestTableModel(
         id=1,
         name="Test Name",

@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, UTC
 from typing import Any, Dict, Optional
 
 from pydantic import Field, field_validator, ConfigDict
@@ -58,7 +58,7 @@ class MomentBase(BaseSchema):
         Returns:
             datetime: The validated timestamp or current UTC time
         """
-        return v or datetime.utcnow()
+        return v or datetime.now(UTC)
 
     def to_domain(
         self, user_id: Optional[str] = None

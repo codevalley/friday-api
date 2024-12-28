@@ -1,6 +1,6 @@
 """Pydantic schemas for User-related data."""
 
-from datetime import datetime
+from datetime import datetime, UTC
 from typing import Optional
 from pydantic import BaseModel, Field, ConfigDict
 
@@ -97,7 +97,7 @@ class UserResponse(UserBase):
             username=domain.username,
             key_id=domain.key_id,
             created_at=domain.created_at
-            or datetime.utcnow(),
+            or datetime.now(UTC),
             updated_at=domain.updated_at,
         )
 
@@ -125,7 +125,7 @@ class UserRegisterResponse(BaseModel):
         ..., description="Secret key for authentication"
     )
     created_at: datetime = Field(
-        default_factory=datetime.utcnow,
+        default_factory=lambda: datetime.now(UTC),
         description="When the user was created",
     )
     updated_at: Optional[datetime] = Field(
@@ -151,7 +151,7 @@ class UserRegisterResponse(BaseModel):
             key_id=domain.key_id,
             user_secret=user_secret,
             created_at=domain.created_at
-            or datetime.utcnow(),
+            or datetime.now(UTC),
             updated_at=domain.updated_at,
         )
 
@@ -260,7 +260,7 @@ class UserInfoResponse(BaseModel):
             id=str(domain.id),
             username=domain.username,
             created_at=domain.created_at
-            or datetime.utcnow(),
+            or datetime.now(UTC),
             updated_at=domain.updated_at,
         )
 
