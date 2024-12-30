@@ -1,7 +1,8 @@
-"""OpenAI service for processing text."""
+"""OpenAI implementation of RoboService."""
 
 import logging
 from datetime import datetime, UTC
+from typing import Dict, Any, List, Optional
 
 from openai import OpenAI
 
@@ -12,6 +13,7 @@ from domain.exceptions import (
     RoboValidationError,
 )
 from domain.robo import (
+    RoboService,
     RoboConfig,
     RoboProcessingResult,
 )
@@ -21,14 +23,17 @@ from utils.retry import with_retry
 logger = logging.getLogger(__name__)
 
 
-class OpenAIService:
-    """Service for interacting with OpenAI's API."""
+class OpenAIService(RoboService):
+    """OpenAI implementation of RoboService."""
 
     def __init__(self, config: RoboConfig):
         """Initialize the OpenAI service.
 
         Args:
             config: Configuration for the service
+
+        Raises:
+            RoboConfigError: If API key is missing
         """
         if not config.api_key:
             raise RoboConfigError(
@@ -55,13 +60,28 @@ class OpenAIService:
         ),
     )
     def process_text(
-        self, content: str
+        self,
+        text: str,
+        context: Optional[Dict[str, Any]] = None,
     ) -> RoboProcessingResult:
-        """Process text content using OpenAI's API."""
+        """Process text using OpenAI's API.
+
+        Args:
+            text: Text to process
+            context: Optional context for processing
+
+        Returns:
+            RoboProcessingResult: Processing result
+
+        Raises:
+            RoboAPIError: If API call fails
+            RoboRateLimitError: If rate limit is exceeded
+            RoboConfigError: If configuration is invalid
+        """
         try:
             # Estimate token usage (rough estimate: 4 chars ≈ 1 token)
             estimated_tokens = (
-                len(content) // 4
+                len(text) // 4
             ) + 100  # Buffer for response
 
             # Wait for rate limit capacity
@@ -80,7 +100,7 @@ class OpenAIService:
                         "role": "system",
                         "content": "You are a helpful assistant.",
                     },
-                    {"role": "user", "content": content},
+                    {"role": "user", "content": text},
                 ],
                 temperature=self.config.temperature,
                 max_tokens=self.config.max_tokens or 150,
@@ -134,8 +154,50 @@ class OpenAIService:
                     f"OpenAI API error: {str(e)}"
                 )
 
+    def extract_entities(
+        self, text: str, entity_types: List[str]
+    ) -> Dict[str, List[Dict[str, Any]]]:
+        """Extract entities using OpenAI's API.
+
+        Args:
+            text: Text to analyze
+            entity_types: Types of entities to extract
+
+        Returns:
+            Dict mapping entity types to lists of found entities
+
+        Raises:
+            NotImplementedError: This feature is not yet implemented
+        """
+        raise NotImplementedError(
+            "Entity extraction not yet implemented"
+        )
+
+    def validate_content(
+        self, content: str, validation_rules: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        """Validate content using OpenAI's API.
+
+        Args:
+            content: Content to validate
+            validation_rules: Rules to validate against
+
+        Returns:
+            Dict with validation results
+
+        Raises:
+            NotImplementedError: This feature is not yet implemented
+        """
+        raise NotImplementedError(
+            "Content validation not yet implemented"
+        )
+
     def health_check(self) -> bool:
-        """Check if the OpenAI service is healthy."""
+        """Check if the OpenAI service is healthy.
+
+        Returns:
+            bool: True if healthy, False otherwise
+        """
         try:
             self.process_text("test")
             return True

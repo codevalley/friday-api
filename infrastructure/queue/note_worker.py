@@ -10,7 +10,7 @@ from domain.values import ProcessingStatus
 from domain.exceptions import RoboServiceError
 from domain.robo import RoboService
 from repositories.NoteRepository import NoteRepository
-from services.RoboService import get_robo_service
+from services.TestRoboService import get_robo_service
 from utils.retry import calculate_backoff
 from configs.Database import SessionLocal
 from orm.NoteModel import Note  # noqa

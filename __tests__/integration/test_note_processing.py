@@ -10,7 +10,7 @@ from infrastructure.queue.note_worker import (
     process_note_job,
 )
 from services.NoteService import NoteService
-from services.RoboService import RoboService
+from services.TestRoboService import TestRoboService
 from schemas.pydantic.NoteSchema import NoteCreate
 from repositories.NoteRepository import NoteRepository
 from configs.RoboConfig import RoboConfig
@@ -24,7 +24,7 @@ def robo_service():
         model_name="test_model",
         is_test=True,
     )
-    return RoboService(config)
+    return TestRoboService(config)
 
 
 @pytest.fixture

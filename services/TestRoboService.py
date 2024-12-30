@@ -1,4 +1,4 @@
-"""RoboService module for processing notes."""
+"""Test stub implementation of RoboService."""
 
 from functools import lru_cache
 from typing import Dict, Any, List, Optional
@@ -10,11 +10,11 @@ from domain.robo import (
 )
 
 
-class RoboService(BaseRoboService):
-    """Service for processing notes using AI."""
+class TestRoboService(BaseRoboService):
+    """Test stub implementation of RoboService for testing."""
 
     def __init__(self, config: RoboConfig):
-        """Initialize RoboService.
+        """Initialize TestRoboService.
 
         Args:
             config: RoboService configuration
@@ -26,16 +26,15 @@ class RoboService(BaseRoboService):
         text: str,
         context: Optional[Dict[str, Any]] = None,
     ) -> RoboProcessingResult:
-        """Process text input and return enhanced/analyzed result.
+        """Process text input and return stubbed result.
 
         Args:
             text: Text to process
             context: Optional context for processing
 
         Returns:
-            RoboProcessingResult: Processing result
+            RoboProcessingResult: Stubbed processing result
         """
-        # TODO: Implement actual text processing
         return RoboProcessingResult(
             content=text,
             metadata={"processed": True},
@@ -46,16 +45,15 @@ class RoboService(BaseRoboService):
     def extract_entities(
         self, text: str, entity_types: List[str]
     ) -> Dict[str, List[Dict[str, Any]]]:
-        """Extract specified entity types from text.
+        """Stub implementation of entity extraction.
 
         Args:
             text: Text to analyze
             entity_types: Types of entities to extract
 
         Returns:
-            Dict mapping entity types to lists of found entities
+            Empty dict for testing
         """
-        # TODO: Implement entity extraction
         return {
             entity_type: [] for entity_type in entity_types
         }
@@ -63,7 +61,7 @@ class RoboService(BaseRoboService):
     def validate_content(
         self, content: str, validation_rules: Dict[str, Any]
     ) -> Dict[str, Any]:
-        """Validate content against specified rules.
+        """Stub implementation of content validation.
 
         Args:
             content: Content to validate
@@ -72,11 +70,10 @@ class RoboService(BaseRoboService):
         Returns:
             Dict with validation results
         """
-        # TODO: Implement content validation
         return {"valid": True}
 
     def health_check(self) -> bool:
-        """Check if the service is operational."""
+        """Stub implementation of health check."""
         try:
             self.process_text("test")
             return True
@@ -85,10 +82,10 @@ class RoboService(BaseRoboService):
 
 
 @lru_cache()
-def get_robo_service() -> RoboService:
-    """Get RoboService instance."""
+def get_robo_service() -> TestRoboService:
+    """Get TestRoboService instance."""
     config = RoboConfig(
         api_key="test_key",
         model_name="test_model",
     )
-    return RoboService(config)
+    return TestRoboService(config)

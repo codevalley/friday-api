@@ -20,6 +20,7 @@
   - ✓ Update interface documentation
   - ✓ Ensure all implementations follow sync pattern
   - ✓ Add comprehensive test coverage
+- [ ] If many notes fail repeatedly, you might have logs flooded with “Failed to process note X”. Possibly consider a more robust circuit-breaker approach if the external AI is consistently failing. Right now, it’s probably fine if you only have moderate load.
 
 ### Code Quality and Performance 📈
 - [ ] Optimize logging implementation
