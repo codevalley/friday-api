@@ -106,7 +106,7 @@ You should see something like `Docker Compose version v2.x`.
    cp .env.sample .env
    ```
 2. **Edit** `.env` to set:
-   - Domain / email for your SSL config (e.g., `FRIDAY_DOMAIN=api.nyn.me`, `LETSENCRYPT_EMAIL=codevalley@live.com`).
+   - Domain / email for your SSL config (e.g., `FRIDAY_DOMAIN=api.acme.me`, `LETSENCRYPT_EMAIL=admin@acme.com`).
    - DB credentials if using local MySQL. If using an external DB, set `EXTERNAL_DB=true` and update `DATABASE_HOSTNAME`, `DATABASE_PORT`, etc. accordingly.
    - Customize any secrets (like `JWT_SECRET_KEY`), or let `deploy.sh` generate one if it’s empty.
 
@@ -123,7 +123,7 @@ Your `deploy.sh` includes flags such as:
 
 A typical usage:
 ```bash
-sudo ./deploy.sh api.nyn.me codevalley@live.com --docker --fetch-code
+sudo ./deploy.sh api.acme.me admin@acme.com --docker --fetch-code
 ```
 This will:
 1. **Check** if running as root (or sudo).
@@ -141,17 +141,17 @@ This will:
 ## **7. Running the Deployment**
 
 1. Ensure your domain DNS is pointed to the droplet IP:
-   - In your domain registrar, set an A record, e.g. `api.nyn.me` → `YOUR_DROPLET_IP`.
+   - In your domain registrar, set an A record, e.g. `api.acme.me` → `YOUR_DROPLET_IP`.
 
 2. Inside the `friday-api` folder, run the deploy script with your desired flags. For example:
    ```bash
    cd ~/friday-api
    sudo chmod +x deploy.sh
-   sudo ./deploy.sh api.nyn.me codevalley@live.com --docker --fetch-code
+   sudo ./deploy.sh api.acme.me admin@acme.com --docker --fetch-code
    ```
    Explanation:
-   - `api.nyn.me` = Domain you want to serve on.
-   - `codevalley@live.com` = Email for Let’s Encrypt certificates.
+   - `api.acme.me` = Domain you want to serve on.
+   - `admin@acme.com` = Email for Let’s Encrypt certificates.
    - `--docker` = Installs Docker if needed.
    - `--fetch-code` = Stashes local changes and pulls the latest from main branch.
 
@@ -181,7 +181,7 @@ This will:
    docker compose logs -f
    ```
 3. Visit your domain in a browser:
-   - e.g. `https://api.nyn.me`
+   - e.g. `https://api.acme.me`
    - If using the jwilder + letsencrypt approach, it may take a minute or so to issue the certificate.
 
 4. Confirm you can reach `https://<yourdomain>/docs` for the FastAPI docs page.
@@ -193,7 +193,7 @@ This will:
 1. **SSH** into your droplet as `deploy` or root, navigate to `~/friday-api`.
 2. Run:
    ```bash
-   sudo ./deploy.sh api.nyn.me codevalley@live.com --fetch-code
+   sudo ./deploy.sh api.acme.me admin@acme.com --fetch-code
    ```
    This will:
    - `git pull` main again,
@@ -202,7 +202,7 @@ This will:
    - Keep your environment + volumes intact.
 3. If you need to re-generate SSL or forcibly renew:
    ```bash
-   sudo ./deploy.sh api.nyn.me codevalley@live.com --setup-ssl --force-ssl
+   sudo ./deploy.sh api.acme.me admin@acme.com --setup-ssl --force-ssl
    ```
    (If you have that logic in your script.)
 
@@ -214,7 +214,7 @@ This will:
 - In `.env`, set `EXTERNAL_DB=true`, specify external DB settings.
 - Then run:
   ```bash
-  sudo ./deploy.sh api.nyn.me codevalley@live.com --external-db
+  sudo ./deploy.sh api.acme.me admin@acme.com --external-db
   ```
   The script references `docker-compose.no-db.yml` instead of the default `docker-compose.yml`.
 
