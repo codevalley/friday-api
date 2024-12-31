@@ -1,6 +1,40 @@
-version: "3.9"
 
 services:
+  nginx-proxy:
+    image: jwilder/nginx-proxy:latest
+    container_name: nginx_proxy
+    restart: always
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - /var/run/docker.sock:/tmp/docker.sock:ro
+      - nginx_certs:/etc/nginx/certs
+      - nginx_vhost:/etc/nginx/vhost.d
+      - nginx_html:/usr/share/nginx/html
+    depends_on:
+      - api
+    networks:
+      - proxy-tier
+
+  nginx-proxy-letsencrypt:
+    image: jrcs/letsencrypt-nginx-proxy-companion
+    container_name: nginx_proxy_le
+    restart: always
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - nginx_certs:/etc/nginx/certs
+      - nginx_vhost:/etc/nginx/vhost.d
+      - nginx_html:/usr/share/nginx/html
+    depends_on:
+      - nginx-proxy
+    networks:
+      - proxy-tier
+    environment:
+      # ACME staging or production server
+      # override with .env or environment if desired
+      ACME_CA_URI: "https://acme-v02.api.letsencrypt.org/directory"
+
   api:
     build: .
     container_name: friday_api
@@ -9,13 +43,25 @@ services:
       - .env
     depends_on:
       - redis
-      # - db  # if you remove the db service, also remove or comment out references here
-    ports:
-      - "80:8000"
+      - db  # remove/comment out if not using local MySQL
+
+    # We do NOT expose 80:8000 since traffic goes through nginx-proxy
+    # ports:
+    #   - "80:8000"
+
+    # For SSL auto-generation, you can define domain/email in .env like:
+    #   FRIDAY_DOMAIN=api.nyn.me
+    #   LETSENCRYPT_EMAIL=admin@yourdomain.com
+    environment:
+      - VIRTUAL_HOST=${FRIDAY_DOMAIN}
+      - LETSENCRYPT_HOST=${FRIDAY_DOMAIN}
+      - LETSENCRYPT_EMAIL=${LETSENCRYPT_EMAIL}
+
     volumes:
       - ./logs:/app/logs
+    networks:
+      - proxy-tier
 
-  # If you are NOT using DO Managed MySQL and want a local MySQL container:
   db:
     image: mysql:8.0
     container_name: friday_db
@@ -29,6 +75,8 @@ services:
       - "3306:3306"
     volumes:
       - mysql_data:/var/lib/mysql
+    networks:
+      - default
 
   redis:
     image: redis:6.2-alpine
@@ -38,8 +86,16 @@ services:
       - "6379:6379"
     volumes:
       - redis_data:/data
+    networks:
+      - default
+
+networks:
+  proxy-tier:
+  default:
 
 volumes:
-  # If removing local db entirely, remove mysql_data volume if you want:
   mysql_data:
   redis_data:
+  nginx_certs:
+  nginx_vhost:
+  nginx_html:
