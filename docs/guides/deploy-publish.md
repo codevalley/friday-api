@@ -233,6 +233,43 @@ This will:
 
 ---
 
+## **Managing queues and workers**
+
+If your system has multiple queues (say note_enrichment, email_notifications, etc.), you can either:
+
+Run a single worker listening on multiple queues:
+```yaml
+command: >
+  rq worker note_enrichment email_notifications --url redis://redis:6379
+```
+
+Or define multiple worker services in Docker Compose, each dedicated to a specific queue.
+For example:
+```yaml
+worker-note:
+  build: .
+  container_name: worker_note
+  command: rq worker note_enrichment --url redis://redis:6379
+  ...
+
+worker-email:
+  build: .
+  container_name: worker_email
+  command: rq worker email_notifications --url redis://redis:6379
+  ...
+```
+Either approach is fine; it depends on your preference for separation and scaling.
+
+### **Optional: Scaling workers**
+
+If you have heavy queue traffic and need more throughput, you can scale your RQ worker service with multiple replicas:
+```yaml
+docker compose up -d --scale worker=3
+```
+This spins up 3 containers of the worker service, all listening to the same queue(s). RQ will distribute jobs among them. But note you need enough CPU/memory to handle that load.
+
+---
+
 ## **Wrapping Up**
 
 1. You have a **`deploy.sh`** that automates Docker installation, code pulling, environment injection, and Docker Compose usage.

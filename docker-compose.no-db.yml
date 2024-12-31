@@ -46,10 +46,33 @@ services:
       - VIRTUAL_HOST=${FRIDAY_DOMAIN}
       - LETSENCRYPT_HOST=${FRIDAY_DOMAIN}
       - LETSENCRYPT_EMAIL=${LETSENCRYPT_EMAIL}
+      - REDIS_HOST=redis
     volumes:
       - ./logs:/app/logs
     networks:
       - proxy-tier
+      - default
+
+  worker:
+    build: .
+    container_name: friday_worker
+    restart: always
+    depends_on:
+      - redis
+    env_file:
+      - .env
+    command: >
+      rq worker note_enrichment --url redis://redis:6379
+    environment:
+      # If your worker needs the same environment as api, you can replicate them here:
+      - REDIS_HOST=redis
+      # - FRIDAY_DOMAIN=${FRIDAY_DOMAIN}
+      # - LETSENCRYPT_HOST=${FRIDAY_DOMAIN}
+      # - LETSENCRYPT_EMAIL=${LETSENCRYPT_EMAIL}
+    volumes:
+      - ./logs:/app/logs
+    networks:
+      - default
 
   redis:
     image: redis:6.2-alpine

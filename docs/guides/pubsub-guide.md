@@ -45,7 +45,11 @@ rq worker note_enrichment
 
 # Start multiple workers
 rq worker note_enrichment -c worker_settings --count 3
+
+# or this
+PYTHONPATH=$PYTHONPATH:. rq worker note_enrichment --url redis://localhost:6379
 ```
+
 
 2. **Worker Configuration**
 Create `worker_settings.py`:

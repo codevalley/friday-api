@@ -12,6 +12,11 @@ echo "Starting test flow at $(date)" > $LOG_FILE
 
 echo -e "${BLUE}Starting test flow...${NC}"
 
+# parse optional argument for the API base URL
+# if nothing provided, use http://localhost:8000/v1
+BASE_URL="${1:-"http://localhost:8000/v1"}"
+echo "Using base URL: $BASE_URL" >> $LOG_FILE
+
 # Initialize database
 echo -e "\n${BLUE}Initializing database...${NC}"
 mysql -u root -p$DATABASE_PASSWORD $DATABASE_NAME < scripts/init_database.sql
@@ -20,8 +25,6 @@ if [ $? -ne 0 ]; then
     exit 1
 fi
 echo -e "${GREEN}Database initialized successfully${NC}"
-
-BASE_URL="http://localhost:8000/v1"
 
 # Function to extract value from JSON response
 # Usage: extract_json_value "response" "field"
