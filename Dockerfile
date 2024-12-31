@@ -5,11 +5,13 @@ FROM python:3.10-slim
 # Create a working directory
 WORKDIR /app
 
-# Copy requirements
-COPY requirements.txt /app/requirements.txt
+# Copy Pipfile and Pipfile.lock
+COPY Pipfile /app/Pipfile
+COPY Pipfile.lock /app/Pipfile.lock
 
-# Install dependencies
-RUN pip install --no-cache-dir -r /app/requirements.txt
+# Install pipenv, then have pipenv install all packages into the system site-packages
+RUN pip install --no-cache-dir pipenv
+RUN pipenv install --system --deploy
 
 # Copy rest of the code
 COPY . /app
