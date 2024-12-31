@@ -8,13 +8,14 @@ services:
     env_file:
       - .env
     depends_on:
-      - db
       - redis
+      # - db  # if you remove the db service, also remove or comment out references here
     ports:
       - "80:8000"
     volumes:
       - ./logs:/app/logs
 
+  # If you are NOT using DO Managed MySQL and want a local MySQL container:
   db:
     image: mysql:8.0
     container_name: friday_db
@@ -39,5 +40,6 @@ services:
       - redis_data:/data
 
 volumes:
+  # If removing local db entirely, remove mysql_data volume if you want:
   mysql_data:
   redis_data:

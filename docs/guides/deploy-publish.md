@@ -126,26 +126,11 @@ services:
     env_file:
       - .env
     depends_on:
-      - db
       - redis
     ports:
       - "80:8000"
     volumes:
       - ./logs:/app/logs
-
-  db:
-    image: mysql:8.0
-    container_name: friday_db
-    restart: always
-    environment:
-      MYSQL_ROOT_PASSWORD: "${DB_ROOT_PASSWORD}"
-      MYSQL_DATABASE: "${DATABASE_NAME}"
-      MYSQL_USER: "${DATABASE_USERNAME}"
-      MYSQL_PASSWORD: "${DATABASE_PASSWORD}"
-    ports:
-      - "3306:3306"
-    volumes:
-      - mysql_data:/var/lib/mysql
 
   redis:
     image: redis:6.2-alpine
@@ -157,18 +142,22 @@ services:
       - redis_data:/data
 
 volumes:
-  mysql_data:
   redis_data:
 ```
 **Notes**:
 - The `api` service builds from the local Dockerfile.
 - The environment variables are loaded from a `.env` file.
 - We mount a `logs` folder for the API logs.
-- For MySQL and Redis, we define named volumes (`mysql_data`, `redis_data`) that persist data.
+- For Redis, we define a named volume (`redis_data`) that persists data.
 
-### 3.3 Configure persistent volumes for MySQL & Redis
-- As shown above, `mysql_data` and `redis_data` volumes ensure data persists if containers restart.
+### 3.3 Configure persistent volumes for Redis
+- As shown above, `redis_data` volume ensures data persists if containers restart.
 - For major updates or droplet re-creations, consider DO Block Storage or manual snapshot backups.
+
+### Using DO Managed MySQL Instead of a Local MySQL Container
+If you are using DigitalOcean’s managed MySQL:
+1. Comment out the `db` service in your docker-compose.yml (and any references to it in `depends_on`).
+2. Make sure to update the DB hostname, port, and credentials in your `.env` file to point to your managed MySQL instance.
 
 ---
 
@@ -334,18 +323,15 @@ Then the `nginx-proxy` + `letsencrypt` containers automatically request a certif
 
 ## **8. Persistence & Data Backups**
 
-### 8.1 Persist MySQL data
-- As we did with the `mysql_data` volume in Docker Compose, your DB files are stored under `/var/lib/docker/volumes/<project>_mysql_data`.
+### 8.1 Persist Redis data
+- As we did with the `redis_data` volume in Docker Compose, your Redis data is stored under `/var/lib/docker/volumes/<project>_redis_data`.
 - For robust backups, consider:
   ```bash
-  docker compose exec db mysqldump -u root -p$DB_ROOT_PASSWORD $DATABASE_NAME > backup.sql
+  docker compose exec redis redis-cli save
   ```
   Or a scheduled cron job.
 
-### 8.2 Redis data
-- Similarly, `redis_data` volume persists. However, many prefer Redis ephemeral usage. If you do want persistent, ensure that your `redis.conf` has `appendonly yes` or so.
-
-### 8.3 Droplet Snapshots
+### 8.2 Droplet Snapshots
 - DigitalOcean has a droplet snapshot feature. You can snapshot the entire server as a fallback.
 
 ---
@@ -384,12 +370,12 @@ With these detailed steps, you should be able to:
 1. Create an Ubuntu-based DigitalOcean droplet.
 2. Install Docker + Docker Compose.
 3. Clone your FastAPI-based repository.
-4. Containerize the app, MySQL, and Redis.
+4. Containerize the app, Redis.
 5. Configure environment variables & volumes for persistent data.
 6. Launch via `docker compose up -d`.
 7. Add a domain, set up SSL (via container or Nginx directly).
 8. Keep the droplet & images updated.
 
-By following the script-based approach (like `deploy.sh`) or a Git-based CI/CD pipeline, you can seamlessly pull new code and rebuild your stack with minimal downtime. Logging is handled by standard Docker logs or by mounting volumes. Persistent volumes store MySQL/Redis data. For better resilience, schedule backups or snapshots in DigitalOcean.
+By following the script-based approach (like `deploy.sh`) or a Git-based CI/CD pipeline, you can seamlessly pull new code and rebuild your stack with minimal downtime. Logging is handled by standard Docker logs or by mounting volumes. Persistent volumes store Redis data. For better resilience, schedule backups or snapshots in DigitalOcean.
 
 **Done!** Now you have a robust, Dockerized, repeatable deployment process for your web app on DigitalOcean.
