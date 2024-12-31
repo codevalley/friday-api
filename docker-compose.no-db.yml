@@ -39,9 +39,9 @@ services:
     restart: always
     env_file:
       - .env
+    # We remove "depends_on: - db" because there's no local MySQL in this version
     depends_on:
       - redis
-      - db  # <--- This line references the local MySQL
     environment:
       - VIRTUAL_HOST=${FRIDAY_DOMAIN}
       - LETSENCRYPT_HOST=${FRIDAY_DOMAIN}
@@ -50,22 +50,6 @@ services:
       - ./logs:/app/logs
     networks:
       - proxy-tier
-
-  db:
-    image: mysql:8.0
-    container_name: friday_db
-    restart: always
-    environment:
-      MYSQL_ROOT_PASSWORD: "${DB_ROOT_PASSWORD}"
-      MYSQL_DATABASE: "${DATABASE_NAME}"
-      MYSQL_USER: "${DATABASE_USERNAME}"
-      MYSQL_PASSWORD: "${DATABASE_PASSWORD}"
-    ports:
-      - "3306:3306"
-    volumes:
-      - mysql_data:/var/lib/mysql
-    networks:
-      - default
 
   redis:
     image: redis:6.2-alpine
@@ -83,7 +67,6 @@ networks:
   default:
 
 volumes:
-  mysql_data:
   redis_data:
   nginx_certs:
   nginx_vhost:

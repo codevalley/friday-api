@@ -1,12 +1,13 @@
 #!/usr/bin/env bash
 set -e  # exit on error
 
-DOMAIN=${1:-"api.nyn.me"}
-EMAIL=${2:-"admin@nyn.me"}
+DOMAIN=${1:-"api.acme.me"}
+EMAIL=${2:-"admin@acme.me"}
 FETCH_CODE=false
 INSTALL_DOCKER=false
+EXTERNAL_DB=false
 
-# Colors for logs
+# Colors
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
@@ -20,17 +21,18 @@ log()   { echo -e "${GREEN}[LOG]${NC} $1"; }
 
 show_help() {
 cat <<EOF
-Usage: $0 [domain] [email] [--docker] [--fetch-code]
-  domain    : Domain name to serve (default: api.nyn.me)
-  email     : Email for Let's Encrypt (default: admin@nyn.me)
+Usage: $0 [domain] [email] [--docker] [--fetch-code] [--external-db]
+  domain    : Domain name to serve (default: api.acme.me)
+  email     : Email for Let's Encrypt (default: admin@acme.me)
   --docker  : Install Docker + Docker Compose if not present
   --fetch-code : Pull latest changes from Git
+  --external-db : Use docker-compose.no-db.yml (skip local MySQL container)
 Example:
-  $0 api.nyn.me admin@nyn.me --fetch-code
+  $0 api.acme.me admin@acme.me --fetch-code
 EOF
 }
 
-# Parse args
+# Parse arguments
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --docker)
@@ -41,12 +43,15 @@ while [[ $# -gt 0 ]]; do
       FETCH_CODE=true
       shift
       ;;
+    --external-db)
+      EXTERNAL_DB=true
+      shift
+      ;;
     -h|--help)
       show_help
       exit 0
       ;;
     *)
-      # Positional
       if [[ -z "$DOMAIN" ]]; then
         DOMAIN="$1"
       elif [[ -z "$EMAIL" ]]; then
@@ -57,9 +62,11 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-# Check if run as root
-if [[ $EUID -ne 0 ]]; then
-  error "Please run as root (sudo)."
+# Check if run as root or deploy user
+if [[ $EUID -eq 0 ]] || [[ $(whoami) == "deploy" ]]; then
+  info "Running as $(whoami)"
+else
+  error "This script must be run as either root or the 'deploy' user."
 fi
 
 if [ "$INSTALL_DOCKER" = true ]; then
@@ -69,10 +76,12 @@ if [ "$INSTALL_DOCKER" = true ]; then
     apt-get update
     apt-get install -y ca-certificates curl gnupg lsb-release
     mkdir -p /etc/apt/keyrings
-    curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+    curl -fsSL https://download.docker.com/linux/ubuntu/gpg | \
+      gpg --dearmor -o /etc/apt/keyrings/docker.gpg
     echo \
-      "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu \
-      $(lsb_release -cs) stable" | tee /etc/apt/sources.list.d/docker.list > /dev/null
+      "deb [arch=\$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] \
+      https://download.docker.com/linux/ubuntu \
+      \$(lsb_release -cs) stable" | tee /etc/apt/sources.list.d/docker.list > /dev/null
     apt-get update
     apt-get install -y docker-ce docker-ce-cli containerd.io docker-compose-plugin
   else
@@ -93,17 +102,40 @@ fi
 log "Configuring domain: $DOMAIN"
 log "Email for SSL: $EMAIL"
 
-# Possibly export environment variables for your Docker Compose
+# Possibly set environment variables for the proxy
 export LETSENCRYPT_HOST="$DOMAIN"
 export VIRTUAL_HOST="$DOMAIN"
 export LETSENCRYPT_EMAIL="$EMAIL"
 
-# Build and start containers
-log "Building and starting containers..."
-docker compose build
-docker compose up -d
+
+JWT_KEY_LINE=$(grep -E '^JWT_SECRET_KEY=' .env || true)
+if [ -z "$JWT_KEY_LINE" ]; then
+  # There's no JWT_SECRET_KEY line in .env at all
+  NEW_SECRET=$(openssl rand -hex 32)
+  echo "JWT_SECRET_KEY=${NEW_SECRET}" >> .env
+  log "Created JWT_SECRET_KEY in .env"
+else
+  # It exists, check if it's empty
+  CURRENT_VALUE=$(echo "$JWT_KEY_LINE" | cut -d '=' -f2-)
+  if [ -z "$CURRENT_VALUE" ]; then
+    # It's blank
+    NEW_SECRET=$(openssl rand -hex 32)
+    sed -i "s|^JWT_SECRET_KEY=.*|JWT_SECRET_KEY=${NEW_SECRET}|" .env
+    log "Replaced empty JWT_SECRET_KEY in .env"
+  fi
+fi
+
+if [ "$EXTERNAL_DB" = true ]; then
+  log "Using the 'no-db' Docker Compose file..."
+  docker compose -f docker-compose.no-db.yml build
+  docker compose -f docker-compose.no-db.yml up -d
+else
+  log "Using the default Docker Compose file (with local MySQL)..."
+  docker compose -f docker-compose.yml build
+  docker compose -f docker-compose.yml up -d
+fi
 
 log "Verifying containers..."
 docker compose ps
 
-log "Deployment finished. Please allow a minute for Let's Encrypt to issue certificates (if using jwilder/nginx-proxy)."
+log "Deployment finished. Wait a minute or so for Let's Encrypt SSL (via jwilder/nginx-proxy) if you are using that."

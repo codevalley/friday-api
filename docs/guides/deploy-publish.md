@@ -1,381 +1,248 @@
-Below is a detailed, step-by-step guide on how to deploy the web app onto a DigitalOcean (DO) droplet using Docker (and Docker Compose). This guide assumes you have a working knowledge of basic Linux commands, Docker, and Git. We’ll make it as “hands-on” as possible:
+# **Friday API Deployment Guide**
+
+## **1. Provision a DigitalOcean Droplet**
+
+1. Log in to [DigitalOcean](https://cloud.digitalocean.com/).
+2. Click **Create → Droplets**.
+3. Choose an **Ubuntu** image (e.g., 22.04 LTS).
+4. Pick a Droplet size (1GB RAM is fine for minimal workloads).
+5. Select a region (closest to you or your users).
+6. Under **Authentication**, set an SSH key (recommended) or password.
+7. Optionally name/tag the Droplet, then **Create**.
+
+> **Tip**: Wait until the Droplet is fully provisioned. You’ll get a public IP address for it.
 
 ---
-## **1. Droplet Provisioning & Basic System Setup**
 
-### 1.1 Create a new Ubuntu Droplet on DigitalOcean
-1. Sign in to your DigitalOcean account.
-2. Click **Create** → **Droplets**.
-3. Select the **Ubuntu** image (latest LTS version recommended, e.g., Ubuntu 22.04).
-4. Choose the Droplet size (at least 1 GB RAM for a small project, scale as needed).
-5. Choose a region close to you or your users.
-6. Under **Authentication**, either select **SSH keys** (recommended) or set a **root password**.
-7. Optionally give it a name (e.g. `my-friday-api`) and tag.
-8. Click **Create Droplet**. Wait for the droplet to provision.
+## **2. SSH & Basic Setup**
 
-### 1.2 Configure SSH access & firewall (ufw)
-1. From your local machine, run:
+1. SSH into the Droplet:
    ```bash
    ssh root@<YOUR_DROPLET_IP>
    ```
-2. (Optional) **Update system packages**:
+2. Update packages:
    ```bash
    apt-get update && apt-get upgrade -y
    ```
-3. **Enable firewall** (ufw) rules for SSH (port 22), HTTP (80), and HTTPS (443). For example:
-   ```bash
-   ufw allow OpenSSH
-   ufw allow 80
-   ufw allow 443
-   ufw enable
-   ```
-   Confirm with `ufw status`.
-
-### 1.3 Create a non-root user (recommended)
-1. Inside the Droplet:
+3. (Recommended) Create a non-root deploy user:
    ```bash
    adduser deploy
    usermod -aG sudo deploy
    ```
-2. Then logout and re-login as `deploy@<YOUR_DROPLET_IP>` once you set up an SSH key for the `deploy` user or a password.
+   Then log out and back in as `deploy@<YOUR_DROPLET_IP>` if you prefer to run as a non-root user.
 
----
-
-## **2. Install Dependencies on Droplet**
-
-### 2.1 Install Docker
-1. For Ubuntu, install using the official Docker docs approach:
+4. Configure UFW (firewall):
    ```bash
-   sudo apt-get remove docker docker-engine docker.io containerd runc
-   sudo apt-get update
-   sudo apt-get install ca-certificates curl gnupg lsb-release
-   sudo mkdir -p /etc/apt/keyrings
-   curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
-   echo \
-   "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu \
-   $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
-   sudo apt-get update
-   sudo apt-get install docker-ce docker-ce-cli containerd.io docker-compose-plugin
+   sudo ufw allow OpenSSH
+   sudo ufw allow 80
+   sudo ufw allow 443
+   sudo ufw enable
+   ufw status
    ```
-2. **Optional**: Add your deploy user to the `docker` group:
-   ```bash
-   sudo usermod -aG docker deploy
-   ```
-   Then logout & re-login for changes to apply.
-
-### 2.2 Install Docker Compose
-- If you installed Docker via the method above (Docker Engine + `docker-compose-plugin`), you should have a `docker compose` command available (note that the newer versions use `docker compose` instead of `docker-compose`).
-- Confirm with:
-  ```bash
-  docker compose version
-  ```
-- If you prefer the old `docker-compose` binary, follow the [official instructions](https://docs.docker.com/compose/install/) to install a stable release, but the plugin is typically enough.
-
-### 2.3 (Optional) Install Git / Set up CI/CD
-- If you plan to clone directly from GitHub:
-  ```bash
-  sudo apt-get install git -y
-  ```
-- Alternatively, plan a CI/CD strategy (e.g., GitHub Actions → push to registry → droplet pulls images).
-- For this guide, we assume we’ll do a direct `git clone` on the droplet.
+   This ensures HTTP (80) + HTTPS (443) is open.
 
 ---
 
-## **3. Prepare the Application for Containerization**
+## **3. Install Docker & Docker Compose**
 
-### 3.1 Write a Dockerfile for the FastAPI application
-Inside your project root, create a `Dockerfile` (example):
-```dockerfile
-# syntax=docker/dockerfile:1
+> If you prefer to let the `deploy.sh` handle Docker installation, skip these steps and run the script with `--docker`. Otherwise, do them manually here.
 
-FROM python:3.10-slim
-
-# Create a working directory
-WORKDIR /app
-
-# Copy requirements
-COPY requirements.txt /app/requirements.txt
-
-# Install dependencies
-RUN pip install --no-cache-dir -r /app/requirements.txt
-
-# Copy rest of the code
-COPY . /app
-
-# Expose port (FastAPI default)
-EXPOSE 8000
-
-# Env var to run in production mode if needed
-ENV ENV=production
-
-# Start the app using uvicorn
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
-```
-Adjust as needed depending on your structure (pydantic 2.0, or additional dependencies, etc.).
-
-### 3.2 Write a Docker Compose file that includes the services
-Create a `docker-compose.yml` in the project root. Example:
-```yaml
-version: "3.9"
-
-services:
-  api:
-    build: .
-    container_name: friday_api
-    restart: always
-    env_file:
-      - .env
-    depends_on:
-      - redis
-    ports:
-      - "80:8000"
-    volumes:
-      - ./logs:/app/logs
-
-  redis:
-    image: redis:6.2-alpine
-    container_name: friday_redis
-    restart: always
-    ports:
-      - "6379:6379"
-    volumes:
-      - redis_data:/data
-
-volumes:
-  redis_data:
-```
-**Notes**:
-- The `api` service builds from the local Dockerfile.
-- The environment variables are loaded from a `.env` file.
-- We mount a `logs` folder for the API logs.
-- For Redis, we define a named volume (`redis_data`) that persists data.
-
-### 3.3 Configure persistent volumes for Redis
-- As shown above, `redis_data` volume ensures data persists if containers restart.
-- For major updates or droplet re-creations, consider DO Block Storage or manual snapshot backups.
-
-### Using DO Managed MySQL Instead of a Local MySQL Container
-If you are using DigitalOcean’s managed MySQL:
-1. Comment out the `db` service in your docker-compose.yml (and any references to it in `depends_on`).
-2. Make sure to update the DB hostname, port, and credentials in your `.env` file to point to your managed MySQL instance.
-
----
-
-## **4. Configure Environment Variables & Secrets**
-
-### 4.1 Use a `.env` file
-Create a `.env` file in your project root, e.g.:
-```
-# .env
-
-DB_ROOT_PASSWORD=rootpass123
-DATABASE_NAME=fridaydb
-DATABASE_USERNAME=fridayuser
-DATABASE_PASSWORD=fridaypass
-REDIS_HOST=redis
-REDIS_PORT=6379
-ENV=production
-```
-- Add any additional secrets (like `JWT_SECRET_KEY` or API keys).
-- **Never commit the `.env` file to public repos**. If needed, add `.env` to `.gitignore`.
-
-### 4.2 Protect secrets
-- On production servers, store this `.env` file carefully or pass environment variables via the droplet environment or Docker Secrets approach if desired.
-
----
-
-## **5. Setup the Deployment Process**
-
-### 5.1 Clone the repository onto the droplet
-From your droplet:
+**Manual approach**:
 ```bash
-cd ~  # or /var/www, depends on your structure
-git clone https://github.com/<your_username>/<your_repo>.git
-cd <your_repo>
-```
-*(If your code is private, set up SSH key access or personal token.)*
+# Remove old packages if any
+sudo apt-get remove docker docker-engine docker.io containerd runc
 
-### 5.2 Build and run the Docker Compose stack
-1. Build & start services:
+# Install Docker using official instructions
+sudo apt-get update
+sudo apt-get install -y ca-certificates curl gnupg lsb-release
+
+sudo mkdir -p /etc/apt/keyrings
+curl -fsSL https://download.docker.com/linux/ubuntu/gpg \
+  | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+
+echo \
+  "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] \
+  https://download.docker.com/linux/ubuntu \
+  $(lsb_release -cs) stable" \
+  | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+
+sudo apt-get update
+sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-compose-plugin
+
+# (Optional) Add your deploy user to the docker group
+sudo usermod -aG docker deploy
+```
+Then logout and back in to apply group membership.
+
+To confirm:
+```bash
+docker compose version
+```
+You should see something like `Docker Compose version v2.x`.
+
+---
+
+## **4. Clone Your `friday-api` Repo**
+
+1. On the droplet, move to your desired directory:
    ```bash
-   docker compose build
-   docker compose up -d
+   cd ~
    ```
-2. Check containers:
+2. Clone your GitHub repo:
+   ```bash
+   git clone https://github.com/codevalley/friday-api.git
+   cd friday-api
+   ```
+   *(If it’s private, set up SSH keys or use personal access tokens.)*
+
+3. You should see your repo files: `deploy.sh`, `docker-compose.yml`, `Dockerfile`, `.env.sample`, etc.
+
+---
+
+## **5. Environment Variables & Configuration**
+
+1. Within the `friday-api` folder, **create** your `.env` file if not already present. You can copy from `.env.sample`:
+   ```bash
+   cp .env.sample .env
+   ```
+2. **Edit** `.env` to set:
+   - Domain / email for your SSL config (e.g., `FRIDAY_DOMAIN=api.nyn.me`, `LETSENCRYPT_EMAIL=codevalley@live.com`).
+   - DB credentials if using local MySQL. If using an external DB, set `EXTERNAL_DB=true` and update `DATABASE_HOSTNAME`, `DATABASE_PORT`, etc. accordingly.
+   - Customize any secrets (like `JWT_SECRET_KEY`), or let `deploy.sh` generate one if it’s empty.
+
+3. Keep `.env` **private** (it shouldn’t be committed to the repo).
+
+---
+
+## **6. Understanding the `deploy.sh` Script**
+
+Your `deploy.sh` includes flags such as:
+- `--docker`: Installs Docker if not found.
+- `--fetch-code`: Pulls latest changes from `git`.
+- `--external-db`: If you want to skip local MySQL.
+
+A typical usage:
+```bash
+sudo ./deploy.sh api.nyn.me codevalley@live.com --docker --fetch-code
+```
+This will:
+1. **Check** if running as root (or sudo).
+2. **Install** Docker (if `--docker`).
+3. **Pull** latest code from `git` (if `--fetch-code`).
+4. **Set** environment variables (like `LETSENCRYPT_HOST`).
+5. **Generate** a random `JWT_SECRET_KEY` if it is empty in `.env`.
+6. **Build** Docker images and run `docker compose up -d`.
+   - If `--external-db`, it uses `docker-compose.no-db.yml` instead.
+
+> If you don’t need local MySQL, you’d pass `--external-db` so the script picks the no-db compose file.
+
+---
+
+## **7. Running the Deployment**
+
+1. Ensure your domain DNS is pointed to the droplet IP:
+   - In your domain registrar, set an A record, e.g. `api.nyn.me` → `YOUR_DROPLET_IP`.
+
+2. Inside the `friday-api` folder, run the deploy script with your desired flags. For example:
+   ```bash
+   cd ~/friday-api
+   sudo chmod +x deploy.sh
+   sudo ./deploy.sh api.nyn.me codevalley@live.com --docker --fetch-code
+   ```
+   Explanation:
+   - `api.nyn.me` = Domain you want to serve on.
+   - `codevalley@live.com` = Email for Let’s Encrypt certificates.
+   - `--docker` = Installs Docker if needed.
+   - `--fetch-code` = Stashes local changes and pulls the latest from main branch.
+
+> **Note**: If you do **not** want local MySQL, add `--external-db`.
+
+3. The script will:
+   - Possibly install Docker + Compose plugin.
+   - Pull or stash + pull your latest code from GitHub if `--fetch-code`.
+   - Build your image from the `Dockerfile`.
+   - Spin up containers defined in `docker-compose.yml` (or `docker-compose.no-db.yml`) with `-d` (detached mode).
+   - Print container statuses.
+
+---
+
+## **8. Verifying the Deployment**
+
+1. After the script finishes, check container statuses:
    ```bash
    docker compose ps
-   docker logs friday_api --follow
    ```
    or
    ```bash
-   docker logs friday_api
-   docker logs friday_db
-   docker logs friday_redis
+   docker ps
    ```
+2. Check logs if needed:
+   ```bash
+   docker compose logs -f
+   ```
+3. Visit your domain in a browser:
+   - e.g. `https://api.nyn.me`
+   - If using the jwilder + letsencrypt approach, it may take a minute or so to issue the certificate.
 
-### 5.3 Create a script to automate pulling latest code & restarting containers
-**deploy.sh** (example):
-```bash
-#!/usr/bin/env bash
-set -e
-
-# 1. Pull latest code
-echo "Pulling latest code..."
-git pull origin main
-
-# 2. Build images
-echo "Building docker images..."
-docker compose build
-
-# 3. Run migrations if needed
-# e.g. docker compose run api alembic upgrade head
-
-# 4. Restart containers
-echo "Restarting containers..."
-docker compose up -d
-
-echo "Deployment complete."
-```
-Give it execute permission: `chmod +x deploy.sh`.
-
-Then you can do:
-```bash
-./deploy.sh
-```
-*(Ensure you’re on the correct branch—e.g., `git checkout main`—before running.)*
-
-### 5.4 Handle zero-downtime or minimal downtime
-- If you need zero downtime, consider a more advanced approach (Docker swarm, load balancer, or a separate container that hot-swaps).
-- For many small projects, a few seconds of downtime is acceptable.
+4. Confirm you can reach `https://<yourdomain>/docs` for the FastAPI docs page.
 
 ---
 
-## **6. Logging & Monitoring**
+## **9. Making Future Updates**
 
-### 6.1 Configure logging in Docker Compose
-- We used a volume `./logs:/app/logs` in the `api` service. Inside the app, ensure logs are written to `/app/logs/app.log`.
-- Alternatively, configure Docker’s logging drivers or syslog:
-  ```yaml
-  logging:
-    driver: "json-file"
-    options:
-      max-size: "10m"
-      max-file: "3"
-  ```
-
-### 6.2 External logging or monitoring
-- For more advanced setups, push logs to ELK, Datadog, or a DO Logging solution.
-- Keep an eye on disk usage for logs.
-
----
-
-## **7. Domain & SSL Setup**
-
-### 7.1 Acquire a domain & point DNS to the Droplet’s IP
-- In your domain registrar’s DNS settings, create an A-record pointing to `<DROPLET_PUBLIC_IP>`.
-- e.g. `mydomain.com` → `123.123.123.123`.
-
-### 7.2 Use an Nginx reverse proxy container with Let’s Encrypt
-One approach is to have an additional `nginx` container that listens on 80/443 and forwards requests to the `api` service (on port 8000 internally). Something like [jwilder/nginx-proxy + jrcs/letsencrypt-nginx-proxy-companion](https://github.com/nginx-proxy/docker-letsencrypt-nginx-proxy-companion) can automate SSL certificates. Example `docker-compose.yml` snippet might be:
-
-```yaml
-services:
-  nginx-proxy:
-    image: jwilder/nginx-proxy:latest
-    ports:
-      - "80:80"
-      - "443:443"
-    volumes:
-      - /var/run/docker.sock:/tmp/docker.sock:ro
-      - nginx_certs:/etc/nginx/certs:rw
-    depends_on:
-      - api
-    restart: always
-
-  nginx-proxy-letsencrypt:
-    image: jrcs/letsencrypt-nginx-proxy-companion
-    depends_on:
-      - nginx-proxy
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock:ro
-      - nginx_certs:/etc/nginx/certs:rw
-    environment:
-      NGINX_PROXY_CONTAINER: nginx-proxy
-    restart: always
-
-  api:
-    # build your app container
-    environment:
-      - VIRTUAL_HOST=mydomain.com
-      - LETSENCRYPT_HOST=mydomain.com
-      - LETSENCRYPT_EMAIL=admin@mydomain.com
-```
-Then the `nginx-proxy` + `letsencrypt` containers automatically request a certificate and route traffic.
-
-### 7.3 Use a separate approach
-- You could install Nginx directly on the droplet, Certbot, etc. If so, you’d do `sudo apt-get install nginx`, place a reverse proxy config for your FastAPI container, and run `certbot --nginx`.
-- But the containerized approach keeps everything in Docker.
-
-### 7.4 Validate HTTPS
-- Visit `https://mydomain.com`, confirm the SSL certificate.
+1. **SSH** into your droplet as `deploy` or root, navigate to `~/friday-api`.
+2. Run:
+   ```bash
+   sudo ./deploy.sh api.nyn.me codevalley@live.com --fetch-code
+   ```
+   This will:
+   - `git pull` main again,
+   - Re-build images,
+   - Restart containers,
+   - Keep your environment + volumes intact.
+3. If you need to re-generate SSL or forcibly renew:
+   ```bash
+   sudo ./deploy.sh api.nyn.me codevalley@live.com --setup-ssl --force-ssl
+   ```
+   (If you have that logic in your script.)
 
 ---
 
-## **8. Persistence & Data Backups**
+## **10. (Optional) Using No-DB or External DB**
 
-### 8.1 Persist Redis data
-- As we did with the `redis_data` volume in Docker Compose, your Redis data is stored under `/var/lib/docker/volumes/<project>_redis_data`.
-- For robust backups, consider:
+- If you don’t need a local MySQL container, you likely have a second compose file (e.g., `docker-compose.no-db.yml`).
+- In `.env`, set `EXTERNAL_DB=true`, specify external DB settings.
+- Then run:
   ```bash
-  docker compose exec redis redis-cli save
+  sudo ./deploy.sh api.nyn.me codevalley@live.com --external-db
   ```
-  Or a scheduled cron job.
-
-### 8.2 Droplet Snapshots
-- DigitalOcean has a droplet snapshot feature. You can snapshot the entire server as a fallback.
+  The script references `docker-compose.no-db.yml` instead of the default `docker-compose.yml`.
 
 ---
 
-## **9. CI/CD or Manual Updates**
+## **Additional Pointers**
 
-### 9.1 Manual approach
-- SSH in, `git pull`, `docker compose build`, `docker compose up -d`.
-
-### 9.2 Automate with GitHub Actions
-- A popular approach is to push to main → GitHub Actions builds Docker image → push to Docker Hub or GitHub Container Registry → droplet pulls updated image → restarts container.
-
-### 9.3 Consistent environment
-- Keep your `.env` file consistent. For staging vs production, you might have separate `.env` or environment variable overrides.
-
----
-
-## **10. Ongoing Maintenance**
-
-### 10.1 Security patches
-- `sudo apt-get update && sudo apt-get upgrade` regularly.
-- Keep Docker images updated: `docker compose pull` or rebuild images with updated base images.
-
-### 10.2 Monitor usage
-- Tools like `htop`, `docker stats`, or DO’s monitoring tab.
-
-### 10.3 Scaling
-- If usage grows, resize the droplet or horizontally scale with multiple droplets behind a DO Load Balancer.
+- **SSL Renewal**: The jwilder + letsencrypt container automatically renews certificates.
+- **Logs**: Your API logs go into the container’s stdout or into a mounted volume (e.g., `./logs:/app/logs`). Check them with `docker compose logs -f api`.
+- **Persistence**:
+  - Redis data stored in volume `redis_data`.
+  - MySQL data in `mysql_data` if you use a local MySQL container.
+- **Backing up**:
+  - Periodic droplet snapshots on DO.
+  - Or if using external DB, rely on DB provider backups.
 
 ---
 
-## **Conclusion**
+## **Wrapping Up**
 
-With these detailed steps, you should be able to:
+1. You have a **`deploy.sh`** that automates Docker installation, code pulling, environment injection, and Docker Compose usage.
+2. A **`docker-compose.yml`** (plus an optional no-db variant) orchestrates your containers.
+3. The **`Dockerfile`** builds your FastAPI image.
+4. Domain + SSL are handled by **`jwilder/nginx-proxy`** + **`letsencrypt-nginx-proxy-companion`** automatically.
 
-1. Create an Ubuntu-based DigitalOcean droplet.
-2. Install Docker + Docker Compose.
-3. Clone your FastAPI-based repository.
-4. Containerize the app, Redis.
-5. Configure environment variables & volumes for persistent data.
-6. Launch via `docker compose up -d`.
-7. Add a domain, set up SSL (via container or Nginx directly).
-8. Keep the droplet & images updated.
+**In short**:
+- **Clone** → **Configure `.env`** → **Run** `sudo ./deploy.sh <domain> <email>` (with or without `--external-db`) → **Success**.
 
-By following the script-based approach (like `deploy.sh`) or a Git-based CI/CD pipeline, you can seamlessly pull new code and rebuild your stack with minimal downtime. Logging is handled by standard Docker logs or by mounting volumes. Persistent volumes store Redis data. For better resilience, schedule backups or snapshots in DigitalOcean.
+You can now maintain your application by pulling changes and re-running the script. The jwilder proxy + let’s encrypt automatically refreshes certs. Volumes store persistent data. This is a straightforward, reproducible way to run your **Friday API** on a DO droplet!
 
-**Done!** Now you have a robust, Dockerized, repeatable deployment process for your web app on DigitalOcean.
+**Enjoy your newly deployed API!**
