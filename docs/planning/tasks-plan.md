@@ -56,44 +56,81 @@ Implementation Details:
 - Updated User model to include tasks relationship
 - Updated BaseModel initialization to include Task model
 
-#### Task 1.3: Repository Layer
-- [ ] Create `repositories/TaskRepository.py`
-  - 1.3.1 Implement `TaskRepository` extending `BaseRepository`
-  - 1.3.2 Add create/read/update/delete methods, ensuring consistent patterns with `NoteRepository`
-  - 1.3.3 Implement filtering and pagination support
+#### Task 1.3: Repository Layer ✓
+- [x] Create `repositories/TaskRepository.py`
+  - [x] 1.3.1 Implement `TaskRepository` extending `BaseRepository`
+  - [x] 1.3.2 Add create/read/update/delete methods, ensuring consistent patterns with `NoteRepository`
+  - [x] 1.3.3 Implement filtering and pagination support
 
-#### Task 1.4: Tests for Domain & Repository
-- [ ] Create `__tests__/unit/domain/test_task_data.py`
-  - 1.4.1 Test domain validations and exceptions
-  - 1.4.2 Test edge cases, empty title, invalid status, etc.
-- [ ] Create `__tests__/unit/repositories/test_task_repository.py`
-  - 1.4.3 Test repository CRUD operations
-  - 1.4.4 Ensure foreign key constraints and user_id references are validated
+Implementation Details:
+- Created TaskRepository extending BaseRepository
+- Added task-specific methods: create_task, list_user_tasks, count_user_tasks, get_subtasks, update_task_status
+- Implemented filtering by status, priority, due date, and parent task
+- Added support for subtasks with parent task validation
+- Added ordering by priority and due date
 
-### Epic 2: Service Layer & Business Logic
+#### Task 1.4: Tests for Domain & Repository ✓
+- [x] Create `__tests__/unit/domain/test_task_data.py`
+  - [x] 1.4.1 Test domain validations and exceptions
+  - [x] 1.4.2 Test edge cases, empty title, invalid status, etc.
+- [x] Create `__tests__/unit/repositories/test_task_repository.py`
+  - [x] 1.4.3 Test repository CRUD operations
+  - [x] 1.4.4 Ensure foreign key constraints and user_id references are validated
+
+Implementation Details:
+- Added comprehensive tests for TaskData validation and exceptions
+- Added tests for TaskRepository covering all CRUD operations
+- Added tests for task filtering, pagination, and subtask management
+- Added tests for status transitions and parent task validation
+- Ensured test coverage matches existing entities
+
+### Epic 2: Service Layer & Business Logic ✓
 **Goal**: Implement the service layer to handle business logic and orchestration
 
-#### Task 2.1: Service Implementation
-- [ ] Create `services/TaskService.py`
-  - 2.1.1 Implement CRUD operations similar to `NoteService`
-  - 2.1.2 Validate domain logic (handle domain exceptions → HTTP errors)
-  - 2.1.3 Implement filtering and pagination logic consistently
-  - 2.1.4 Test with fake or real DB session (depending on your approach)
+#### Task 2.1: Service Implementation ✓
+- [x] Create `services/TaskService.py`
+  - [x] 2.1.1 Implement CRUD operations similar to `NoteService`
+  - [x] 2.1.2 Validate domain logic (handle domain exceptions → HTTP errors)
+  - [x] 2.1.3 Implement filtering and pagination logic consistently
+  - [x] 2.1.4 Test with fake DB session
 
-#### Task 2.2: Service Tests
-- [ ] Create `__tests__/unit/services/test_task_service.py`
-  - 2.2.1 Test each CRUD method
-  - 2.2.2 Test error handling for domain exceptions
-  - 2.2.3 Test pagination and filtering
+Implementation Details:
+- Created TaskService with full CRUD operations
+- Added proper error handling with domain exceptions mapped to HTTP errors
+- Implemented filtering by status, priority, due date, and parent task
+- Added pagination support consistent with other services
+- Added support for subtasks and parent task validation
+- Added comprehensive unit tests with mocked dependencies
+
+#### Task 2.2: Service Tests ✓
+- [x] Create `__tests__/unit/services/test_task_service.py`
+  - [x] 2.2.1 Test each CRUD method
+  - [x] 2.2.2 Test error handling for domain exceptions
+  - [x] 2.2.3 Test pagination and filtering
+
+Implementation Details:
+- Added comprehensive tests for all CRUD operations
+- Added tests for error handling and domain exceptions
+- Added tests for filtering, pagination, and subtask operations
+- Achieved test coverage matching other services
+- Used consistent mocking patterns with other service tests
 
 ### Epic 3: API Layer & Schemas
 **Goal**: Implement the REST API endpoints and data schemas
 
-#### Task 3.1: Pydantic Schemas
-- [ ] Create `schemas/pydantic/TaskSchema.py`
-  - 3.1.1 Define `TaskCreate`, `TaskUpdate`, `TaskResponse`
-  - 3.1.2 Add validation constraints (title length, status)
-  - 3.1.3 Implement conversion methods (to_domain, from_orm)
+#### Task 3.1: Pydantic Schemas ✓
+- [x] Create `schemas/pydantic/TaskSchema.py`
+  - [x] 3.1.1 Define `TaskCreate`, `TaskUpdate`, `TaskResponse`
+  - [x] 3.1.2 Add validation constraints (title length, status)
+  - [x] 3.1.3 Implement conversion methods (to_domain, from_orm)
+
+Implementation Details:
+- Created TaskBase with common fields (title, description, status, priority, due_date, tags, parent_id)
+- Added TaskCreate schema with to_domain conversion
+- Added TaskUpdate schema with optional fields for partial updates
+- Added TaskResponse schema with id, user_id, and timestamps
+- Added validation constraints using Pydantic Field
+- Used consistent patterns with other entity schemas
 
 #### Task 3.2: REST Router
 - [ ] Create `routers/v1/TaskRouter.py`

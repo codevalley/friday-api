@@ -19,6 +19,11 @@ class ErrorCode(str, Enum):
     INVALID_FIELD_VALUE = "INVALID_FIELD_VALUE"
     MISSING_REQUIRED_FIELD = "MISSING_REQUIRED_FIELD"
 
+    # Task-related error codes
+    TASK_INVALID_STATUS = "TASK_INVALID_STATUS"
+    TASK_INVALID_REFERENCE = "TASK_INVALID_REFERENCE"
+    TASK_INVALID_DATA = "TASK_INVALID_DATA"
+
 
 class DomainException(Exception):
     """Base exception for all domain exceptions."""
@@ -26,7 +31,7 @@ class DomainException(Exception):
     def __init__(
         self,
         message: str,
-        code: ErrorCode,
+        code: str,
         details: Optional[Any] = None,
     ):
         self.message = message
@@ -310,10 +315,13 @@ class TaskPriorityError(TaskValidationError):
 
 
 class TaskStatusError(TaskValidationError):
-    """Raised when task status validation fails."""
+    """Raised when task status transition is invalid."""
 
     def __init__(self, message: str):
-        super().__init__(message, code="TASK_STATUS_ERROR")
+        """Initialize task status error."""
+        super().__init__(
+            message, code=ErrorCode.TASK_INVALID_STATUS
+        )
 
 
 class TaskParentError(TaskValidationError):
@@ -321,3 +329,13 @@ class TaskParentError(TaskValidationError):
 
     def __init__(self, message: str):
         super().__init__(message, code="TASK_PARENT_ERROR")
+
+
+class TaskReferenceError(TaskValidationError):
+    """Raised when task reference is invalid (e.g. self-reference)."""
+
+    def __init__(self, message: str):
+        """Initialize task reference error."""
+        super().__init__(
+            message, code=ErrorCode.TASK_INVALID_REFERENCE
+        )

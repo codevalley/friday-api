@@ -1,118 +1,83 @@
 """Task ORM model."""
 
-from datetime import datetime
-from typing import Dict, Any, List, Optional, TYPE_CHECKING
+from typing import Dict, Any, Optional
+from datetime import datetime, UTC
 from sqlalchemy import (
     Column,
     Integer,
     String,
+    Text,
     ForeignKey,
     DateTime,
-    Enum as SQLEnum,
-    Text,
-    ARRAY,
+    JSON,
+    Enum,
     CheckConstraint,
 )
 from sqlalchemy.orm import relationship, Mapped
+from typing import TYPE_CHECKING
 
 from domain.values import TaskStatus, TaskPriority
 from .BaseModel import EntityMeta
 
 if TYPE_CHECKING:
-    from orm.UserModel import User
+    from .UserModel import User
 
 
 class Task(EntityMeta):
-    """Task ORM model.
-
-    This model represents a user task in the database with all its properties
-    and relationships.
-
-    Attributes:
-        id: Primary key
-        title: Task title (required)
-        description: Detailed task description
-        user_id: ID of the user who owns this task
-        status: Current status (todo/in_progress/done)
-        priority: Priority level (low/medium/high/urgent)
-        due_date: When the task is due
-        tags: List of tags/topics
-        parent_id: ID of parent task (for subtasks)
-        created_at: When the task was created
-        updated_at: When the task was last updated
-        owner: Relationship to the user
-        subtasks: Relationship to child tasks
-        parent: Relationship to parent task
-    """
+    """Task model for ORM."""
 
     __tablename__ = "tasks"
 
-    # Primary key
-    id: Mapped[int] = Column(
-        Integer, primary_key=True, index=True
-    )
-
-    # Required fields
-    title: Mapped[str] = Column(String(255), nullable=False)
-    description: Mapped[str] = Column(Text, nullable=False)
-    user_id: Mapped[str] = Column(
+    id = Column(Integer, primary_key=True, index=True)
+    title = Column(String(255), nullable=False)
+    description = Column(Text, nullable=False)
+    user_id = Column(
         String(36),
         ForeignKey("users.id", ondelete="CASCADE"),
         nullable=False,
     )
-
-    # Status and priority
-    status: Mapped[TaskStatus] = Column(
-        SQLEnum(TaskStatus),
+    status = Column(
+        Enum(TaskStatus),
         nullable=False,
         default=TaskStatus.TODO,
-        server_default=TaskStatus.TODO.value,
     )
-    priority: Mapped[TaskPriority] = Column(
-        SQLEnum(TaskPriority),
+    priority = Column(
+        Enum(TaskPriority),
         nullable=False,
         default=TaskPriority.MEDIUM,
-        server_default=TaskPriority.MEDIUM.value,
     )
-
-    # Optional fields
-    due_date: Mapped[Optional[datetime]] = Column(
-        DateTime(timezone=True),
+    _due_date = Column(
+        "due_date",
+        DateTime,
         nullable=True,
     )
-    tags: Mapped[Optional[List[str]]] = Column(
-        ARRAY(String), nullable=True
+    tags = Column(
+        JSON,
+        nullable=True,
+        default=list,
     )
-    parent_id: Mapped[Optional[int]] = Column(
+    parent_id = Column(
         Integer,
         ForeignKey("tasks.id", ondelete="SET NULL"),
         nullable=True,
     )
 
-    # Timestamps
-    created_at: Mapped[datetime] = Column(
-        DateTime(timezone=True),
-        nullable=False,
-        default=datetime.utcnow,
-    )
-    updated_at: Mapped[Optional[datetime]] = Column(
-        DateTime(timezone=True),
-        nullable=True,
-        onupdate=datetime.utcnow,
-    )
-
     # Relationships
     owner: Mapped["User"] = relationship(
-        "User", back_populates="tasks"
+        "User",
+        back_populates="tasks",
     )
-    subtasks: Mapped[List["Task"]] = relationship(
+    parent = relationship(
         "Task",
-        backref="parent_task",
         remote_side=[id],
-        cascade="all, delete-orphan",
+        back_populates="subtasks",
+    )
+    subtasks = relationship(
+        "Task",
+        back_populates="parent",
+        cascade="all, delete",
     )
 
-    # Constraints
     __table_args__ = (
         CheckConstraint(
             "title != ''",
@@ -122,33 +87,72 @@ class Task(EntityMeta):
             "description != ''",
             name="check_description_not_empty",
         ),
-        CheckConstraint(
-            "parent_id != id",
-            name="check_no_self_reference",
-        ),
     )
 
     def __init__(self, **kwargs):
-        """Initialize task with default status and priority if not provided."""
+        """Initialize a Task instance.
+
+        Args:
+            **kwargs: Task attributes
+        """
+        # Set defaults if not provided
         if "status" not in kwargs:
             kwargs["status"] = TaskStatus.TODO
         if "priority" not in kwargs:
             kwargs["priority"] = TaskPriority.MEDIUM
+        if "tags" not in kwargs:
+            kwargs["tags"] = []
+
+        # Check for self-reference before initialization
+        if "id" in kwargs and "parent_id" in kwargs:
+            if kwargs["id"] == kwargs["parent_id"]:
+                raise ValueError(
+                    "Task cannot reference itself as parent"
+                )
+
+        # Ensure due_date is in UTC if provided
+        if (
+            "due_date" in kwargs
+            and kwargs["due_date"] is not None
+        ):
+            # Convert to UTC and remove microseconds
+            kwargs["due_date"] = (
+                kwargs["due_date"]
+                .astimezone(UTC)
+                .replace(microsecond=0)
+            )
+
         super().__init__(**kwargs)
+
+    @property
+    def due_date(self) -> Optional[datetime]:
+        """Get the due date with UTC timezone."""
+        if self._due_date is None:
+            return None
+        return self._due_date.replace(tzinfo=UTC)
+
+    @due_date.setter
+    def due_date(self, value: Optional[datetime]):
+        """Set the due date, converting to UTC if needed."""
+        if value is not None:
+            value = value.astimezone(UTC).replace(
+                microsecond=0
+            )
+        self._due_date = value
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert task to dictionary.
 
         Returns:
-            Dict[str, Any]: Dictionary representation of task
+            Dict[str, Any]: Task data
         """
         return {
             "id": self.id,
             "title": self.title,
             "description": self.description,
             "user_id": self.user_id,
-            "status": self.status.value,
-            "priority": self.priority.value,
+            "status": self.status,
+            "priority": self.priority,
             "due_date": self.due_date,
             "tags": self.tags,
             "parent_id": self.parent_id,
@@ -156,24 +160,24 @@ class Task(EntityMeta):
             "updated_at": self.updated_at,
         }
 
-    @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "Task":
-        """Create task from dictionary.
-
-        Args:
-            data: Dictionary data
-
-        Returns:
-            Task: Created task instance
-        """
-        return cls(**data)
-
     def update(self, data: Dict[str, Any]) -> None:
-        """Update task with dictionary data.
+        """Update task with new data.
 
         Args:
             data: Dictionary of fields to update
+
+        Raises:
+            ValueError: If task tries to reference itself as parent
         """
+        # Check for self-reference
+        if (
+            "parent_id" in data
+            and data["parent_id"] == self.id
+        ):
+            raise ValueError(
+                "Task cannot reference itself as parent"
+            )
+
+        # Update fields
         for key, value in data.items():
-            if hasattr(self, key):
-                setattr(self, key, value)
+            setattr(self, key, value)
