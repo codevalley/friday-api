@@ -309,3 +309,57 @@ class ProcessingStatus(str, Enum):
         return new_status in valid_transitions.get(
             self, set()
         )
+
+
+class TaskStatus(str, Enum):
+    """Status of a task."""
+
+    TODO = "todo"
+    IN_PROGRESS = "in_progress"
+    DONE = "done"
+
+    @classmethod
+    def default(cls) -> "TaskStatus":
+        """Get the default task status."""
+        return cls.TODO
+
+    def can_transition_to(
+        self, new_status: "TaskStatus"
+    ) -> bool:
+        """Check if transition to new status is valid.
+
+        Valid transitions:
+        - TODO -> IN_PROGRESS
+        - IN_PROGRESS -> TODO
+        - IN_PROGRESS -> DONE
+        - DONE -> IN_PROGRESS
+        """
+        valid_transitions = {
+            self.TODO: {
+                self.IN_PROGRESS
+            },  # Can only go to IN_PROGRESS
+            self.IN_PROGRESS: {
+                self.TODO,
+                self.DONE,
+            },  # Can go back to TODO or forward to DONE
+            self.DONE: {
+                self.IN_PROGRESS
+            },  # Can only go back to IN_PROGRESS
+        }
+        return new_status in valid_transitions.get(
+            self, set()
+        )
+
+
+class TaskPriority(str, Enum):
+    """Priority level of a task."""
+
+    LOW = "low"
+    MEDIUM = "medium"
+    HIGH = "high"
+    URGENT = "urgent"
+
+    @classmethod
+    def default(cls) -> "TaskPriority":
+        """Get the default task priority."""
+        return cls.MEDIUM

@@ -271,3 +271,53 @@ class RoboServiceError(DomainException):
             message: Error message
         """
         super().__init__(message, code="ROBO_SERVICE_ERROR")
+
+
+class TaskValidationError(Exception):
+    """Base exception for task domain validation failures."""
+
+    def __init__(
+        self,
+        message: str,
+        code: str = "TASK_VALIDATION_ERROR",
+    ):
+        self.message = message
+        self.code = code
+        super().__init__(self.message)
+
+
+class TaskContentError(TaskValidationError):
+    """Raised when task content validation fails."""
+
+    def __init__(self, message: str):
+        super().__init__(message, code="TASK_CONTENT_ERROR")
+
+
+class TaskDateError(TaskValidationError):
+    """Raised when task date validation fails."""
+
+    def __init__(self, message: str):
+        super().__init__(message, code="TASK_DATE_ERROR")
+
+
+class TaskPriorityError(TaskValidationError):
+    """Raised when task priority validation fails."""
+
+    def __init__(self, message: str):
+        super().__init__(
+            message, code="TASK_PRIORITY_ERROR"
+        )
+
+
+class TaskStatusError(TaskValidationError):
+    """Raised when task status validation fails."""
+
+    def __init__(self, message: str):
+        super().__init__(message, code="TASK_STATUS_ERROR")
+
+
+class TaskParentError(TaskValidationError):
+    """Raised when task parent reference validation fails."""
+
+    def __init__(self, message: str):
+        super().__init__(message, code="TASK_PARENT_ERROR")

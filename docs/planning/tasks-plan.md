@@ -1,5 +1,13 @@
 # Tasks Feature Implementation Plan
 
+## Development Workflow
+1. Pick the next incomplete task from the plan (tasks are ordered by dependency)
+2. Implement the task following the established patterns from Notes/Moments/Activities
+3. Write tests before or alongside the implementation (TDD preferred)
+4. Mark the task as complete (✓) and add implementation details/comments
+5. Run all tests to ensure no regressions
+6. Move to the next task
+
 ## Overview
 This plan outlines the implementation of a new `Task` entity following the established four-layer architecture pattern (Domain → Repository → Service → Router) used in the existing codebase for Notes, Moments, and Activities.
 
@@ -18,18 +26,35 @@ A Task represents a user-created item that needs to be completed, with propertie
 ### Epic 1: Core Domain & Data Layer
 **Goal**: Implement the foundational domain model and database layer for Tasks
 
-#### Task 1.1: Domain Implementation
-- [ ] Create `domain/task.py`
-  - 1.1.1 Implement the core domain model class (e.g., TaskData)
-  - 1.1.2 Add validation rules (title constraints, status fields, due date checks)
-  - 1.1.3 Add task-specific exceptions to `domain/exceptions.py` as needed
-  - 1.1.4 (Optional) Add any new value objects (e.g., `TaskStatus`) if business logic is advanced
+#### Task 1.1: Domain Implementation ✓
+- [x] Create `domain/task.py`
+  - [x] 1.1.1 Implement the core domain model class (TaskData)
+  - [x] 1.1.2 Add validation rules (title constraints, status fields, due date checks)
+  - [x] 1.1.3 Add task-specific exceptions to `domain/exceptions.py`
+  - [x] 1.1.4 Add TaskStatus and TaskPriority enums in `domain/values.py`
 
-#### Task 1.2: ORM Model
-- [ ] Create `orm/TaskModel.py`
-  - 1.2.1 Define SQLAlchemy model fields mirroring domain
-  - 1.2.2 Set up relationship with User model (foreign key: user_id)
-  - 1.2.3 Add indexes and constraints for status, due_date
+Implementation Details:
+- Created TaskData with fields: title, description, user_id, status, priority, due_date, tags, parent_id
+- Added validation for all fields including due_date > created_at check
+- Implemented status transitions (todo → in_progress → done)
+- Added support for task priorities (LOW, MEDIUM, HIGH, URGENT)
+- Added support for tags and parent tasks (hierarchical structure)
+- Added comprehensive unit tests in `__tests__/unit/domain/test_task_data.py`
+
+#### Task 1.2: ORM Model ✓
+- [x] Create `orm/TaskModel.py`
+  - [x] 1.2.1 Define SQLAlchemy model fields mirroring domain
+  - [x] 1.2.2 Set up relationship with User model (foreign key: user_id)
+  - [x] 1.2.3 Add indexes and constraints for status, due_date
+
+Implementation Details:
+- Created Task ORM model with all necessary fields (title, description, status, priority, due_date, tags, parent_id)
+- Added relationships (owner -> User, subtasks -> self-referential)
+- Added database constraints (non-empty title/description, no self-referential parent)
+- Added indexes on id, user_id, status, and due_date
+- Added TaskStatus and TaskPriority as SQLAlchemy Enums
+- Updated User model to include tasks relationship
+- Updated BaseModel initialization to include Task model
 
 #### Task 1.3: Repository Layer
 - [ ] Create `repositories/TaskRepository.py`

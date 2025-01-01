@@ -15,13 +15,15 @@ if TYPE_CHECKING:
     from orm.ActivityModel import Activity
     from orm.MomentModel import Moment
     from orm.NoteModel import Note
+    from orm.TaskModel import Task
 
 
 class User(EntityMeta):
     """User Model represents a registered user in the system.
 
     This model stores user authentication and identification information.
-    Each user can have multiple activities and moments associated with them.
+    Each user can have multiple activities, moments, notes, and tasks
+    associated with them.
 
     Attributes:
         id: Unique identifier (UUID)
@@ -32,6 +34,8 @@ class User(EntityMeta):
         updated_at: Timestamp of last update
         activities: List of user's activities
         moments: List of user's moments
+        notes: List of user's notes
+        tasks: List of user's tasks
     """
 
     __tablename__ = "users"
@@ -92,8 +96,13 @@ class User(EntityMeta):
         back_populates="user",
         cascade="all, delete-orphan",
     )
-    notes: Mapped[list["Note"]] = relationship(
+    notes: Mapped[List["Note"]] = relationship(
         "Note",
+        back_populates="owner",
+        cascade="all, delete-orphan",
+    )
+    tasks: Mapped[List["Task"]] = relationship(
+        "Task",
         back_populates="owner",
         cascade="all, delete-orphan",
     )

@@ -76,5 +76,6 @@ def init() -> None:
     from orm.ActivityModel import Activity  # noqa: F401
     from orm.MomentModel import Moment  # noqa: F401
     from orm.NoteModel import Note  # noqa: F401
+    from orm.TaskModel import Task  # noqa: F401
 
     EntityMeta.metadata.create_all(bind=Engine)
