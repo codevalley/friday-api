@@ -20,7 +20,10 @@ from schemas.graphql.types.Moment import (
     MomentConnection,
 )
 from schemas.graphql.types.Note import Note as GQLNote
+from schemas.graphql.types.Task import Task, TaskConnection
 from services.NoteService import NoteService
+from services.TaskService import TaskService
+from domain.values import TaskStatus, TaskPriority
 
 
 @strawberry.type(description="Query all entities")
@@ -230,3 +233,140 @@ class Query:
             GQLNote.from_domain(item)
             for item in result["items"]
         ]
+
+    @strawberry.field(description="Get a Task by ID")
+    def get_task(
+        self, info: Info, task_id: int
+    ) -> Optional[Task]:
+        """Get a task by ID.
+
+        Args:
+            info: GraphQL request info
+            task_id: Task ID
+
+        Returns:
+            Task if found, None otherwise
+
+        Raises:
+            HTTPException: If user is not authenticated
+        """
+        user = get_user_from_context(info)
+        if not user:
+            raise HTTPException(
+                status_code=401,
+                detail="Authentication required to get task",
+            )
+
+        service = TaskService(get_db_from_context(info))
+        try:
+            result = service.get_task(task_id, user.id)
+            return (
+                Task.from_domain(result) if result else None
+            )
+        except ValueError as e:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Task not found: {str(e)}",
+            )
+
+    @strawberry.field(description="List all Tasks")
+    def list_tasks(
+        self,
+        info: Info,
+        page: int = 1,
+        size: int = 50,
+        status: Optional[TaskStatus] = None,
+        priority: Optional[TaskPriority] = None,
+    ) -> TaskConnection:
+        """List all tasks for the current user.
+
+        Args:
+            info: GraphQL request info
+            page: Page number (1-based)
+            size: Items per page
+            status: Filter by task status
+            priority: Filter by task priority
+
+        Returns:
+            Paginated list of tasks
+
+        Raises:
+            HTTPException: If user is not authenticated
+        """
+        user = get_user_from_context(info)
+        if not user:
+            raise HTTPException(
+                status_code=401,
+                detail="Authentication required to list tasks",
+            )
+
+        service = TaskService(get_db_from_context(info))
+        tasks = service.list_tasks(
+            user_id=user.id,
+            page=page,
+            size=size,
+            status=status,
+            priority=priority,
+        )
+
+        return TaskConnection(
+            items=[
+                Task.from_domain(task)
+                for task in tasks["items"]
+            ],
+            total=tasks["total"],
+            page=tasks["page"],
+            size=tasks["size"],
+        )
+
+    @strawberry.field(description="Get subtasks for a task")
+    def get_subtasks(
+        self,
+        info: Info,
+        task_id: int,
+        page: int = 1,
+        size: int = 50,
+    ) -> TaskConnection:
+        """Get subtasks for a specific task.
+
+        Args:
+            info: GraphQL request info
+            task_id: Parent task ID
+            page: Page number (1-based)
+            size: Items per page
+
+        Returns:
+            Paginated list of subtasks
+
+        Raises:
+            HTTPException: If user is not authenticated or task not found
+        """
+        user = get_user_from_context(info)
+        if not user:
+            raise HTTPException(
+                status_code=401,
+                detail="Authentication required to get subtasks",
+            )
+
+        service = TaskService(get_db_from_context(info))
+        try:
+            tasks = service.list_tasks(
+                user_id=user.id,
+                parent_id=task_id,
+                page=page,
+                size=size,
+            )
+            return TaskConnection(
+                items=[
+                    Task.from_domain(task)
+                    for task in tasks["items"]
+                ],
+                total=tasks["total"],
+                page=tasks["page"],
+                size=tasks["size"],
+            )
+        except ValueError as e:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Task not found: {str(e)}",
+            )

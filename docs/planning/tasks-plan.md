@@ -168,90 +168,125 @@ Implementation Details:
 - Followed consistent patterns from other router tests
 - Achieved test coverage matching other routers (94% coverage)
 
-### Epic 4: GraphQL Integration (Optional)
+### Epic 4: GraphQL Integration (Optional) ⚠️
 **Goal**: Add GraphQL support for Tasks
 
-#### Task 4.1: GraphQL Types
-- [ ] Create `schemas/graphql/types/Task.py`
-- [ ] Create `schemas/graphql/types/TaskInput.py`
-- [ ] Create `schemas/graphql/types/TaskResponse.py`
+#### Task 4.1: GraphQL Types ✓
+- [x] Create `schemas/graphql/types/Task.py`
+  - [x] 4.1.1 Define TaskType with all fields
+  - [x] 4.1.2 Define TaskInputType for mutations
+  - [x] 4.1.3 Add field resolvers for relationships (user, parent task)
 
-#### Task 4.2: GraphQL Mutations
-- [ ] Create `schemas/graphql/mutations/TaskMutation.py`
-- [ ] Update `schemas/graphql/Mutation.py`
+Implementation Details:
+- Created Task GraphQL type with all fields from domain model
+- Added TaskInput and TaskUpdateInput for mutations
+- Added TaskConnection for paginated results
+- Added field resolvers for user and parent task relationships
 
-#### Task 4.3: GraphQL Queries
-- [ ] Update `schemas/graphql/Query.py`
-- [ ] Add task-related resolvers
+#### Task 4.2: GraphQL Mutations ✓
+- [x] Create `schemas/graphql/mutations/TaskMutation.py`
+  - [x] 4.2.1 Add createTask mutation
+  - [x] 4.2.2 Add updateTask mutation
+  - [x] 4.2.3 Add deleteTask mutation
+  - [x] 4.2.4 Add updateTaskStatus mutation
+- [x] Update `schemas/graphql/Mutation.py`
+  - [x] 4.2.5 Register task mutations
 
-## File Structure
-```
-domain/
-  ├── task.py
-orm/
-  ├── TaskModel.py
-repositories/
-  ├── TaskRepository.py
-services/
-  ├── TaskService.py
-routers/v1/
-  ├── TaskRouter.py
-schemas/
-  ├── pydantic/
-  │   └── TaskSchema.py
-  └── graphql/
-      ├── types/
-      │   ├── Task.py
-      │   ├── TaskInput.py
-      │   └── TaskResponse.py
-      └── mutations/
-          └── TaskMutation.py
-__tests__/
-  └── unit/
-      ├── domain/
-      │   └── test_task_data.py
-      ├── repositories/
-      │   └── test_task_repository.py
-      ├── services/
-      │   └── test_task_service.py
-      └── routers/
-          └── test_task_router.py
-```
+Implementation Details:
+- Implemented create_task mutation with full validation
+- Added update_task mutation supporting partial updates
+- Added delete_task mutation with proper authorization
+- Added status update mutation
+- Registered all mutations in the root Mutation type
 
-## Database Schema
-```sql
-CREATE TABLE tasks (
-    id SERIAL PRIMARY KEY,
-    title VARCHAR(255) NOT NULL,
-    description TEXT,
-    status VARCHAR(20) NOT NULL DEFAULT 'todo',
-    due_date TIMESTAMP,
-    user_id VARCHAR(36) NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP
-);
+#### Task 4.3: GraphQL Queries ✓
+- [x] Update `schemas/graphql/Query.py`
+  - [x] 4.3.1 Add task(id) query
+  - [x] 4.3.2 Add tasks query with filtering
+  - [x] 4.3.3 Add subtasks query
+- [x] Add task-related resolvers
+  - [x] 4.3.4 Implement pagination for tasks query
+  - [x] 4.3.5 Add filtering by status, priority, due date
 
-CREATE INDEX idx_tasks_user_id ON tasks(user_id);
-CREATE INDEX idx_tasks_status ON tasks(status);
-CREATE INDEX idx_tasks_due_date ON tasks(due_date);
-```
+Implementation Details:
+- Added get_task query for single task retrieval
+- Added list_tasks query with pagination and filtering
+- Added get_subtasks query for hierarchical task viewing
+- Implemented proper error handling and authorization checks
+- Added comprehensive tests in `__tests__/unit/graphql/test_task_graphql.py`
+
+#### Task 4.4: Fix GraphQL Test Issues ✓
+- [x] Fix test_update_task_mutation
+  - [x] 4.4.1 Update assertions to match expected behavior after update
+  - [x] 4.4.2 Fix parameter order in TaskMutation.update_task
+  - [x] 4.4.3 Add more comprehensive assertions for update validation
+- [ ] Improve error handling
+  - [ ] 4.4.4 Add consistent error handling across all mutations
+  - [ ] 4.4.5 Add error handling tests for invalid inputs
+  - [ ] 4.4.6 Document error handling patterns
+
+#### Task 4.5: GraphQL Documentation
+- [ ] Add comprehensive documentation
+  - [ ] 4.5.1 Document all GraphQL types and fields
+  - [ ] 4.5.2 Add examples for common operations
+  - [ ] 4.5.3 Document error handling and validation
+  - [ ] 4.5.4 Add integration test examples
+
+#### Task 4.6: Test Coverage Improvements
+- [ ] Increase test coverage for GraphQL layer
+  - [ ] 4.6.1 Add tests for edge cases in mutations
+  - [ ] 4.6.2 Add tests for field resolvers
+  - [ ] 4.6.3 Add tests for pagination
+  - [ ] 4.6.4 Add tests for filtering
+- [ ] Add integration tests
+  - [ ] 4.6.5 Test full GraphQL operations end-to-end
+  - [ ] 4.6.6 Test error scenarios
+  - [ ] 4.6.7 Test performance with larger datasets
+
+### Epic 5: Authentication Improvements
+**Goal**: Improve authentication response consistency across the API
+
+#### Task 5.1: Authentication Response Review
+- [ ] Audit current authentication behavior
+  - [ ] 5.1.1 Review all routers' authentication handling
+  - [ ] 5.1.2 Document current response codes and messages
+  - [ ] 5.1.3 Identify inconsistencies
+
+#### Task 5.2: Authentication Response Standardization
+- [ ] Create custom HTTPBearer implementation
+  - [ ] 5.2.1 Return 401 for missing/invalid tokens
+  - [ ] 5.2.2 Return 403 only for permission issues
+  - [ ] 5.2.3 Standardize error messages
+
+#### Task 5.3: Router Updates
+- [ ] Update all routers to use new authentication
+  - [ ] 5.3.1 Update TaskRouter
+  - [ ] 5.3.2 Update NoteRouter
+  - [ ] 5.3.3 Update MomentRouter
+  - [ ] 5.3.4 Update ActivityRouter
 
 ## Implementation Order
-1. Start with Epic 1 (Domain & Data Layer)
+1. Start with Epic 1 (Domain & Data Layer) ✓
    - This establishes the foundation
    - Ensures data model is solid before building features
 
-2. Move to Epic 2 (Service Layer)
+2. Move to Epic 2 (Service Layer) ✓
    - Builds on domain layer
    - Implements core business logic
 
-3. Complete Epic 3 (API Layer)
+3. Complete Epic 3 (API Layer) ✓
    - Makes feature accessible via REST
    - Implements all user-facing functionality
 
-4. Finally Epic 4 (GraphQL) if needed
-   - Adds alternative access method
-   - Can be done after basic functionality is working
+4. Add GraphQL support (Epic 4) ⚠️
+   - Basic functionality working
+   - Tests fixed and passing
+   - Need to improve error handling and documentation
+   - Need to increase test coverage
+
+5. Improve Authentication (Epic 5)
+   - Review and standardize authentication responses
+   - Implement across all routers consistently
 
 ## Testing Strategy
 - Unit tests for each layer

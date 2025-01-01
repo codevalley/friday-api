@@ -51,7 +51,7 @@ class TaskData:
 
     title: str
     description: str
-    user_id: str
+    user_id: Optional[str] = None
     status: TaskStatus = field(
         default_factory=TaskStatus.default
     )
@@ -70,11 +70,23 @@ class TaskData:
     )
 
     def __post_init__(self) -> None:
-        """Validate task data after initialization."""
+        """Validate task data after initialization.
+
+        For backward compatibility, we validate with require_user_id=True
+        by default. The GraphQL layer will create tasks with
+        require_user_id=False and then set the user_id before saving.
+        """
         self.validate()
 
-    def validate(self) -> None:
+    def validate(
+        self, require_user_id: bool = True
+    ) -> None:
         """Validate the task data.
+
+        Args:
+            require_user_id: Whether to require user_id to be set.
+                           Defaults to True for backward
+                           compatibility.
 
         Raises:
             TaskValidationError: If validation fails
@@ -95,7 +107,7 @@ class TaskData:
                 "description must be a string"
             )
 
-        if (
+        if require_user_id and (
             not isinstance(self.user_id, str)
             or not self.user_id
         ):
@@ -163,10 +175,17 @@ class TaskData:
                 "id must be a positive integer"
             )
 
-    def to_dict(self) -> Dict[str, Any]:
-        """Convert task to dictionary."""
+    def validate_for_save(self) -> None:
+        """Validate task data before saving."""
+        self.validate(require_user_id=True)
+
+    def to_dict(self) -> dict:
+        """Convert to dictionary for repository operations.
+
+        Returns:
+            dict: Dictionary representation of the task
+        """
         return {
-            "id": self.id,
             "title": self.title,
             "description": self.description,
             "user_id": self.user_id,
@@ -175,6 +194,7 @@ class TaskData:
             "due_date": self.due_date,
             "tags": self.tags,
             "parent_id": self.parent_id,
+            "id": self.id,
             "created_at": self.created_at,
             "updated_at": self.updated_at,
         }

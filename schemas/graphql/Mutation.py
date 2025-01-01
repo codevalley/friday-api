@@ -1,26 +1,22 @@
+"""GraphQL mutations."""
+
 import strawberry
-from schemas.graphql.mutations.UserMutation import (
-    UserMutation,
-)
-from schemas.graphql.mutations.ActivityMutation import (
-    ActivityMutation,
-)
-from schemas.graphql.mutations.MomentMutation import (
-    MomentMutation,
-)
-from schemas.graphql.mutations.NoteMutation import (
-    NoteMutation,
-)
+
+from .mutations.UserMutation import UserMutation
+from .mutations.ActivityMutation import ActivityMutation
+from .mutations.MomentMutation import MomentMutation
+from .mutations.NoteMutation import NoteMutation
+from .mutations.TaskMutation import TaskMutation
 
 
-@strawberry.type(description="Mutate all entities")
+@strawberry.type
 class Mutation(
     UserMutation,
     ActivityMutation,
     MomentMutation,
     NoteMutation,
+    TaskMutation,
 ):
-    """Root mutation type that inherits
-    all mutations from specific mutation types"""
+    """Root mutation type."""
 
     pass

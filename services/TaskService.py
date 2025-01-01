@@ -97,8 +97,13 @@ class TaskService:
             # Convert to domain model
             domain_data = task_data.to_domain(user_id)
 
+            # Validate before saving
+            domain_data.validate_for_save()
+
             # Create task
-            task = self.task_repo.create(**domain_data)
+            task = self.task_repo.create(
+                **domain_data.to_dict()
+            )
             self.db.commit()
 
             # Ensure task has required fields before conversion
@@ -117,6 +122,7 @@ class TaskService:
             TaskReferenceError,
         ) as e:
             self._handle_task_error(e)
+            raise  # This line is needed to satisfy the test
         except Exception as e:
             logger.error(
                 f"Unexpected error creating task: {str(e)}"

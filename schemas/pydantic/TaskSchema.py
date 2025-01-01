@@ -4,6 +4,7 @@ from typing import Optional, List
 from datetime import datetime
 from pydantic import BaseModel, Field
 
+from domain.task import TaskData
 from domain.values import TaskStatus, TaskPriority
 
 
@@ -24,12 +25,14 @@ class TaskBase(BaseModel):
 class TaskCreate(TaskBase):
     """Schema for task creation."""
 
-    def to_domain(self, user_id: str) -> dict:
+    def to_domain(self, user_id: str) -> "TaskData":
         """Convert to domain model data."""
-        return {
+        from domain.task import TaskData
+
+        return TaskData(
             **self.model_dump(),
-            "user_id": user_id,
-        }
+            user_id=user_id,
+        )
 
 
 class TaskUpdate(BaseModel):
