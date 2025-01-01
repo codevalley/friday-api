@@ -1,7 +1,7 @@
 """Unit tests for the TaskService."""
 
 import pytest
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from unittest.mock import Mock, patch
 from fastapi import HTTPException
 
@@ -40,23 +40,20 @@ def task_service(mock_db, mock_task_repo):
 
 @pytest.fixture
 def sample_task_data():
-    """Create sample task data for testing."""
+    """Create sample task data."""
+    now = datetime.now(timezone.utc)
     return {
         "id": 1,
         "title": "Test Task",
         "description": "Test Description",
-        "user_id": "test-user-id",
         "status": TaskStatus.TODO,
         "priority": TaskPriority.MEDIUM,
-        "due_date": datetime(
-            2025, 1, 2, 1, 0, 0, tzinfo=timezone.utc
-        ),
+        "user_id": "test-user-id",
+        "created_at": now,
+        "updated_at": now,
         "tags": ["test", "sample"],
+        "due_date": now + timedelta(days=30),
         "parent_id": None,
-        "created_at": datetime(
-            2023, 1, 1, tzinfo=timezone.utc
-        ),
-        "updated_at": None,
     }
 
 
@@ -71,7 +68,7 @@ def test_create_task_success(
     mock_task.id = sample_task_data["id"]
     mock_task.created_at = sample_task_data["created_at"]
 
-    # Create task data
+    # Create task data with future due_date relative to created_at
     task_data = TaskCreate(
         title=sample_task_data["title"],
         description=sample_task_data["description"],
@@ -87,13 +84,17 @@ def test_create_task_success(
         user_id=sample_task_data["user_id"],
     )
 
-    # Verify
-    assert isinstance(result, TaskResponse)
+    # Verify result
+    assert result.id == sample_task_data["id"]
     assert result.title == sample_task_data["title"]
     assert (
         result.description
         == sample_task_data["description"]
     )
+    assert result.status == sample_task_data["status"]
+    assert result.priority == sample_task_data["priority"]
+    assert result.tags == sample_task_data["tags"]
+    assert result.user_id == sample_task_data["user_id"]
     mock_task_repo.create.assert_called_once()
     mock_db.commit.assert_called_once()
 

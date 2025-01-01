@@ -12,85 +12,61 @@ from domain.values import TaskStatus, TaskPriority
 class Task:
     """GraphQL type for Task."""
 
-    @strawberry.field(
+    id: int = strawberry.field(
         description="Unique identifier for the task"
     )
-    def id(self) -> int:
-        """Task ID."""
-        return self._domain.id
-
-    @strawberry.field(description="Title of the task")
-    def title(self) -> str:
-        """Task title."""
-        return self._domain.title
-
-    @strawberry.field(
+    title: str = strawberry.field(
+        description="Title of the task"
+    )
+    description: str = strawberry.field(
         description="Detailed description of the task"
     )
-    def description(self) -> str:
-        """Task description."""
-        return self._domain.description
-
-    @strawberry.field(
+    status: TaskStatus = strawberry.field(
         description="Current status of the task"
     )
-    def status(self) -> TaskStatus:
-        """Task status."""
-        return self._domain.status
-
-    @strawberry.field(
+    priority: TaskPriority = strawberry.field(
         description="Priority level of the task"
     )
-    def priority(self) -> TaskPriority:
-        """Task priority."""
-        return self._domain.priority
-
-    @strawberry.field(description="Due date for the task")
-    def due_date(self) -> Optional[datetime]:
-        """Task due date."""
-        return self._domain.due_date
-
-    @strawberry.field(
+    due_date: Optional[datetime] = strawberry.field(
+        description="Due date for the task"
+    )
+    user_id: str = strawberry.field(
         description="ID of the user who owns the task"
     )
-    def user_id(self) -> str:
-        """ID of the user who owns the task."""
-        return self._domain.user_id
-
-    @strawberry.field(
+    parent_id: Optional[int] = strawberry.field(
         description="ID of the parent task if this is a subtask"
     )
-    def parent_id(self) -> Optional[int]:
-        """ID of the parent task."""
-        return self._domain.parent_id
-
-    @strawberry.field(
+    created_at: datetime = strawberry.field(
         description="When the task was created"
     )
-    def created_at(self) -> datetime:
-        """Task creation timestamp."""
-        return self._domain.created_at
-
-    @strawberry.field(
+    updated_at: Optional[datetime] = strawberry.field(
         description="When the task was last updated"
     )
-    def updated_at(self) -> Optional[datetime]:
-        """Task update timestamp."""
-        return self._domain.updated_at
-
-    def __init__(self, domain: TaskData):
-        """Initialize with domain model."""
-        self._domain = domain
+    tags: List[str] = strawberry.field(
+        description="List of tags for the task"
+    )
 
     @classmethod
     def from_domain(cls, domain: TaskData) -> "Task":
         """Create from domain model."""
-        return cls(domain)
+        return cls(
+            id=domain.id,
+            title=domain.title,
+            description=domain.description,
+            status=domain.status,
+            priority=domain.priority,
+            due_date=domain.due_date,
+            user_id=domain.user_id,
+            parent_id=domain.parent_id,
+            created_at=domain.created_at,
+            updated_at=domain.updated_at,
+            tags=domain.tags,
+        )
 
     @classmethod
     def from_db(cls, db_model: Any) -> "Task":
         """Create from database model."""
-        return cls(TaskData.from_orm(db_model))
+        return cls.from_domain(TaskData.from_orm(db_model))
 
 
 @strawberry.type
@@ -183,6 +159,10 @@ class TaskInput:
         default=None,
         description="ID of parent task if this is a subtask",
     )
+    tags: Optional[List[str]] = strawberry.field(
+        default=None,
+        description="List of tags for the task",
+    )
 
     def to_domain(self, user_id: str) -> TaskData:
         """Convert to domain model.
@@ -198,8 +178,9 @@ class TaskInput:
             due_date=self.due_date,
             parent_id=self.parent_id,
             user_id=user_id,
-            created_at=datetime.now(),
-            updated_at=datetime.now(),
+            created_at=datetime.now().astimezone(),
+            updated_at=datetime.now().astimezone(),
+            tags=self.tags or [],
         )
 
 
@@ -227,6 +208,14 @@ class TaskUpdateInput:
         default=None,
         description="New due date for the task",
     )
+    parent_id: Optional[int] = strawberry.field(
+        default=None,
+        description="New parent task ID",
+    )
+    tags: Optional[List[str]] = strawberry.field(
+        default=None,
+        description="New list of tags for the task",
+    )
 
     def to_domain(self, existing: TaskData) -> TaskData:
         """Convert to domain model, using existing data for missing fields."""
@@ -238,8 +227,17 @@ class TaskUpdateInput:
             status=self.status or existing.status,
             priority=self.priority or existing.priority,
             due_date=self.due_date or existing.due_date,
-            parent_id=existing.parent_id,
+            parent_id=(
+                self.parent_id
+                if self.parent_id is not None
+                else existing.parent_id
+            ),
             user_id=existing.user_id,
             created_at=existing.created_at,
-            updated_at=datetime.now(),
+            updated_at=datetime.now().astimezone(),
+            tags=(
+                self.tags
+                if self.tags is not None
+                else existing.tags
+            ),
         )
