@@ -61,6 +61,16 @@ class Task(EntityMeta):
         ForeignKey("tasks.id", ondelete="SET NULL"),
         nullable=True,
     )
+    created_at = Column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=lambda: datetime.now(UTC),
+    )
+    updated_at = Column(
+        DateTime(timezone=True),
+        nullable=True,
+        onupdate=lambda: datetime.now(UTC),
+    )
 
     # Relationships
     owner: Mapped["User"] = relationship(
@@ -146,6 +156,15 @@ class Task(EntityMeta):
         Returns:
             Dict[str, Any]: Task data
         """
+        # Ensure timestamps have UTC timezone
+        created_at = self.created_at
+        if created_at and not created_at.tzinfo:
+            created_at = created_at.replace(tzinfo=UTC)
+
+        updated_at = self.updated_at
+        if updated_at and not updated_at.tzinfo:
+            updated_at = updated_at.replace(tzinfo=UTC)
+
         return {
             "id": self.id,
             "title": self.title,
@@ -156,8 +175,8 @@ class Task(EntityMeta):
             "due_date": self.due_date,
             "tags": self.tags,
             "parent_id": self.parent_id,
-            "created_at": self.created_at,
-            "updated_at": self.updated_at,
+            "created_at": created_at,
+            "updated_at": updated_at,
         }
 
     def update(self, data: Dict[str, Any]) -> None:

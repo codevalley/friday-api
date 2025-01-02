@@ -10,6 +10,12 @@ BLUE='\033[0;34m'
 LOG_FILE="test_flow.log"
 echo "Starting test flow at $(date)" > $LOG_FILE
 
+# Get current date in ISO format and add days
+get_future_date() {
+    local days=$1
+    date -u -v+${days}d "+%Y-%m-%dT%H:%M:%SZ"
+}
+
 echo -e "${BLUE}Starting test flow...${NC}"
 
 # parse optional argument for the API base URL
@@ -377,6 +383,107 @@ if echo "$VERIFY_DELETE_RESPONSE" | grep -q "\"detail\":\"Note not found\""; the
     echo -e "${GREEN}✓ Note deletion verified${NC}"
 else
     echo -e "${RED}✗ Note deletion verification failed${NC}"
+    exit 1
+fi
+
+# 17. Create tasks for user1
+echo -e "\n${BLUE}17. Creating tasks for user1...${NC}"
+# Task with just title and description
+TASK1_RESPONSE=$(curl -s -X POST "$BASE_URL/tasks" \
+    -H "Authorization: Bearer $TOKEN1" \
+    -H "Content-Type: application/json" \
+    -d '{
+        "title": "First Task",
+        "description": "This is a simple task",
+        "status": "todo",
+        "priority": "medium",
+        "due_date": "'$(get_future_date 30)'",
+        "tags": ["test", "simple"]
+    }')
+echo "Task1 Response: $TASK1_RESPONSE"
+TASK1_ID=$(extract_json_value "$TASK1_RESPONSE" "id")
+check_api_response "$TASK1_RESPONSE" "Creating simple task"
+
+# Task with all fields
+TASK2_RESPONSE=$(curl -s -X POST "$BASE_URL/tasks" \
+    -H "Authorization: Bearer $TOKEN1" \
+    -H "Content-Type: application/json" \
+    -d '{
+        "title": "Second Task",
+        "description": "This is a complex task",
+        "status": "in_progress",
+        "priority": "high",
+        "due_date": "'$(get_future_date 15)'",
+        "tags": ["test", "complex"],
+        "parent_id": '"$TASK1_ID"'
+    }')
+echo "Task2 Response: $TASK2_RESPONSE"
+TASK2_ID=$(extract_json_value "$TASK2_RESPONSE" "id")
+check_api_response "$TASK2_RESPONSE" "Creating complex task"
+
+# 18. Create tasks for user2
+echo -e "\n${BLUE}18. Creating tasks for user2...${NC}"
+TASK3_RESPONSE=$(curl -s -X POST "$BASE_URL/tasks" \
+    -H "Authorization: Bearer $TOKEN2" \
+    -H "Content-Type: application/json" \
+    -d '{
+        "title": "User2 Task",
+        "description": "Task for user2",
+        "status": "todo",
+        "priority": "low",
+        "due_date": "'$(get_future_date 7)'",
+        "tags": ["user2"]
+    }')
+echo "Task3 Response: $TASK3_RESPONSE"
+TASK3_ID=$(extract_json_value "$TASK3_RESPONSE" "id")
+check_api_response "$TASK3_RESPONSE" "Creating task for user2"
+
+# 19. List tasks for user1
+echo -e "\n${BLUE}19. Listing tasks for user1...${NC}"
+TASKS_RESPONSE=$(curl -s -X GET "$BASE_URL/tasks?page=1&size=50" \
+    -H "Authorization: Bearer $TOKEN1")
+echo "Tasks Response: $TASKS_RESPONSE"
+check_api_response "$TASKS_RESPONSE" "Listing tasks for user1"
+
+# 20. Update task for user1
+echo -e "\n${BLUE}20. Updating task for user1...${NC}"
+UPDATE_TASK_RESPONSE=$(curl -s -X PUT "$BASE_URL/tasks/$TASK1_ID" \
+    -H "Authorization: Bearer $TOKEN1" \
+    -H "Content-Type: application/json" \
+    -d '{
+        "title": "Updated First Task",
+        "status": "in_progress",
+        "priority": "high"
+    }')
+echo "Update Task Response: $UPDATE_TASK_RESPONSE"
+check_api_response "$UPDATE_TASK_RESPONSE" "Updating task"
+
+# 21. Try to access user2's task with user1's token (should fail)
+echo -e "\n${BLUE}21. Testing task access control...${NC}"
+UNAUTHORIZED_TASK_RESPONSE=$(curl -s -X GET "$BASE_URL/tasks/$TASK3_ID" \
+    -H "Authorization: Bearer $TOKEN1")
+echo "Unauthorized Task Response: $UNAUTHORIZED_TASK_RESPONSE"
+if echo "$UNAUTHORIZED_TASK_RESPONSE" | grep -q "\"detail\":\"Task not found\""; then
+    echo -e "${GREEN}✓ Task access control working correctly${NC}"
+else
+    echo -e "${RED}✗ Task access control test failed${NC}"
+    exit 1
+fi
+
+# 22. Delete task for user1
+echo -e "\n${BLUE}22. Deleting task for user1...${NC}"
+DELETE_TASK_RESPONSE=$(curl -s -X DELETE "$BASE_URL/tasks/$TASK2_ID" \
+    -H "Authorization: Bearer $TOKEN1")
+echo "Delete Task Response: $DELETE_TASK_RESPONSE"
+check_api_response "$DELETE_TASK_RESPONSE" "Deleting task"
+
+# Verify task deletion
+VERIFY_TASK_DELETE_RESPONSE=$(curl -s -X GET "$BASE_URL/tasks/$TASK2_ID" \
+    -H "Authorization: Bearer $TOKEN1")
+if echo "$VERIFY_TASK_DELETE_RESPONSE" | grep -q "\"detail\":\"Task not found\""; then
+    echo -e "${GREEN}✓ Task deletion verified${NC}"
+else
+    echo -e "${RED}✗ Task deletion verification failed${NC}"
     exit 1
 fi
 

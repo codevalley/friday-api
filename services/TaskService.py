@@ -100,16 +100,23 @@ class TaskService:
             # Validate before saving
             domain_data.validate_for_save()
 
-            # Create task
+            # Create task - only pass fields that repository expects
             task = self.task_repo.create(
-                **domain_data.to_dict()
+                title=domain_data.title,
+                description=domain_data.description,
+                user_id=domain_data.user_id,
+                status=domain_data.status,
+                priority=domain_data.priority,
+                due_date=domain_data.due_date,
+                tags=domain_data.tags,
+                parent_id=domain_data.parent_id,
             )
             self.db.commit()
 
-            # Ensure task has required fields before conversion
-            if task.id is None or task.created_at is None:
+            # Ensure task was created successfully
+            if task.id is None:
                 raise ValueError(
-                    "Task missing required fields after creation"
+                    "Task creation failed - no ID returned"
                 )
 
             return TaskResponse.model_validate(
@@ -153,9 +160,9 @@ class TaskService:
                 status_code=404, detail="Task not found"
             )
 
-        # Ensure task has required fields before conversion
-        if task.id is None or task.created_at is None:
-            raise ValueError("Task missing required fields")
+        # Ensure task has an ID
+        if task.id is None:
+            raise ValueError("Task missing ID")
 
         return TaskResponse.model_validate(task.to_dict())
 
@@ -250,11 +257,9 @@ class TaskService:
             task.update(data_to_update)
             self.db.commit()
 
-            # Ensure task has required fields before conversion
-            if task.id is None or task.created_at is None:
-                raise ValueError(
-                    "Updated task missing required fields"
-                )
+            # Ensure task has an ID
+            if task.id is None:
+                raise ValueError("Updated task missing ID")
 
             return TaskResponse.model_validate(
                 task.to_dict()
@@ -343,11 +348,9 @@ class TaskService:
 
             self.db.commit()
 
-            # Ensure task has required fields before conversion
-            if task.id is None or task.created_at is None:
-                raise ValueError(
-                    "Updated task missing required fields"
-                )
+            # Ensure task has an ID
+            if task.id is None:
+                raise ValueError("Updated task missing ID")
 
             return TaskResponse.model_validate(
                 task.to_dict()
