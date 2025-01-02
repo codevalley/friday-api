@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, status
+from auth.bearer import CustomHTTPBearer
 
 from services.ActivityService import ActivityService
 from schemas.pydantic.ActivitySchema import (
@@ -18,8 +19,13 @@ from dependencies import get_current_user
 from orm.UserModel import User
 from utils.error_handlers import handle_exceptions
 
+# Use our custom bearer that returns 401 for invalid tokens
+auth_scheme = CustomHTTPBearer()
+
 router = APIRouter(
-    prefix="/v1/activities", tags=["activities"]
+    prefix="/v1/activities",
+    tags=["activities"],
+    dependencies=[Depends(auth_scheme)],
 )
 
 

@@ -227,4 +227,31 @@ class TestNoteRouter:
             note_id, mock_current_user.id
         )
 
+    def test_create_note_unauthenticated(
+        self,
+        client,
+        mock_note_service,
+        valid_note_data,
+    ):
+        """Test note creation without authentication."""
+        response = client.post(
+            "/api/v1/notes",
+            json=valid_note_data,
+        )
+
+        assert response.status_code == 401
+        response_data = response.json()
+        assert (
+            response_data["detail"]["code"]
+            == "UNAUTHORIZED"
+        )
+        assert (
+            "Invalid or missing authentication token"
+            in response_data["detail"]["message"]
+        )
+        assert (
+            response_data["detail"]["type"]
+            == "AuthenticationError"
+        )
+
     # ... more test cases following the same pattern ...

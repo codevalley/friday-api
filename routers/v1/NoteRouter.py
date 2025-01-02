@@ -1,5 +1,4 @@
 from fastapi import APIRouter, Depends, status
-from fastapi.security import HTTPBearer
 from services.NoteService import NoteService
 from schemas.pydantic.NoteSchema import (
     NoteCreate,
@@ -16,11 +15,15 @@ from schemas.pydantic.PaginationSchema import (
 from dependencies import get_current_user
 from orm.UserModel import User
 from utils.error_handlers import handle_exceptions
+from auth.bearer import CustomHTTPBearer
+
+# Use our custom bearer that returns 401 for invalid tokens
+auth_scheme = CustomHTTPBearer()
 
 router = APIRouter(
     prefix="/v1/notes",
     tags=["notes"],
-    dependencies=[Depends(HTTPBearer())],
+    dependencies=[Depends(auth_scheme)],
 )
 
 

@@ -354,3 +354,31 @@ class TestActivityRouter:
         mock_activity_service.delete_activity.assert_called_once_with(
             activity_id, mock_current_user.id
         )
+
+    @pytest.mark.asyncio
+    async def test_create_activity_unauthenticated(
+        self,
+        client,
+        mock_activity_service,
+        valid_activity_data,
+    ):
+        """Test activity creation without authentication."""
+        response = client.post(
+            "/v1/activities",
+            json=valid_activity_data,
+        )
+
+        assert response.status_code == 401
+        response_data = response.json()
+        assert (
+            response_data["detail"]["code"]
+            == "UNAUTHORIZED"
+        )
+        assert (
+            "Invalid or missing authentication token"
+            in response_data["detail"]["message"]
+        )
+        assert (
+            response_data["detail"]["type"]
+            == "AuthenticationError"
+        )

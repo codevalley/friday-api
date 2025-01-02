@@ -1,6 +1,7 @@
 from typing import List
 from datetime import datetime
 from fastapi import APIRouter, Depends, Query, status
+from auth.bearer import CustomHTTPBearer
 
 from schemas.pydantic.MomentSchema import (
     MomentResponse,
@@ -21,7 +22,14 @@ from dependencies import get_current_user
 from orm.UserModel import User
 from utils.error_handlers import handle_exceptions
 
-router = APIRouter(prefix="/v1/moments", tags=["moments"])
+# Use our custom bearer that returns 401 for invalid tokens
+auth_scheme = CustomHTTPBearer()
+
+router = APIRouter(
+    prefix="/v1/moments",
+    tags=["moments"],
+    dependencies=[Depends(auth_scheme)],
+)
 
 
 @router.post(

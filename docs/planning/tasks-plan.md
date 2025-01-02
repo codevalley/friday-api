@@ -320,24 +320,48 @@ Implementation Details:
 ### Epic 5: Authentication Improvements
 **Goal**: Improve authentication response consistency across the API
 
-#### Task 5.1: Authentication Response Review
-- [ ] Audit current authentication behavior
-  - [ ] 5.1.1 Review all routers' authentication handling
-  - [ ] 5.1.2 Document current response codes and messages
-  - [ ] 5.1.3 Identify inconsistencies
+#### Task 5.1: Authentication Response Review ✓
+- [x] Audit current authentication behavior
+  - [x] 5.1.1 Review all routers' authentication handling
+  - [x] 5.1.2 Document current response codes and messages
+  - [x] 5.1.3 Identify inconsistencies
 
-#### Task 5.2: Authentication Response Standardization
-- [ ] Create custom HTTPBearer implementation
-  - [ ] 5.2.1 Return 401 for missing/invalid tokens
-  - [ ] 5.2.2 Return 403 only for permission issues
-  - [ ] 5.2.3 Standardize error messages
+Implementation Details:
+- Reviewed authentication handling in TaskRouter
+- Found inconsistency: HTTPBearer returns 403 for missing/invalid tokens
+- Documented need for 401 vs 403 standardization:
+  - 401: Missing or invalid token
+  - 403: Valid token but insufficient permissions
 
-#### Task 5.3: Router Updates
-- [ ] Update all routers to use new authentication
-  - [ ] 5.3.1 Update TaskRouter
-  - [ ] 5.3.2 Update NoteRouter
-  - [ ] 5.3.3 Update MomentRouter
-  - [ ] 5.3.4 Update ActivityRouter
+#### Task 5.2: Authentication Response Standardization ✓
+- [x] Create custom HTTPBearer implementation
+  - [x] 5.2.1 Return 401 for missing/invalid tokens
+  - [x] 5.2.2 Return 403 only for permission issues
+  - [x] 5.2.3 Standardize error messages
+
+Implementation Details:
+- Created CustomHTTPBearer in `auth/bearer.py`
+- Implemented proper 401 responses for missing/invalid tokens
+- Added standardized error response format:
+  - code: UNAUTHORIZED
+  - type: AuthenticationError
+  - message: Clear description of the issue
+
+#### Task 5.3: Router Updates ✓
+- [x] Update TaskRouter with new authentication
+- [x] Update remaining routers
+  - [x] 5.3.1 Update NoteRouter
+  - [x] 5.3.2 Update MomentRouter
+  - [x] 5.3.3 Update ActivityRouter
+
+Implementation Details:
+- Updated all routers to use CustomHTTPBearer
+- Ensured consistent 401 responses for missing/invalid tokens
+- Ensured 403 is only used for permission issues
+- Added proper error response format across all routers:
+  - code: UNAUTHORIZED
+  - type: AuthenticationError
+  - message: Clear description of the issue
 
 ## Implementation Order
 1. Start with Epic 1 (Domain & Data Layer) ✓

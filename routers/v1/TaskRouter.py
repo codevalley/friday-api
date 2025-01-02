@@ -1,10 +1,8 @@
-"""Router for task-related endpoints."""
+"""Router for Task-related endpoints."""
 
 from datetime import datetime
 from typing import Optional
 from fastapi import APIRouter, Depends, Query, status
-from fastapi.security import HTTPBearer
-
 from services.TaskService import TaskService
 from schemas.pydantic.TaskSchema import (
     TaskCreate,
@@ -22,11 +20,15 @@ from domain.values import TaskStatus, TaskPriority
 from dependencies import get_current_user
 from orm.UserModel import User
 from utils.error_handlers import handle_exceptions
+from auth.bearer import CustomHTTPBearer
+
+# Use our custom bearer that returns 401 for invalid tokens
+auth_scheme = CustomHTTPBearer()
 
 router = APIRouter(
     prefix="/v1/tasks",
     tags=["tasks"],
-    dependencies=[Depends(HTTPBearer())],
+    dependencies=[Depends(auth_scheme)],
 )
 
 

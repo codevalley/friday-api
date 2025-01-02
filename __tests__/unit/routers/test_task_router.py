@@ -185,9 +185,19 @@ class TestTaskRouter:
             json=task_data,
         )
 
-        assert response.status_code == 403
+        assert response.status_code == 401
+        response_data = response.json()
         assert (
-            response.json()["detail"] == "Not authenticated"
+            response_data["detail"]["code"]
+            == "UNAUTHORIZED"
+        )
+        assert (
+            "Invalid or missing authentication token"
+            in response_data["detail"]["message"]
+        )
+        assert (
+            response_data["detail"]["type"]
+            == "AuthenticationError"
         )
 
     def test_list_tasks_success(

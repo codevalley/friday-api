@@ -419,3 +419,31 @@ class TestMomentRouter:
         mock_moment_service.list_recent_activities.assert_called_once_with(
             str(mock_current_user.id), 5
         )
+
+    @pytest.mark.asyncio
+    async def test_create_moment_unauthenticated(
+        self,
+        client,
+        mock_moment_service,
+        valid_moment_data,
+    ):
+        """Test moment creation without authentication."""
+        response = client.post(
+            "/v1/moments",
+            json=valid_moment_data,
+        )
+
+        assert response.status_code == 401
+        response_data = response.json()
+        assert (
+            response_data["detail"]["code"]
+            == "UNAUTHORIZED"
+        )
+        assert (
+            "Invalid or missing authentication token"
+            in response_data["detail"]["message"]
+        )
+        assert (
+            response_data["detail"]["type"]
+            == "AuthenticationError"
+        )
