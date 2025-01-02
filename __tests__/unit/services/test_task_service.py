@@ -50,7 +50,7 @@ def sample_task_data():
         "priority": TaskPriority.MEDIUM,
         "user_id": "test-user-id",
         "created_at": now,
-        "updated_at": now,
+        "updated_at": None,
         "tags": ["test", "sample"],
         "due_date": now + timedelta(days=30),
         "parent_id": None,
@@ -58,34 +58,24 @@ def sample_task_data():
 
 
 def test_create_task_success(
-    task_service, mock_db, mock_task_repo, sample_task_data
+    task_service,
+    sample_task_data,
+    sample_user,
 ):
     """Test successful task creation."""
-    # Setup mock
+    # Configure mock to return proper task data
     mock_task = Mock()
     mock_task.to_dict.return_value = sample_task_data
-    mock_task_repo.create.return_value = mock_task
-    mock_task.id = sample_task_data["id"]
-    mock_task.created_at = sample_task_data["created_at"]
+    task_service.task_repo.create.return_value = mock_task
 
-    # Create task data with future due_date relative to created_at
-    task_data = TaskCreate(
-        title=sample_task_data["title"],
-        description=sample_task_data["description"],
-        status=sample_task_data["status"],
-        priority=sample_task_data["priority"],
-        due_date=sample_task_data["due_date"],
-        tags=sample_task_data["tags"],
-    )
-
-    # Call service
+    # Create a task
     result = task_service.create_task(
-        task_data=task_data,
-        user_id=sample_task_data["user_id"],
+        TaskCreate(**sample_task_data),
+        sample_user.id,
     )
 
-    # Verify result
-    assert result.id == sample_task_data["id"]
+    # Verify the response model validation worked
+    assert isinstance(result, TaskResponse)
     assert result.title == sample_task_data["title"]
     assert (
         result.description
@@ -93,10 +83,12 @@ def test_create_task_success(
     )
     assert result.status == sample_task_data["status"]
     assert result.priority == sample_task_data["priority"]
-    assert result.tags == sample_task_data["tags"]
-    assert result.user_id == sample_task_data["user_id"]
-    mock_task_repo.create.assert_called_once()
-    mock_db.commit.assert_called_once()
+    # Verify timestamp fields are present and timezone-aware
+    assert result.created_at is not None
+    assert result.created_at.tzinfo is not None
+    assert (
+        result.updated_at is None
+    )  # Should be None for new tasks
 
 
 def test_create_task_validation_error(

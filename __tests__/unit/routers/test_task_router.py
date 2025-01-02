@@ -1,6 +1,6 @@
 """Unit tests for TaskRouter."""
 
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 import pytest
 from fastapi import FastAPI, HTTPException
 from fastapi.testclient import TestClient
@@ -88,6 +88,20 @@ def mock_auth_credentials():
         scheme="Bearer",
         credentials="test-token",
     )
+
+
+@pytest.fixture
+def sample_task_data():
+    """Create sample task data."""
+    now = datetime.now(timezone.utc)
+    return {
+        "title": "Test Task",
+        "description": "Test Description",
+        "status": "todo",
+        "priority": "medium",
+        "tags": ["test", "sample"],
+        "due_date": (now + timedelta(days=30)).isoformat(),
+    }
 
 
 class TestTaskRouter:
@@ -440,3 +454,67 @@ class TestTaskRouter:
 
         assert response.status_code == 404
         assert response.json()["detail"] == "Task not found"
+
+    def test_create_task(
+        self,
+        client,
+        sample_task_data,
+        sample_user,
+        mock_auth_credentials,
+        mock_service,
+    ):
+        """Test creating a task."""
+        # Configure mock service to return a proper task response
+        now = datetime.now(timezone.utc)
+        mock_response = TaskResponse(
+            id=1,
+            title=sample_task_data["title"],
+            description=sample_task_data["description"],
+            status=sample_task_data["status"],
+            priority=sample_task_data["priority"],
+            tags=sample_task_data["tags"],
+            due_date=datetime.fromisoformat(
+                sample_task_data["due_date"]
+            ),
+            user_id=sample_user.id,
+            created_at=now,
+            updated_at=None,
+            parent_id=None,
+        )
+        mock_service.create_task.return_value = (
+            mock_response
+        )
+
+        response = client.post(
+            "/api/v1/tasks",
+            json=sample_task_data,
+            headers={
+                "Authorization": f"Bearer {mock_auth_credentials.credentials}"
+            },
+        )
+        assert response.status_code == 201
+
+        data = response.json()["data"]
+        # Verify response matches TaskResponse schema
+        task_response = TaskResponse.model_validate(data)
+        assert (
+            task_response.title == sample_task_data["title"]
+        )
+        assert (
+            task_response.description
+            == sample_task_data["description"]
+        )
+        assert (
+            task_response.status
+            == sample_task_data["status"]
+        )
+        assert (
+            task_response.priority
+            == sample_task_data["priority"]
+        )
+        # Verify timestamp fields
+        assert task_response.created_at is not None
+        assert task_response.created_at.tzinfo is not None
+        assert (
+            task_response.updated_at is None
+        )  # Should be None for new tasks
