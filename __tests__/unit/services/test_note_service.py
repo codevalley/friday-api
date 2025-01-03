@@ -39,8 +39,6 @@ def valid_note_data():
     """Return valid note data for testing."""
     return {
         "content": "Test Note",
-        "activity_id": None,
-        "moment_id": None,
         "attachments": [],
     }
 

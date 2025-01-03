@@ -32,8 +32,6 @@ class NoteCreate(BaseModel):
     content: str = Field(
         ..., min_length=1, max_length=10000
     )
-    activity_id: Optional[int] = None
-    moment_id: Optional[int] = None
     attachments: List[Dict[str, Any]] = Field(
         default_factory=list,
         description="List of attachments",
@@ -51,8 +49,6 @@ class NoteCreate(BaseModel):
         return NoteData(
             content=self.content,
             user_id=user_id,
-            activity_id=self.activity_id,
-            moment_id=self.moment_id,
             attachments=self.attachments,
         )
 
@@ -77,8 +73,6 @@ class NoteResponse(BaseModel):
     id: int
     content: str
     user_id: str
-    activity_id: Optional[int] = None
-    moment_id: Optional[int] = None
     attachments: List[Dict[str, Any]] = Field(
         default_factory=list,
         description="List of attachments",
@@ -108,8 +102,6 @@ class NoteResponse(BaseModel):
             id=domain.id,
             content=domain.content,
             user_id=domain.user_id,
-            activity_id=domain.activity_id,
-            moment_id=domain.moment_id,
             attachments=domain.attachments,
             processing_status=domain.processing_status,
             enrichment_data=domain.enrichment_data,

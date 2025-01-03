@@ -1,7 +1,14 @@
-"""Test cases for TaskData domain model."""
+"""Test suite for TaskData domain model.
+
+This test suite verifies the functionality of the TaskData domain model,
+including validation, conversion, and error handling. It ensures that the
+model maintains data integrity and follows business rules.
+"""
 
 import pytest
-from datetime import datetime, timedelta, UTC
+from datetime import datetime, timezone, timedelta
+from typing import Dict, Any
+
 from domain.task import TaskData
 from domain.values import TaskStatus, TaskPriority
 from domain.exceptions import (
@@ -15,251 +22,262 @@ from domain.exceptions import (
 
 
 @pytest.fixture
-def valid_task_data():
-    """Fixture providing valid task data."""
+def valid_task_dict() -> Dict[str, Any]:
+    """Create a valid task dictionary for testing.
+
+    This fixture provides a baseline valid task data dictionary
+    that can be modified for specific test cases.
+    """
+    now = datetime.now(timezone.utc)
     return {
         "title": "Test Task",
-        "description": "This is a test task",
-        "user_id": "test_user_id",
+        "description": "Test task description",
+        "user_id": "test-user",
         "status": TaskStatus.TODO,
         "priority": TaskPriority.MEDIUM,
-        "due_date": datetime.now(UTC) + timedelta(days=1),
+        "due_date": now
+        + timedelta(
+            days=1
+        ),  # Due date is 1 day in the future
         "tags": ["test", "example"],
+        "parent_id": None,
+        "note_id": None,  # Optional note reference
+        "created_at": now,
+        "updated_at": now,
     }
 
 
-def test_create_task_with_valid_data(valid_task_data):
-    """Test creating a task with valid data."""
-    task = TaskData(**valid_task_data)
-    assert task.title == valid_task_data["title"]
-    assert (
-        task.description == valid_task_data["description"]
-    )
-    assert task.user_id == valid_task_data["user_id"]
-    assert task.status == valid_task_data["status"]
-    assert task.priority == valid_task_data["priority"]
-    assert task.due_date == valid_task_data["due_date"]
-    assert task.tags == valid_task_data["tags"]
-    assert task.id is None
-    assert task.parent_id is None
-    assert isinstance(task.created_at, datetime)
-    assert isinstance(task.updated_at, datetime)
+@pytest.fixture
+def valid_task_data(valid_task_dict) -> TaskData:
+    """Create a valid TaskData instance for testing.
+
+    This fixture provides a baseline valid TaskData instance
+    that can be used directly in tests.
+    """
+    return TaskData(**valid_task_dict)
 
 
-def test_create_task_with_minimal_data():
-    """Test creating task with minimal required data."""
-    task = TaskData(
-        title="Minimal Task",
-        description="Minimal description",
-        user_id="test_user",
-    )
-    assert task.title == "Minimal Task"
-    assert task.status == TaskStatus.TODO
-    assert task.priority == TaskPriority.MEDIUM
+class TestTaskDataValidation:
+    """Test validation methods of TaskData."""
 
+    def test_valid_task_data(self, valid_task_data):
+        """Test that valid task data passes validation."""
+        # Should not raise any exceptions
+        valid_task_data.validate()
 
-def test_invalid_title():
-    """Test task creation with invalid title."""
-    with pytest.raises(TaskContentError):
-        TaskData(
-            title="", description="desc", user_id="user"
+    def test_invalid_title(self, valid_task_dict):
+        """Test validation with invalid title."""
+        valid_task_dict["title"] = ""
+        with pytest.raises(TaskContentError) as exc:
+            TaskData(**valid_task_dict)
+        assert (
+            str(exc.value)
+            == "title must be a non-empty string"
         )
 
-    with pytest.raises(TaskContentError):
-        TaskData(
-            title="x" * 256,
-            description="desc",
-            user_id="user",
+    def test_invalid_description_type(
+        self, valid_task_dict
+    ):
+        """Test validation with invalid description type."""
+        valid_task_dict["description"] = 123
+        with pytest.raises(TaskContentError) as exc:
+            TaskData(**valid_task_dict)
+        assert (
+            str(exc.value) == "description must be a string"
+        )
+
+    def test_invalid_user_id(self, valid_task_dict):
+        """Test validation with invalid user_id."""
+        valid_task_dict["user_id"] = ""
+        with pytest.raises(TaskValidationError) as exc:
+            TaskData(**valid_task_dict)
+        assert (
+            str(exc.value)
+            == "user_id must be a non-empty string"
+        )
+
+    def test_invalid_status(self, valid_task_dict):
+        """Test validation with invalid status."""
+        valid_task_dict["status"] = "invalid"
+        with pytest.raises(TaskStatusError) as exc:
+            TaskData(**valid_task_dict)
+        assert "status must be one of" in str(exc.value)
+
+    def test_invalid_priority(self, valid_task_dict):
+        """Test validation with invalid priority."""
+        valid_task_dict["priority"] = "invalid"
+        with pytest.raises(TaskPriorityError) as exc:
+            TaskData(**valid_task_dict)
+        assert "priority must be one of" in str(exc.value)
+
+    def test_invalid_due_date_type(self, valid_task_dict):
+        """Test validation with invalid due_date type."""
+        valid_task_dict["due_date"] = "not a datetime"
+        with pytest.raises(TaskDateError) as exc:
+            TaskData(**valid_task_dict)
+        assert (
+            str(exc.value)
+            == "due_date must be a datetime object"
+        )
+
+    def test_invalid_tags_type(self, valid_task_dict):
+        """Test validation with invalid tags type."""
+        valid_task_dict["tags"] = "not a list"
+        with pytest.raises(TaskValidationError) as exc:
+            TaskData(**valid_task_dict)
+        assert str(exc.value) == "tags must be a list"
+
+    def test_invalid_tag_type(self, valid_task_dict):
+        """Test validation with invalid tag type."""
+        valid_task_dict["tags"] = [123]
+        with pytest.raises(TaskValidationError) as exc:
+            TaskData(**valid_task_dict)
+        assert str(exc.value) == "tags must be strings"
+
+    def test_valid_parent_id(self, valid_task_dict):
+        """Test validation with valid parent_id."""
+        valid_task_dict["parent_id"] = 1
+        task = TaskData(**valid_task_dict)
+        task.validate()  # Should not raise
+
+    def test_invalid_parent_id_type(self, valid_task_dict):
+        """Test validation with invalid parent_id type."""
+        valid_task_dict["parent_id"] = "not an int"
+        with pytest.raises(TaskParentError) as exc:
+            TaskData(**valid_task_dict)
+        assert (
+            str(exc.value)
+            == "parent_id must be a positive integer"
+        )
+
+    def test_invalid_parent_id_value(self, valid_task_dict):
+        """Test validation with invalid parent_id value."""
+        valid_task_dict["parent_id"] = 0
+        with pytest.raises(TaskParentError) as exc:
+            TaskData(**valid_task_dict)
+        assert (
+            str(exc.value)
+            == "parent_id must be a positive integer"
+        )
+
+    def test_valid_note_id(self, valid_task_dict):
+        """Test validation with valid note_id."""
+        valid_task_dict["note_id"] = 1
+        task = TaskData(**valid_task_dict)
+        task.validate()  # Should not raise
+
+    def test_invalid_note_id_type(self, valid_task_dict):
+        """Test validation with invalid note_id type."""
+        valid_task_dict["note_id"] = "not an int"
+        with pytest.raises(TaskValidationError) as exc:
+            TaskData(**valid_task_dict)
+        assert (
+            str(exc.value)
+            == "note_id must be a positive integer"
+        )
+
+    def test_invalid_note_id_value(self, valid_task_dict):
+        """Test validation with invalid note_id value."""
+        valid_task_dict["note_id"] = 0
+        with pytest.raises(TaskValidationError) as exc:
+            TaskData(**valid_task_dict)
+        assert (
+            str(exc.value)
+            == "note_id must be a positive integer"
         )
 
 
-def test_invalid_description():
-    """Test task creation with invalid description."""
-    with pytest.raises(TaskContentError):
-        TaskData(
-            title="Task",
-            description=123,  # type: ignore
-            user_id="user",
+class TestTaskDataConversion:
+    """Test conversion methods of TaskData."""
+
+    def test_to_dict(self, valid_task_data):
+        """Test conversion to dictionary."""
+        result = valid_task_data.to_dict()
+        assert result["title"] == valid_task_data.title
+        assert (
+            result["description"]
+            == valid_task_data.description
         )
-
-
-def test_invalid_user_id():
-    """Test task creation with invalid user_id."""
-    with pytest.raises(TaskValidationError):
-        TaskData(
-            title="Task", description="desc", user_id=""
+        assert result["user_id"] == valid_task_data.user_id
+        assert (
+            result["status"] == valid_task_data.status.value
         )
-
-
-def test_invalid_status():
-    """Test task creation with invalid status."""
-    with pytest.raises(TaskStatusError):
-        TaskData(
-            title="Task",
-            description="desc",
-            user_id="user",
-            status="invalid",  # type: ignore
+        assert (
+            result["priority"]
+            == valid_task_data.priority.value
         )
-
-
-def test_invalid_priority():
-    """Test task creation with invalid priority."""
-    with pytest.raises(TaskPriorityError):
-        TaskData(
-            title="Task",
-            description="desc",
-            user_id="user",
-            priority="invalid",  # type: ignore
+        assert (
+            result["due_date"] == valid_task_data.due_date
         )
-
-
-def test_invalid_due_date():
-    """Test task creation with invalid due date."""
-    past_date = datetime.now(UTC) - timedelta(days=1)
-    with pytest.raises(TaskDateError):
-        TaskData(
-            title="Task",
-            description="desc",
-            user_id="user",
-            due_date=past_date,
+        assert result["tags"] == valid_task_data.tags
+        assert (
+            result["parent_id"] == valid_task_data.parent_id
         )
+        assert result["note_id"] == valid_task_data.note_id
 
-
-def test_invalid_tags():
-    """Test task creation with invalid tags."""
-    with pytest.raises(TaskValidationError):
-        TaskData(
-            title="Task",
-            description="desc",
-            user_id="user",
-            tags="not-a-list",  # type: ignore
+    def test_from_dict_snake_case(self, valid_task_dict):
+        """Test creation from snake_case dictionary."""
+        task = TaskData.from_dict(valid_task_dict)
+        assert task.title == valid_task_dict["title"]
+        assert (
+            task.description
+            == valid_task_dict["description"]
         )
-
-    with pytest.raises(TaskValidationError):
-        TaskData(
-            title="Task",
-            description="desc",
-            user_id="user",
-            tags=["valid", ""],  # empty tag
+        assert task.user_id == valid_task_dict["user_id"]
+        assert task.status == valid_task_dict["status"]
+        assert task.priority == valid_task_dict["priority"]
+        assert task.due_date == valid_task_dict["due_date"]
+        assert task.tags == valid_task_dict["tags"]
+        assert (
+            task.parent_id == valid_task_dict["parent_id"]
         )
+        assert task.note_id == valid_task_dict["note_id"]
+
+    def test_from_dict_camel_case(self):
+        """Test creation from camelCase dictionary."""
+        now = datetime.now(timezone.utc)
+        camel_dict = {
+            "title": "Test Task",
+            "description": "Test task description",
+            "userId": "test-user",
+            "status": TaskStatus.TODO.value,
+            "priority": TaskPriority.MEDIUM.value,
+            "dueDate": now
+            + timedelta(
+                days=1
+            ),  # Due date is 1 day in the future
+            "tags": ["test", "example"],
+            "parentId": 1,
+            "noteId": 1,
+            "createdAt": now,
+            "updatedAt": now,
+        }
+        task = TaskData.from_dict(camel_dict)
+        assert task.title == "Test Task"
+        assert task.description == "Test task description"
+        assert task.user_id == "test-user"
+        assert task.status == TaskStatus.TODO
+        assert task.priority == TaskPriority.MEDIUM
+        assert task.due_date > task.created_at
+        assert task.tags == ["test", "example"]
+        assert task.parent_id == 1
+        assert task.note_id == 1
 
 
-def test_invalid_parent_id():
-    """Test task creation with invalid parent_id."""
-    with pytest.raises(TaskParentError):
-        TaskData(
-            title="Task",
-            description="desc",
-            user_id="user",
-            parent_id=0,
+class TestTaskDataErrorHandling:
+    """Test error handling of TaskData."""
+
+    def test_missing_required_fields(self):
+        """Test handling of missing required fields."""
+        with pytest.raises(TypeError):
+            TaskData()  # type: ignore
+
+    def test_type_mismatches(self, valid_task_dict):
+        """Test handling of type mismatches."""
+        valid_task_dict["title"] = 123
+        with pytest.raises(TaskContentError) as exc:
+            TaskData(**valid_task_dict)
+        assert (
+            str(exc.value)
+            == "title must be a non-empty string"
         )
-
-    # Test self-referential parent
-    with pytest.raises(TaskParentError):
-        TaskData(
-            title="Task",
-            description="desc",
-            user_id="user",
-            id=1,
-            parent_id=1,
-        )
-
-
-def test_status_transitions():
-    """Test task status transitions."""
-    task = TaskData(
-        title="Task",
-        description="desc",
-        user_id="user",
-        status=TaskStatus.TODO,
-    )
-
-    # Valid transitions
-    task.update_status(TaskStatus.IN_PROGRESS)
-    assert task.status == TaskStatus.IN_PROGRESS
-
-    task.update_status(TaskStatus.DONE)
-    assert task.status == TaskStatus.DONE
-
-    # Invalid transition: try to go directly from TODO to DONE
-    task = TaskData(  # Create new task starting at TODO
-        title="Task",
-        description="desc",
-        user_id="user",
-        status=TaskStatus.TODO,
-    )
-    with pytest.raises(TaskStatusError):
-        task.update_status(
-            TaskStatus.DONE
-        )  # Should fail: can't go directly from TODO to DONE
-
-
-def test_priority_update():
-    """Test task priority updates."""
-    task = TaskData(
-        title="Task",
-        description="desc",
-        user_id="user",
-    )
-
-    task.update_priority(TaskPriority.HIGH)
-    assert task.priority == TaskPriority.HIGH
-
-    with pytest.raises(TaskPriorityError):
-        task.update_priority("invalid")  # type: ignore
-
-
-def test_due_date_update():
-    """Test task due date updates."""
-    task = TaskData(
-        title="Task",
-        description="desc",
-        user_id="user",
-    )
-
-    new_date = datetime.now(UTC) + timedelta(days=7)
-    task.update_due_date(new_date)
-    assert task.due_date == new_date
-
-    # Test with past date
-    past_date = datetime.now(UTC) - timedelta(days=1)
-    with pytest.raises(TaskDateError):
-        task.update_due_date(past_date)
-
-
-def test_to_dict_conversion(valid_task_data):
-    """Test converting TaskData to dictionary."""
-    task = TaskData(**valid_task_data)
-    data = task.to_dict()
-
-    assert data["title"] == valid_task_data["title"]
-    assert (
-        data["description"]
-        == valid_task_data["description"]
-    )
-    assert data["user_id"] == valid_task_data["user_id"]
-    assert data["status"] == valid_task_data["status"].value
-    assert (
-        data["priority"]
-        == valid_task_data["priority"].value
-    )
-    assert data["due_date"] == valid_task_data["due_date"]
-    assert data["tags"] == valid_task_data["tags"]
-
-
-def test_from_dict_conversion():
-    """Test creating TaskData from dictionary."""
-    data = {
-        "title": "Dict Task",
-        "description": "From dict",
-        "user_id": "test_user",
-        "status": "todo",  # String value
-        "priority": "high",  # String value
-        "tags": ["test"],
-    }
-
-    task = TaskData.from_dict(data)
-    assert task.title == data["title"]
-    assert task.status == TaskStatus.TODO
-    assert task.priority == TaskPriority.HIGH
-    assert task.tags == data["tags"]

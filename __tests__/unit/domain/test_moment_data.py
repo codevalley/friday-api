@@ -29,6 +29,7 @@ def valid_moment_dict() -> Dict[str, Any]:
         "user_id": "test-user",
         "data": {"test_field": "test_value"},
         "timestamp": datetime.now(timezone.utc),
+        "note_id": None,  # Optional note reference
     }
 
 
@@ -80,6 +81,32 @@ class TestMomentDataValidation:
         with pytest.raises(MomentDataError) as exc:
             MomentData(**valid_moment_dict)
         assert str(exc.value) == "data must be a dictionary"
+
+    def test_valid_note_id(self, valid_moment_dict):
+        """Test validation with valid note_id."""
+        valid_moment_dict["note_id"] = 1
+        moment = MomentData(**valid_moment_dict)
+        moment.validate()  # Should not raise
+
+    def test_invalid_note_id_type(self, valid_moment_dict):
+        """Test validation with invalid note_id type."""
+        valid_moment_dict["note_id"] = "not an int"
+        with pytest.raises(MomentValidationError) as exc:
+            MomentData(**valid_moment_dict)
+        assert (
+            str(exc.value)
+            == "note_id must be a positive integer"
+        )
+
+    def test_invalid_note_id_value(self, valid_moment_dict):
+        """Test validation with invalid note_id value."""
+        valid_moment_dict["note_id"] = 0
+        with pytest.raises(MomentValidationError) as exc:
+            MomentData(**valid_moment_dict)
+        assert (
+            str(exc.value)
+            == "note_id must be a positive integer"
+        )
 
     def test_invalid_timestamp(self, valid_moment_dict):
         """Test validation with invalid timestamp."""
@@ -167,30 +194,23 @@ class TestMomentDataConversion:
             result["timestamp"]
             == valid_moment_data.timestamp
         )
-
-    def test_to_json_dict_rest(self, valid_moment_data):
-        """Test conversion to JSON dict for REST."""
-        result = valid_moment_data.to_json_dict(
-            graphql=False
-        )
         assert (
-            result["activity_id"]
-            == valid_moment_data.activity_id
-        )
-        assert (
-            result["user_id"] == valid_moment_data.user_id
+            result["note_id"] == valid_moment_data.note_id
         )
 
-    def test_to_json_dict_graphql(self, valid_moment_data):
-        """Test conversion to JSON dict for GraphQL."""
-        result = valid_moment_data.to_json_dict(
-            graphql=True
-        )
-        assert (
-            result["activityId"]
-            == valid_moment_data.activity_id
-        )
-        assert result["userId"] == valid_moment_data.user_id
+    def test_to_json_dict(self, valid_moment_data):
+        """Test conversion to JSON dict."""
+        json_dict = valid_moment_data.to_json_dict()
+
+        assert isinstance(json_dict, dict)
+        assert "id" in json_dict
+        assert "activity_id" in json_dict
+        assert "user_id" in json_dict
+        assert isinstance(json_dict["data"], dict)
+        assert isinstance(json_dict["timestamp"], str)
+        assert "note_id" in json_dict
+        assert "created_at" in json_dict
+        assert "updated_at" in json_dict
 
     def test_from_dict_snake_case(self, valid_moment_dict):
         """Test creation from snake_case dictionary."""
@@ -202,6 +222,9 @@ class TestMomentDataConversion:
         assert (
             moment.user_id == valid_moment_dict["user_id"]
         )
+        assert (
+            moment.note_id == valid_moment_dict["note_id"]
+        )
 
     def test_from_dict_camel_case(self):
         """Test creation from camelCase dictionary."""
@@ -210,12 +233,14 @@ class TestMomentDataConversion:
             "userId": "test-user",
             "data": {"test_field": "test_value"},
             "timestamp": datetime.now(timezone.utc),
+            "noteId": 1,
         }
         moment = MomentData.from_dict(camel_dict)
         assert (
             moment.activity_id == camel_dict["activityId"]
         )
         assert moment.user_id == camel_dict["userId"]
+        assert moment.note_id == camel_dict["noteId"]
 
     def test_from_dict_with_optional_user_id(self):
         """Test creation from dict with optional user_id."""
@@ -504,50 +529,42 @@ class TestMomentDataTimestamps:
 
 
 class TestMomentDataSerialization:
-    """Test serialization methods of MomentData.
-
-    These tests verify that the model correctly serializes and
-    deserializes data while maintaining data integrity.
-    """
+    """Test serialization methods of MomentData."""
 
     def test_json_serialization_formats(
         self, valid_moment_data
     ):
-        """Test different JSON serialization formats."""
+        """Test JSON serialization formats."""
         # Test REST format
-        rest_dict = valid_moment_data.to_json_dict(
-            graphql=False
-        )
-        assert "activity_id" in rest_dict
-        assert "user_id" in rest_dict
-        assert isinstance(rest_dict["data"], dict)
-
-        # Test GraphQL format
-        graphql_dict = valid_moment_data.to_json_dict(
-            graphql=True
-        )
-        assert "activityId" in graphql_dict
-        assert "userId" in graphql_dict
-        assert isinstance(graphql_dict["data"], dict)
+        json_dict = valid_moment_data.to_json_dict()
+        assert isinstance(json_dict, dict)
+        assert "activity_id" in json_dict
+        assert "user_id" in json_dict
+        assert isinstance(json_dict["data"], dict)
+        assert isinstance(json_dict["timestamp"], str)
+        assert "note_id" in json_dict
 
     def test_nested_data_serialization(
         self, valid_moment_dict
     ):
-        """Test serialization of complex nested data structures."""
+        """Test serialization of nested data structures."""
+        # Test with nested dictionary
         valid_moment_dict["data"] = {
-            "string": "value",
-            "number": 42,
-            "boolean": True,
+            "level1": {"level2": {"value": "test"}},
             "array": [1, 2, 3],
-            "nested": {"inner": {"deep": "value"}},
-            "mixed": [
-                {"key": "value"},
-                [1, 2, 3],
-                "string",
-            ],
+            "mixed": [{"key": "value"}, 42, "string"],
         }
         moment = MomentData(**valid_moment_dict)
-        serialized = moment.to_dict()
+        json_dict = moment.to_json_dict()
+
+        # Verify nested structures are preserved
         assert (
-            serialized["data"] == valid_moment_dict["data"]
+            json_dict["data"]["level1"]["level2"]["value"]
+            == "test"
         )
+        assert json_dict["data"]["array"] == [1, 2, 3]
+        assert json_dict["data"]["mixed"] == [
+            {"key": "value"},
+            42,
+            "string",
+        ]

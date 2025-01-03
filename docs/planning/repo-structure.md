@@ -1,76 +1,102 @@
 ================================================================
-Repository Structure
+Directory Structure
 ================================================================
-configs/Database.py
-configs/db_dependencies.py
-configs/Environment.py
-configs/GraphQL.py
-configs/Logging.py
-configs/OpenAPI.py
+configs/
+  redis/
+    __init__.py
+    RedisConfig.py
+    RedisConnection.py
+  Database.py
+  Environment.py
+  Logging.py
+  OpenAPI.py
+  queue_dependencies.py
+  RoboConfig.py
+domain/
+  ports/
+    QueueService.py
+  __init__.py
+  activity.py
+  exceptions.py
+  moment.py
+  note.py
+  robo.py
+  task.py
+  user.py
+  validation.py
+  values.py
+infrastructure/
+  queue/
+    note_worker.py
+    RQNoteQueue.py
+    run_worker.py
+metadata/
+  Tags.py
+orm/
+  ActivityModel.py
+  BaseModel.py
+  MomentModel.py
+  NoteModel.py
+  TaskModel.py
+  types.py
+  UserModel.py
+repositories/
+  ActivityRepository.py
+  BaseRepository.py
+  MomentRepository.py
+  NoteRepository.py
+  RepositoryMeta.py
+  TaskRepository.py
+  UserRepository.py
+routers/
+  v1/
+    ActivityRouter.py
+    AuthRouter.py
+    MomentRouter.py
+    NoteRouter.py
+    TaskRouter.py
+schemas/
+  pydantic/
+    ActivitySchema.py
+    CommonSchema.py
+    MomentSchema.py
+    NoteSchema.py
+    PaginationSchema.py
+    TaskSchema.py
+    UserSchema.py
+  responses/
+    activity.py
+    base.py
+    moment.py
+services/
+  ActivityService.py
+  MomentService.py
+  NoteService.py
+  OpenAIService.py
+  RateLimiter.py
+  TaskService.py
+  TestRoboService.py
+  UserService.py
+utils/
+  errors/
+    __init__.py
+    domain_exceptions.py
+    exceptions.py
+    handlers.py
+    responses.py
+  middleware/
+    request_logging.py
+  validation/
+    __init__.py
+    validation.py
+  __init__.py
+  audit_logging.py
+  env.py
+  error_handlers.py
+  json_utils.py
+  pagination.py
+  retry.py
+  security.py
 dependencies.py
-domain/__init__.py
-domain/activity.py
-domain/exceptions.py
-domain/moment.py
-domain/note.py
-domain/user.py
-domain/validation.py
-domain/values.py
 main.py
-metadata/Tags.py
-orm/ActivityModel.py
-orm/BaseModel.py
-orm/MomentModel.py
-orm/NoteModel.py
-orm/types.py
-orm/UserModel.py
-repositories/ActivityRepository.py
-repositories/BaseRepository.py
-repositories/MomentRepository.py
-repositories/NoteRepository.py
-repositories/RepositoryMeta.py
-repositories/UserRepository.py
-routers/v1/ActivityRouter.py
-routers/v1/AuthRouter.py
-routers/v1/MomentRouter.py
-routers/v1/NoteRouter.py
-schemas/graphql/Mutation.py
-schemas/graphql/mutations/ActivityMutation.py
-schemas/graphql/mutations/MomentMutation.py
-schemas/graphql/mutations/NoteMutation.py
-schemas/graphql/mutations/UserMutation.py
-schemas/graphql/Query.py
-schemas/graphql/types/Activity.py
-schemas/graphql/types/Moment.py
-schemas/graphql/types/Note.py
-schemas/graphql/types/NoteInput.py
-schemas/graphql/types/NoteResponse.py
-schemas/graphql/types/User.py
-schemas/pydantic/ActivitySchema.py
-schemas/pydantic/CommonSchema.py
-schemas/pydantic/MomentSchema.py
-schemas/pydantic/NoteSchema.py
-schemas/pydantic/PaginationSchema.py
-schemas/pydantic/UserSchema.py
-schemas/responses/activity.py
-schemas/responses/base.py
-schemas/responses/moment.py
-services/ActivityService.py
-services/MomentService.py
-services/NoteService.py
-services/UserService.py
 setup.py
-utils/__init__.py
-utils/audit_logging.py
-utils/error_handlers.py
-utils/errors/__init__.py
-utils/errors/domain_exceptions.py
-utils/errors/exceptions.py
-utils/errors/handlers.py
-utils/errors/responses.py
-utils/json_utils.py
-utils/middleware/request_logging.py
-utils/pagination.py
-utils/security.py
-utils/validation/__init__.py
-utils/validation/validation.py

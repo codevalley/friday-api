@@ -37,56 +37,12 @@ CREATE TABLE IF NOT EXISTS activities (
     CHECK (color REGEXP '^#[0-9A-Fa-f]{6}$')
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- Create moments table
-CREATE TABLE IF NOT EXISTS moments (
-    id INT PRIMARY KEY AUTO_INCREMENT,
-    user_id VARCHAR(36) NOT NULL,
-    activity_id INT NOT NULL,
-    data JSON NOT NULL,
-    timestamp TIMESTAMP NOT NULL,
-    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
-    FOREIGN KEY (activity_id) REFERENCES activities(id) ON DELETE CASCADE,
-    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
--- Create tasks table
-CREATE TABLE IF NOT EXISTS tasks (
-    id INT PRIMARY KEY AUTO_INCREMENT,
-    title VARCHAR(255) NOT NULL,
-    description TEXT NOT NULL,
-    user_id VARCHAR(36) NOT NULL,
-    status ENUM('TODO', 'IN_PROGRESS', 'DONE') NOT NULL DEFAULT 'TODO',
-    priority ENUM('LOW', 'MEDIUM', 'HIGH', 'URGENT') NOT NULL DEFAULT 'MEDIUM',
-    due_date TIMESTAMP NULL,
-    tags JSON NULL DEFAULT ('[]'),
-    parent_id INT NULL,
-    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
-    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-    FOREIGN KEY (parent_id) REFERENCES tasks(id) ON DELETE SET NULL,
-    CHECK (title != ''),
-    CHECK (description != '')
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
--- Create notes table
--- This table stores user notes with optional attachments (voice, photo, or file)
+-- Create notes table first (since it's now a leaf node)
 CREATE TABLE IF NOT EXISTS notes (
-    -- Primary key and relationships
     id INT PRIMARY KEY AUTO_INCREMENT,
     user_id VARCHAR(36) NOT NULL,
-
-    -- Note content
     content TEXT NOT NULL,
-
-    -- New columns needed for activity/moment references
-    activity_id INT NULL,
-    moment_id INT NULL,
-
-    -- Changed attachment columns
-    attachments JSON NULL,  -- Structured attachments
-
-    -- Processing status and data
+    attachments JSON NULL DEFAULT ('[]'),
     processing_status ENUM(
         'NOT_PROCESSED',
         'PENDING',
@@ -95,20 +51,48 @@ CREATE TABLE IF NOT EXISTS notes (
         'FAILED',
         'SKIPPED'
     ) NOT NULL DEFAULT 'NOT_PROCESSED',
-    enrichment_data JSON NULL,  -- Data from note processing
-    processed_at TIMESTAMP NULL,  -- When the note was processed
-
-    -- Timestamps
+    enrichment_data JSON NULL,
+    processed_at TIMESTAMP NULL,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
-
-    -- Foreign keys and constraints
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-    FOREIGN KEY (activity_id) REFERENCES activities(id),
-    FOREIGN KEY (moment_id) REFERENCES moments(id),
+    CHECK (content != '')
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-    -- Data validation
-    CONSTRAINT check_content_not_empty CHECK (content != '')
+-- Create moments table
+CREATE TABLE IF NOT EXISTS moments (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    user_id VARCHAR(36) NOT NULL,
+    activity_id INT NOT NULL,
+    note_id INT NULL,
+    data JSON NOT NULL,
+    timestamp TIMESTAMP NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (activity_id) REFERENCES activities(id) ON DELETE CASCADE,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (note_id) REFERENCES notes(id) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Create tasks table
+CREATE TABLE IF NOT EXISTS tasks (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    title VARCHAR(255) NOT NULL,
+    description TEXT NOT NULL,
+    user_id VARCHAR(36) NOT NULL,
+    parent_id INT NULL,
+    note_id INT NULL,
+    status ENUM('TODO', 'IN_PROGRESS', 'DONE') NOT NULL DEFAULT 'TODO',
+    priority ENUM('LOW', 'MEDIUM', 'HIGH', 'URGENT') NOT NULL DEFAULT 'MEDIUM',
+    due_date TIMESTAMP NULL,
+    tags JSON NULL DEFAULT ('[]'),
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (parent_id) REFERENCES tasks(id) ON DELETE SET NULL,
+    FOREIGN KEY (note_id) REFERENCES notes(id) ON DELETE SET NULL,
+    CHECK (title != ''),
+    CHECK (description != '')
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- Add indexes for better query performance
@@ -117,6 +101,7 @@ CREATE INDEX idx_activities_user_id ON activities(user_id);
 CREATE INDEX idx_moments_activity_id ON moments(activity_id);
 CREATE INDEX idx_moments_user_id ON moments(user_id);
 CREATE INDEX idx_moments_timestamp ON moments(timestamp);
+CREATE INDEX idx_moments_note_id ON moments(note_id);
 
 -- Indexes for tasks table
 CREATE INDEX idx_tasks_user_id ON tasks(user_id);
@@ -124,6 +109,7 @@ CREATE INDEX idx_tasks_status ON tasks(status);
 CREATE INDEX idx_tasks_priority ON tasks(priority);
 CREATE INDEX idx_tasks_due_date ON tasks(due_date);
 CREATE INDEX idx_tasks_parent_id ON tasks(parent_id);
+CREATE INDEX idx_tasks_note_id ON tasks(note_id);
 
 -- Indexes for notes table
 CREATE INDEX idx_notes_user_id ON notes(user_id);

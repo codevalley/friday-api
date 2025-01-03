@@ -1,12 +1,11 @@
 # Friday API
 
-A powerful life logging API built with FastAPI and GraphQL. Track your daily activities and moments with rich, structured data.
+A powerful life logging API built with FastAPI. Track your daily activities and moments with rich, structured data.
 
 [![Python](https://img.shields.io/badge/python-3670A0?style=for-the-badge&logo=python&logoColor=ffdd54)](https://docs.python.org/3/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-005571?style=for-the-badge&logo=fastapi)](https://fastapi.tiangolo.com/)
 [![OpenAPI](https://img.shields.io/badge/openapi-6BA539?style=for-the-badge&logo=openapi-initiative&logoColor=fff)](https://www.openapis.org/)
 [![Swagger](https://img.shields.io/badge/-Swagger-%23Clojure?style=for-the-badge&logo=swagger&logoColor=white)](https://swagger.io/)
-[![GraphQL](https://img.shields.io/badge/-GraphQL-E10098?style=for-the-badge&logo=graphql&logoColor=white)](https://graphql.org/)
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg?style=for-the-badge)](https://black.readthedocs.io/en/stable/)
 [![Typed with: pydantic](https://img.shields.io/badge/typed%20with-pydantic-BA600F.svg?style=for-the-badge)](https://docs.pydantic.dev/)
 
@@ -15,7 +14,6 @@ A powerful life logging API built with FastAPI and GraphQL. Track your daily act
 - **Activity Management**: Create and manage activity types with custom JSON schemas
 - **Moment Logging**: Log moments with structured data based on activity schemas
 - **Flexible Querying**: Filter moments by time range and activity type
-- **Dual API Support**: Both REST and GraphQL interfaces
 - **Data Validation**: Automatic validation of moment data against activity schemas
 - **UTC Time Handling**: Proper timezone handling for global usage
 
@@ -64,7 +62,6 @@ pipenv run uvicorn main:app --reload
 
 The API will be available at:
 - REST API: http://localhost:8000/v1
-- GraphQL Playground: http://localhost:8000/graphql
 - API Documentation: http://localhost:8000/docs
 
 ## API Documentation
@@ -115,9 +112,8 @@ curl -X POST "http://localhost:8000/v1/moments" \
 friday-api/
 ├── configs/            # Configuration modules
 ├── models/            # SQLAlchemy models
-├── schemas/           # Pydantic & GraphQL schemas
-│   ├── pydantic/     # Data validation schemas
-│   └── graphql/      # GraphQL type definitions
+├── schemas/           # Pydantic schemas
+│   └── pydantic/     # Data validation schemas
 ├── repositories/     # Database operations
 ├── services/        # Business logic
 ├── routers/         # API endpoints

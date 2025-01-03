@@ -56,7 +56,7 @@ This test plan aims to ensure robust test coverage for all aspects of the projec
   - Validate schema migrations.
   - Test cascading delete behavior.
 - **API Interactions**:
-  - REST and GraphQL endpoint responses.
+  - REST endpoint responses.
   - Validating role-based access and authentication logic.
 
 **Examples**:
@@ -118,7 +118,7 @@ This test plan aims to ensure robust test coverage for all aspects of the projec
 | Repositories        | 95%            |
 | Models              | 90%            |
 | Services            | 90%            |
-| REST/GraphQL APIs   | 85%            |
+| REST APIs           | 85%            |
 | End-to-End Scenarios| 80%            |
 
 ---
@@ -127,7 +127,7 @@ This test plan aims to ensure robust test coverage for all aspects of the projec
 
 ### Add New Test Files
 - **`test_activity_service.py`**: Expand scenarios for JSON schema validation and cascading updates.
-- **`test_graphql_queries.py`**: Add comprehensive tests for GraphQL queries and mutations.
+- **`test_api_endpoints.py`**: Add comprehensive tests for REST endpoints.
 
 ### Upgrade Existing Tests
 - Include edge cases:

@@ -175,6 +175,7 @@ def test_user_relationships(test_db_session) -> None:
         activity_id=activity.id,
         user_id=user.id,
         data={"notes": "Test moment"},
+        timestamp=datetime.now(),
     )
     test_db_session.add(moment)
     test_db_session.commit()

@@ -153,3 +153,47 @@ async def get_recent_activities(
         data=activities,
         message=f"Retrieved {len(activities)} recent activities",
     )
+
+
+@router.put(
+    "/{moment_id}/note",
+    response_model=GenericResponse[MomentResponse],
+)
+@handle_exceptions
+async def attach_note(
+    moment_id: int,
+    note_id: int,
+    service: MomentService = Depends(),
+    current_user: User = Depends(get_current_user),
+):
+    """Attach a note to a moment.
+
+    Args:
+        moment_id: ID of the moment to update
+        note_id: ID of the note to attach
+    """
+    result = service.attach_note(
+        moment_id, note_id, current_user.id
+    )
+    return GenericResponse(
+        data=result,
+        message="Note attached to moment successfully",
+    )
+
+
+@router.delete(
+    "/{moment_id}/note",
+    response_model=GenericResponse[MomentResponse],
+)
+@handle_exceptions
+async def detach_note(
+    moment_id: int,
+    service: MomentService = Depends(),
+    current_user: User = Depends(get_current_user),
+):
+    """Detach the note from a moment."""
+    result = service.detach_note(moment_id, current_user.id)
+    return GenericResponse(
+        data=result,
+        message="Note detached from moment successfully",
+    )

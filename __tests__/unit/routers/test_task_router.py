@@ -46,7 +46,10 @@ def client(app):
 @pytest.fixture
 def mock_service(mocker):
     """Create a mock TaskService."""
-    return mocker.Mock(spec=TaskService)
+    service = mocker.Mock(spec=TaskService)
+    service.attach_note = mocker.Mock()
+    service.detach_note = mocker.Mock()
+    return service
 
 
 @pytest.fixture
@@ -518,3 +521,113 @@ class TestTaskRouter:
         assert (
             task_response.updated_at is None
         )  # Should be None for new tasks
+
+    def test_attach_note_success(
+        self,
+        client,
+        mock_service,
+        mock_user,
+        mock_task,
+        mock_auth_credentials,
+    ):
+        """Test attaching a note to a task successfully."""
+        task_id = 1
+        note_id = 1
+
+        mock_service.attach_note.return_value = mock_task
+
+        response = client.put(
+            f"/api/v1/tasks/{task_id}/note",
+            params={"note_id": note_id},
+            headers={
+                "Authorization": f"Bearer {mock_auth_credentials.credentials}"
+            },
+        )
+
+        assert response.status_code == 200
+        assert response.json()["data"]["id"] == mock_task.id
+        mock_service.attach_note.assert_called_once_with(
+            task_id, note_id, mock_user.id
+        )
+
+    def test_detach_note_success(
+        self,
+        client,
+        mock_service,
+        mock_user,
+        mock_task,
+        mock_auth_credentials,
+    ):
+        """Test detaching a note from a task successfully."""
+        task_id = 1
+
+        mock_service.detach_note.return_value = mock_task
+
+        response = client.delete(
+            f"/api/v1/tasks/{task_id}/note",
+            headers={
+                "Authorization": f"Bearer {mock_auth_credentials.credentials}"
+            },
+        )
+
+        assert response.status_code == 200
+        assert response.json()["data"]["id"] == mock_task.id
+        mock_service.detach_note.assert_called_once_with(
+            task_id, mock_user.id
+        )
+
+    def test_attach_note_unauthenticated(
+        self,
+        client,
+        mock_service,
+    ):
+        """Test attaching a note without authentication."""
+        task_id = 1
+        note_id = 1
+
+        response = client.put(
+            f"/api/v1/tasks/{task_id}/note",
+            params={"note_id": note_id},
+        )
+
+        assert response.status_code == 401
+        response_data = response.json()
+        assert (
+            response_data["detail"]["code"]
+            == "UNAUTHORIZED"
+        )
+        assert (
+            "Invalid or missing authentication token"
+            in response_data["detail"]["message"]
+        )
+        assert (
+            response_data["detail"]["type"]
+            == "AuthenticationError"
+        )
+
+    def test_detach_note_unauthenticated(
+        self,
+        client,
+        mock_service,
+    ):
+        """Test detaching a note without authentication."""
+        task_id = 1
+
+        response = client.delete(
+            f"/api/v1/tasks/{task_id}/note",
+        )
+
+        assert response.status_code == 401
+        response_data = response.json()
+        assert (
+            response_data["detail"]["code"]
+            == "UNAUTHORIZED"
+        )
+        assert (
+            "Invalid or missing authentication token"
+            in response_data["detail"]["message"]
+        )
+        assert (
+            response_data["detail"]["type"]
+            == "AuthenticationError"
+        )

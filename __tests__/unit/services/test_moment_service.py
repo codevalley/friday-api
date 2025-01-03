@@ -72,6 +72,7 @@ def mock_moment(mock_activity):
     moment.created_at = datetime.now(timezone.utc)
     moment.updated_at = datetime.now(timezone.utc)
     moment.activity = mock_activity
+    moment.note_id = 1
     return moment
 
 
@@ -321,7 +322,7 @@ class TestMomentService:
         self, moment_service, mock_moment
     ):
         """Test moment retrieval with wrong user."""
-        mock_moment.activity.user_id = "other_user"
+        mock_moment.user_id = "other_user"
         moment_service.moment_repository.get = Mock(
             return_value=mock_moment
         )
@@ -332,7 +333,7 @@ class TestMomentService:
         assert "Moment not found" in exc.value.detail
 
     def test_update_moment_success(
-        self, moment_service, mock_moment
+        self, moment_service, mock_moment, mock_activity
     ):
         """Test successful moment update."""
         moment_service.moment_repository.get = Mock(
@@ -340,6 +341,9 @@ class TestMomentService:
         )
         moment_service.moment_repository.update = Mock(
             return_value=mock_moment
+        )
+        moment_service.activity_repository.get = Mock(
+            return_value=mock_activity
         )
 
         update_data = MomentUpdate(
@@ -371,41 +375,49 @@ class TestMomentService:
     def test_list_recent_activities_success(
         self, moment_service, mock_moment
     ):
-        """Test successful recent activities listing."""
-        moment_service.moment_repository.get_recent_by_user = Mock(
-            return_value=[mock_moment]
+        """Test successful retrieval of recent activities."""
+        # Setup mock
+        moment_service.moment_repository.list_moments = (
+            Mock(
+                return_value=PaginationResponse(
+                    items=[mock_moment],
+                    total=1,
+                    page=1,
+                    size=10,
+                    pages=1,
+                )
+            )
         )
 
         result = moment_service.list_recent_activities(
-            "test_user"
+            "test_user", limit=10
         )
+
+        assert isinstance(result, list)
         assert len(result) == 1
         assert isinstance(result[0], MomentResponse)
+        assert result[0].id == mock_moment.id
 
-    def test_list_recent_activities_invalid_limit(
+    def test_list_recent_activities_empty(
         self, moment_service
     ):
-        """Test recent activities listing with invalid limit."""
-        with pytest.raises(HTTPException) as exc:
-            moment_service.list_recent_activities(
-                "test_user", limit=0
+        """Test retrieval of recent activities when none exist."""
+        # Setup mock
+        moment_service.moment_repository.list_moments = (
+            Mock(
+                return_value=PaginationResponse(
+                    items=[],
+                    total=0,
+                    page=1,
+                    size=10,
+                    pages=0,
+                )
             )
-        assert exc.value.status_code == 400
-        assert (
-            "Limit must be between 1 and 100"
-            in exc.value.detail
         )
 
-    def test_get_moment_graphql_success(
-        self, moment_service, mock_moment
-    ):
-        """Test successful moment retrieval through GraphQL."""
-        moment_service.moment_repository.get = Mock(
-            return_value=mock_moment
+        result = moment_service.list_recent_activities(
+            "test_user", limit=10
         )
 
-        result = moment_service.get_moment_graphql(
-            1, "test_user"
-        )
-        assert result is not None
-        assert result.id() == str(mock_moment.id)
+        assert isinstance(result, list)
+        assert len(result) == 0

@@ -9,7 +9,18 @@ from domain.values import TaskStatus, TaskPriority
 
 
 class TaskBase(BaseModel):
-    """Base schema for task data."""
+    """Base schema for task data.
+
+    Attributes:
+        title: Task title
+        description: Task description
+        status: Task status (default: TODO)
+        priority: Task priority (default: MEDIUM)
+        due_date: Optional due date
+        tags: Optional list of tags
+        parent_id: Optional parent task ID
+        note_id: Optional ID of an associated note
+    """
 
     title: str = Field(..., min_length=1)
     description: str = Field(..., min_length=1)
@@ -20,6 +31,11 @@ class TaskBase(BaseModel):
     due_date: Optional[datetime] = None
     tags: Optional[List[str]] = Field(default_factory=list)
     parent_id: Optional[int] = None
+    note_id: Optional[int] = Field(
+        None,
+        gt=0,
+        description="Optional ID of an associated note",
+    )
 
 
 class TaskCreate(TaskBase):

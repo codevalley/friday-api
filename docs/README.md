@@ -2,7 +2,7 @@
 
 ## Overview
 
-This project implements a clean architecture using FastAPI and GraphQL for a life logging system. The application allows users to track various activities and moments in their life, with flexible data schemas and validation.
+This project implements a clean architecture using FastAPI for a life logging system. The application allows users to track various activities and moments in their life, with flexible data schemas and validation.
 
 ## Project Structure
 
@@ -12,8 +12,7 @@ friday-api/
 ├── services/           # Application business logic layer
 ├── repositories/       # Data access layer
 ├── schemas/           # Data transfer objects and validation schemas
-│   ├── pydantic/     # Pydantic models
-│   └── graphql/      # GraphQL type definitions
+│   └── pydantic/     # Pydantic models
 ├── configs/           # Application configuration
 └── docs/             # Documentation
 ```
@@ -39,14 +38,14 @@ The project follows the Clean Architecture pattern with the following layers:
    - `configs/`: External configurations
 
 4. **Interface Layer**
-   - GraphQL API with both queries and mutations
-   - Data validation with Pydantic and JSON Schema
+   - REST API with comprehensive endpoints
+   - Data validation with Pydantic
    - Type-safe operations
 
 ## Key Features
 
 - Clean Architecture implementation
-- GraphQL API with proper type definitions
+- REST API with proper documentation
 - Domain-Driven Design principles
 - Dependency injection
 - Repository pattern

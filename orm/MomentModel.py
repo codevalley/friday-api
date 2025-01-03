@@ -1,106 +1,55 @@
+"""Moment ORM model."""
+
+from typing import TYPE_CHECKING, Optional, Dict, Any, cast
 from sqlalchemy import (
     Column,
     Integer,
-    DateTime,
     JSON,
     ForeignKey,
+    DateTime,
     String,
-    CheckConstraint,
 )
-from sqlalchemy.orm import relationship, Mapped
-from datetime import datetime, timezone
-from jsonschema import validate as validate_json_schema
+from sqlalchemy.orm import relationship, Session
 import json
-from sqlalchemy.orm import Session
-from typing import (
-    Any,
-    Dict,
-    cast,
-    TYPE_CHECKING,
-    Optional,
-)
+from jsonschema import validate as validate_json_schema
 
 from orm.BaseModel import EntityMeta
 
 if TYPE_CHECKING:
-    from orm.UserModel import User
-    from orm.ActivityModel import Activity
+    from orm.UserModel import User  # noqa: F401
+    from orm.NoteModel import Note  # noqa: F401
 
 
 class Moment(EntityMeta):
-    """Moment Model represents a single moment or event in a person's life.
-
-    Each moment is associated with an activity type and contains data
-    specific to that activity. The data must conform to the activity's
-    JSON schema.
-
-    Attributes:
-        id: Unique identifier
-        user_id: ID of the user who created the moment
-        activity_id: ID of the associated activity
-        data: JSON data conforming to activity's schema
-        timestamp: When the moment occurred
-        user: User who created the moment
-        activity: Associated activity
-    """
+    """Moment model class."""
 
     __tablename__ = "moments"
 
-    # Primary key
-    id: Mapped[int] = Column(
-        Integer, primary_key=True, index=True
-    )
-
-    # Foreign keys
-    user_id: Mapped[str] = Column(
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(
         String(36),
         ForeignKey("users.id", ondelete="CASCADE"),
         nullable=False,
     )
-    activity_id: Mapped[int] = Column(
+    activity_id = Column(
         Integer,
         ForeignKey("activities.id", ondelete="CASCADE"),
         nullable=False,
     )
-
-    # Data fields
-    data: Mapped[Dict[str, Any]] = Column(
-        JSON, nullable=False
+    note_id = Column(
+        Integer,
+        ForeignKey("notes.id", ondelete="SET NULL"),
+        nullable=True,
     )
-    timestamp: Mapped[datetime] = Column(
-        DateTime(timezone=True),
-        index=True,
-        nullable=False,
-        default=lambda: datetime.now(timezone.utc),
-    )
+    data = Column(JSON, nullable=False)
+    timestamp = Column(DateTime, nullable=False)
 
     # Relationships
-    user: Mapped["User"] = relationship(
-        "User", back_populates="moments"
-    )
-    activity: Mapped["Activity"] = relationship(
+    user = relationship("User", back_populates="moments")
+    activity = relationship(
         "Activity", back_populates="moments"
     )
-
-    # Constraints
-    __table_args__ = (
-        CheckConstraint(
-            "timestamp IS NOT NULL",
-            name="check_timestamp_not_null",
-        ),
-        CheckConstraint(
-            "activity_id IS NOT NULL",
-            name="check_activity_id_not_null",
-        ),
-        CheckConstraint(
-            "data IS NOT NULL",
-            name="check_data_not_null",
-        ),
-        CheckConstraint(
-            "user_id IS NOT NULL",
-            name="check_user_id_not_null",
-        ),
-    )
+    note = relationship("Note", back_populates="moments")
 
     def __init__(self, **kwargs):
         """Initialize a moment with validation.
@@ -158,55 +107,48 @@ class Moment(EntityMeta):
     def validate_data(
         self, db: Optional[Session] = None
     ) -> bool:
-        """Validate that the moment data matches the activity's schema.
+        """Validate moment data against activity schema.
 
         Args:
-            db: Optional SQLAlchemy session to use. If not provided,
-               will attempt to use the session from the instance state.
+            db: Optional database session for loading activity
 
         Returns:
-            True if data is valid
+            True if validation passes
 
         Raises:
-            ValueError: If data is invalid or activity schema is missing
+            ValueError: If validation fails
         """
-        data = self.data_dict
-        if not isinstance(data, dict):
+        if not self.data:
+            raise ValueError("data is required")
+
+        if not isinstance(self.data, dict):
             raise ValueError(
                 "moment data must be a valid JSON object"
             )
 
-        # Load activity if not loaded
-        from repositories.ActivityRepository import (
-            ActivityRepository,
-        )
+        # If we have a database session, load the activity
+        # to validate against its schema
+        if db and self.activity_id:
+            from orm.ActivityModel import Activity
 
-        if not self.activity:
-            # Get activity from repository
-            session = (
-                db
-                if db is not None
-                else self._sa_instance_state.session
+            activity = (
+                db.query(Activity)
+                .filter_by(id=self.activity_id)
+                .first()
             )
-            activity_repo = ActivityRepository(session)
-            activity = activity_repo.get_by_user(
-                self.activity_id, self.user_id
-            )
-            if not activity or not activity.activity_schema:
+            if not activity:
                 raise ValueError(
-                    "moment must be linked to an activity with a valid schema"
+                    f"Activity {self.activity_id} not found"
                 )
-        else:
-            activity = self.activity
 
-        try:
-            validate_json_schema(
-                data, activity.activity_schema
-            )
-        except Exception as e:
-            raise ValueError(
-                f"Invalid moment data: {str(e)}"
-            )
+            try:
+                validate_json_schema(
+                    self.data, activity.activity_schema
+                )
+            except Exception as e:
+                raise ValueError(
+                    f"Invalid moment data: {str(e)}"
+                )
 
         return True
 

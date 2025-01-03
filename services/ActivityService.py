@@ -1,12 +1,10 @@
 """Service for handling activity-related operations."""
 
-import json
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, Optional
 from fastapi import Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from configs.Database import get_db_connection
-from domain.activity import ActivityData
 from domain.exceptions import ActivityValidationError
 from repositories.ActivityRepository import (
     ActivityRepository,
@@ -18,7 +16,6 @@ from schemas.pydantic.ActivitySchema import (
     ActivityUpdate,
     ActivityList,
 )
-from schemas.graphql.types.Activity import Activity
 from utils.validation import (
     validate_pagination,
     validate_color,
@@ -292,208 +289,27 @@ class ActivityService:
 
         Args:
             activity_id: ID of activity to delete
-            user_id: ID of user deleting the activity
+            user_id: ID of user requesting deletion
 
         Returns:
             True if activity was deleted, False otherwise
         """
         return self.activity_repository.delete(
-            activity_id,
-            str(user_id),  # Ensure user_id is string
-        )
-
-    # GraphQL specific methods
-    def create_activity_graphql(
-        self, activity_data, user_id: str
-    ) -> Activity:
-        """Create activity for GraphQL"""
-        # Handle activity schema that could be either string or dict
-        activity_schema = activity_data.activitySchema
-        if isinstance(activity_schema, str):
-            try:
-                activity_schema = json.loads(
-                    activity_schema
-                )
-            except json.JSONDecodeError:
-                raise HTTPException(
-                    status_code=400,
-                    detail=(
-                        "Invalid activity schema format: "
-                        "must be valid JSON"
-                    ),
-                )
-        elif not isinstance(activity_schema, dict):
-            raise HTTPException(
-                status_code=400,
-                detail=(
-                    "Activity schema must be either "
-                    "a JSON string or a dictionary"
-                ),
-            )
-
-        # Validate schema
-        self._validate_activity_schema(activity_schema)
-
-        # Create activity
-        activity = self.activity_repository.create(
-            name=activity_data.name,
-            description=activity_data.description,
-            activity_schema=activity_schema,
-            icon=activity_data.icon,
-            color=activity_data.color,
-            user_id=str(
-                user_id
-            ),  # Ensure user_id is string
-        )
-        return Activity.from_db(activity)
-
-    def get_activity_graphql(
-        self, activity_id: int, user_id: str
-    ) -> Optional[Activity]:
-        """Get an activity by ID for GraphQL
-
-        Args:
-            activity_id: ID of activity to get
-            user_id: ID of user requesting the activity
-
-        Returns:
-            Activity in GraphQL format if found, None otherwise
-        """
-        activity = self.activity_repository.get_by_id(
-            activity_id,
-            str(user_id),  # Ensure user_id is string
-        )
-        if not activity:
-            return None
-        return Activity.from_db(activity)
-
-    def list_activities_graphql(
-        self, user_id: str, skip: int = 0, limit: int = 100
-    ) -> List[Activity]:
-        """List all activities with pagination for GraphQL
-
-        Args:
-            user_id: ID of user requesting activities
-            skip: Number of items to skip
-            limit: Maximum number of items to return
-
-        Returns:
-            List of activities in GraphQL format
-        """
-        activities = (
-            self.activity_repository.list_activities(
-                user_id=str(
-                    user_id
-                ),  # Ensure user_id is string
-                skip=skip,
-                limit=limit,
-            )
-        )
-        return [Activity.from_db(a) for a in activities]
-
-    def update_activity_graphql(
-        self,
-        activity_id: int,
-        activity_data,
-        user_id: str,
-    ) -> Activity:
-        """Update activity for GraphQL"""
-        activity_schema = None
-        if activity_data.activitySchema:
-            if isinstance(
-                activity_data.activitySchema, str
-            ):
-                try:
-                    activity_schema = json.loads(
-                        activity_data.activitySchema
-                    )
-                except json.JSONDecodeError:
-                    raise HTTPException(
-                        status_code=400,
-                        detail=(
-                            "Invalid activity schema format: "
-                            "must be valid JSON"
-                        ),
-                    )
-            elif isinstance(
-                activity_data.activitySchema, dict
-            ):
-                activity_schema = (
-                    activity_data.activitySchema
-                )
-            else:
-                raise HTTPException(
-                    status_code=400,
-                    detail=(
-                        "Activity schema must be either "
-                        "a JSON string or a dictionary"
-                    ),
-                )
-
-            # Validate schema
-            self._validate_activity_schema(activity_schema)
-
-        # Create update data
-        update_data = ActivityUpdate(
-            name=activity_data.name,
-            description=(activity_data.description),
-            activity_schema=activity_schema,
-            icon=activity_data.icon,
-            color=activity_data.color,
-        )
-
-        # Update the activity
-        updated = self.update_activity(
-            activity_id,
-            update_data,
-            str(user_id),  # Ensure user_id is string
-        )
-        if not updated:
-            raise HTTPException(
-                status_code=404, detail="Activity not found"
-            )
-        return Activity.from_db(updated)
-
-    def to_graphql_json(
-        self, activity_data: ActivityData
-    ) -> Dict[str, Any]:
-        """Convert activity data to GraphQL-compatible JSON format.
-
-        Args:
-            activity_data: Activity domain model to convert
-
-        Returns:
-            GraphQL-compatible dictionary representation
-        """
-        return json.loads(
-            json.dumps(
-                {
-                    "id": activity_data.id,
-                    "name": activity_data.name,
-                    "color": activity_data.color,
-                    "activitySchema": activity_data.activity_schema,
-                }
-            )
+            activity_id, str(user_id)
         )
 
     def validate(self, data: Dict[str, Any]) -> None:
         """Validate activity data.
 
         Args:
-            data: Data to validate
+            data: Activity data to validate
 
         Raises:
             HTTPException: If validation fails
         """
-        try:
-            if "color" in data:
-                validate_color(data["color"])
-
-            if "schema" in data:
-                validate_activity_schema(data["schema"])
-        except ValueError as e:
-            raise ActivityValidationError.invalid_field_value(
-                "data", str(e)
+        if "color" in data:
+            self._validate_color(data["color"])
+        if "activity_schema" in data:
+            self._validate_activity_schema(
+                data["activity_schema"]
             )
-        except ActivityValidationError as e:
-            raise handle_domain_exception(e)

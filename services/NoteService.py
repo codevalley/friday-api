@@ -120,8 +120,6 @@ class NoteService:
             note = self.note_repo.create(
                 content=domain_data.content,
                 user_id=domain_data.user_id,
-                activity_id=domain_data.activity_id,
-                moment_id=domain_data.moment_id,
                 attachments=domain_data.attachments,
                 processing_status=domain_data.processing_status,
             )

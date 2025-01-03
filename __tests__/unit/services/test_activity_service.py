@@ -4,7 +4,6 @@ import pytest
 from datetime import datetime
 from unittest.mock import Mock
 from fastapi import HTTPException
-import json
 
 from domain.exceptions import ActivityValidationError
 from schemas.pydantic.ActivitySchema import (
@@ -370,144 +369,13 @@ class TestActivityService:
     def test_delete_activity_not_found(
         self, activity_service, test_user
     ):
-        """Test activity deletion when not found."""
+        """Test deleting a non-existent activity."""
         activity_service.activity_repository.delete = Mock(
             return_value=False
         )
 
         result = activity_service.delete_activity(
-            1, test_user.id
+            999, test_user.id
         )
 
         assert result is False
-
-    # GraphQL specific tests
-    def test_create_activity_graphql(
-        self,
-        activity_service,
-        valid_activity_data,
-        mock_activity,
-        test_user,
-    ):
-        """Test activity creation through GraphQL endpoint."""
-        activity_service.activity_repository.create = Mock(
-            return_value=mock_activity
-        )
-
-        from schemas.graphql.types.Activity import (
-            ActivityInput,
-        )
-
-        activity_data = ActivityInput(
-            name=valid_activity_data["name"],
-            description=valid_activity_data["description"],
-            activitySchema=json.dumps(
-                valid_activity_data["activity_schema"]
-            ),
-            icon=valid_activity_data["icon"],
-            color=valid_activity_data["color"],
-        )
-
-        result = activity_service.create_activity_graphql(
-            activity_data, test_user.id
-        )
-
-        assert result.id() == mock_activity.id
-        assert result.name() == mock_activity.name
-        assert (
-            result.description()
-            == mock_activity.description
-        )
-
-    def test_get_activity_graphql(
-        self, activity_service, mock_activity, test_user
-    ):
-        """Test activity retrieval through GraphQL endpoint."""
-        activity_service.activity_repository.get_by_id = (
-            Mock(return_value=mock_activity)
-        )
-
-        result = activity_service.get_activity_graphql(
-            1, test_user.id
-        )
-
-        assert result.id() == mock_activity.id
-        assert result.name() == mock_activity.name
-        assert (
-            result.description()
-            == mock_activity.description
-        )
-
-    def test_list_activities_graphql(
-        self, activity_service, mock_activity, test_user
-    ):
-        """Test activity listing through GraphQL endpoint."""
-        activity_service.activity_repository.list_activities = Mock(
-            return_value=[mock_activity]
-        )
-
-        result = activity_service.list_activities_graphql(
-            test_user.id, skip=0, limit=10
-        )
-
-        assert len(result) == 1
-        assert result[0].id() == mock_activity.id
-        assert result[0].name() == mock_activity.name
-
-    def test_update_activity_graphql_success(
-        self, activity_service, mock_activity, test_user
-    ):
-        """Test activity update through GraphQL endpoint."""
-        activity_service.activity_repository.get_by_id = (
-            Mock(return_value=mock_activity)
-        )
-        activity_service.activity_repository.update = Mock(
-            return_value=mock_activity
-        )
-
-        from schemas.graphql.types.Activity import (
-            ActivityUpdateInput,
-        )
-
-        activity_data = ActivityUpdateInput(
-            name="Updated Activity",
-            description="Updated description",
-            activitySchema=json.dumps(
-                mock_activity.activity_schema
-            ),
-            icon="🎯",
-            color="#00FF00",
-        )
-
-        result = activity_service.update_activity_graphql(
-            1, activity_data, test_user.id
-        )
-
-        assert result.id() == mock_activity.id
-        assert result.name() == mock_activity.name
-        assert (
-            result.description()
-            == mock_activity.description
-        )
-
-    def test_update_activity_graphql_not_found(
-        self, activity_service, test_user
-    ):
-        """Test activity update through GraphQL endpoint when not found."""
-        activity_service.activity_repository.get_by_id = (
-            Mock(return_value=None)
-        )
-
-        from schemas.graphql.types.Activity import (
-            ActivityUpdateInput,
-        )
-
-        update_data = ActivityUpdateInput(
-            name="Updated Activity"
-        )
-        with pytest.raises(HTTPException) as exc:
-            activity_service.update_activity_graphql(
-                1, update_data, test_user.id
-            )
-        assert exc.value.status_code == 404
-        assert "Activity not found" in str(exc.value.detail)

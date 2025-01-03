@@ -447,3 +447,175 @@ class TestMomentRouter:
             response_data["detail"]["type"]
             == "AuthenticationError"
         )
+
+    @pytest.mark.asyncio
+    async def test_attach_note_success(
+        self,
+        client,
+        mock_moment_service,
+        mock_current_user,
+        mock_auth_credentials,
+    ):
+        """Test successful note attachment to moment."""
+        moment_id = 1
+        note_id = 1
+
+        # Mock service response
+        mock_moment_service.attach_note.return_value = (
+            MomentResponse(
+                id=moment_id,
+                activity=ActivityResponse(
+                    id="1",
+                    name="Test Activity",
+                    description="Test Description",
+                    activity_schema={
+                        "type": "object",
+                        "properties": {},
+                    },
+                    icon="test-icon",
+                    color="#000000",
+                    user_id="test-user-id",
+                    created_at=datetime(
+                        2024, 12, 16, 18, 41, 0, 140952
+                    ),
+                    updated_at=datetime(
+                        2024, 12, 16, 18, 41, 0, 140952
+                    ),
+                ),
+                activity_id=1,
+                data={"notes": "Test notes"},
+                timestamp=datetime(
+                    2024, 12, 16, 18, 41, 0, 140952
+                ),
+                note_id=note_id,
+            )
+        )
+
+        # Make request
+        response = client.put(
+            f"/v1/moments/{moment_id}/note",
+            params={"note_id": note_id},
+            headers={
+                "Authorization": f"Bearer {mock_auth_credentials.credentials}"
+            },
+        )
+
+        assert response.status_code == 200
+        assert response.json()["data"]["note_id"] == note_id
+        mock_moment_service.attach_note.assert_called_once_with(
+            moment_id, note_id, mock_current_user.id
+        )
+
+    @pytest.mark.asyncio
+    async def test_detach_note_success(
+        self,
+        client,
+        mock_moment_service,
+        mock_current_user,
+        mock_auth_credentials,
+    ):
+        """Test successful note detachment from moment."""
+        moment_id = 1
+
+        # Mock service response
+        mock_moment_service.detach_note.return_value = (
+            MomentResponse(
+                id=moment_id,
+                activity=ActivityResponse(
+                    id="1",
+                    name="Test Activity",
+                    description="Test Description",
+                    activity_schema={
+                        "type": "object",
+                        "properties": {},
+                    },
+                    icon="test-icon",
+                    color="#000000",
+                    user_id="test-user-id",
+                    created_at=datetime(
+                        2024, 12, 16, 18, 41, 0, 140952
+                    ),
+                    updated_at=datetime(
+                        2024, 12, 16, 18, 41, 0, 140952
+                    ),
+                ),
+                activity_id=1,
+                data={"notes": "Test notes"},
+                timestamp=datetime(
+                    2024, 12, 16, 18, 41, 0, 140952
+                ),
+                note_id=None,
+            )
+        )
+
+        # Make request
+        response = client.delete(
+            f"/v1/moments/{moment_id}/note",
+            headers={
+                "Authorization": f"Bearer {mock_auth_credentials.credentials}"
+            },
+        )
+
+        assert response.status_code == 200
+        assert response.json()["data"]["note_id"] is None
+        mock_moment_service.detach_note.assert_called_once_with(
+            moment_id, mock_current_user.id
+        )
+
+    @pytest.mark.asyncio
+    async def test_attach_note_unauthenticated(
+        self,
+        client,
+        mock_moment_service,
+    ):
+        """Test note attachment without authentication."""
+        moment_id = 1
+        note_id = 1
+
+        response = client.put(
+            f"/v1/moments/{moment_id}/note",
+            params={"note_id": note_id},
+        )
+
+        assert response.status_code == 401
+        response_data = response.json()
+        assert (
+            response_data["detail"]["code"]
+            == "UNAUTHORIZED"
+        )
+        assert (
+            "Invalid or missing authentication token"
+            in response_data["detail"]["message"]
+        )
+        assert (
+            response_data["detail"]["type"]
+            == "AuthenticationError"
+        )
+
+    @pytest.mark.asyncio
+    async def test_detach_note_unauthenticated(
+        self,
+        client,
+        mock_moment_service,
+    ):
+        """Test note detachment without authentication."""
+        moment_id = 1
+
+        response = client.delete(
+            f"/v1/moments/{moment_id}/note",
+        )
+
+        assert response.status_code == 401
+        response_data = response.json()
+        assert (
+            response_data["detail"]["code"]
+            == "UNAUTHORIZED"
+        )
+        assert (
+            "Invalid or missing authentication token"
+            in response_data["detail"]["message"]
+        )
+        assert (
+            response_data["detail"]["type"]
+            == "AuthenticationError"
+        )

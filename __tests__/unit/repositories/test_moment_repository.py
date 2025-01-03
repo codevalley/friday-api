@@ -180,8 +180,12 @@ def test_create_moment_with_invalid_user(
         timestamp=datetime.now(timezone.utc),
     )
 
-    with pytest.raises(ValueError):
+    with pytest.raises(HTTPException) as exc_info:
         moment_repo.create(moment)
+    assert exc_info.value.status_code == 409
+    assert "foreign key constraint fails" in str(
+        exc_info.value.detail
+    )
 
 
 def test_get_recent_by_user(

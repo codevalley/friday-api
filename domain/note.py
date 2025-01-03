@@ -6,7 +6,6 @@ from domain.exceptions import (
     NoteValidationError,
     NoteContentError,
     NoteAttachmentError,
-    NoteReferenceError,
 )
 from domain.values import ProcessingStatus
 
@@ -17,15 +16,13 @@ T = TypeVar("T", bound="NoteData")
 class NoteData:
     """Domain model for Note.
 
-    This class represents a note attached to an activity or moment
-    and contains all business logic and validation rules.
+    This class represents a note that can be attached to moments or tasks.
+    It contains all business logic and validation rules.
     """
 
     content: str
     user_id: str
-    activity_id: Optional[int] = None
     attachments: Optional[List[Dict[str, Any]]] = None
-    moment_id: Optional[int] = None
     id: Optional[int] = None
     created_at: datetime = field(
         default_factory=datetime.now
@@ -69,24 +66,6 @@ class NoteData:
             raise NoteValidationError(
                 "user_id must be a non-empty string"
             )
-
-        if self.activity_id is not None:
-            if (
-                not isinstance(self.activity_id, int)
-                or self.activity_id <= 0
-            ):
-                raise NoteReferenceError(
-                    "activity_id must be a positive integer"
-                )
-
-        if self.moment_id is not None:
-            if (
-                not isinstance(self.moment_id, int)
-                or self.moment_id <= 0
-            ):
-                raise NoteReferenceError(
-                    "moment_id must be a positive integer"
-                )
 
         if self.attachments is not None:
             if not isinstance(self.attachments, list):
@@ -151,8 +130,6 @@ class NoteData:
             "id": self.id,
             "content": self.content,
             "user_id": self.user_id,
-            "activity_id": self.activity_id,
-            "moment_id": self.moment_id,
             "attachments": self.attachments,
             "created_at": self.created_at,
             "updated_at": self.updated_at,

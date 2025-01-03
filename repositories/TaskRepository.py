@@ -116,12 +116,10 @@ class TaskRepository(BaseRepository[Task, int]):
             query = query.filter(Task.priority == priority)
         if due_before is not None:
             query = query.filter(
-                Task._due_date <= due_before
+                Task.due_date <= due_before
             )
         if due_after is not None:
-            query = query.filter(
-                Task._due_date >= due_after
-            )
+            query = query.filter(Task.due_date >= due_after)
         if parent_id is not None:
             query = query.filter(
                 Task.parent_id == parent_id
@@ -130,7 +128,7 @@ class TaskRepository(BaseRepository[Task, int]):
         # Order by priority (high to low) then due date
         query = query.order_by(
             desc(Task.priority),
-            asc(Task._due_date),
+            asc(Task.due_date),
         )
 
         return query.offset(skip).limit(limit).all()
@@ -182,7 +180,7 @@ class TaskRepository(BaseRepository[Task, int]):
             )
             .order_by(
                 desc(Task.priority),
-                asc(Task._due_date),
+                asc(Task.due_date),
             )
             .offset(skip)
             .limit(limit)

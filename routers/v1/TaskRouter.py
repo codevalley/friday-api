@@ -188,3 +188,47 @@ async def get_subtasks(
         data=result,
         message=f"Retrieved {result['total']} subtasks",
     )
+
+
+@router.put(
+    "/{task_id}/note",
+    response_model=GenericResponse[TaskResponse],
+)
+@handle_exceptions
+async def attach_note(
+    task_id: int,
+    note_id: int,
+    service: TaskService = Depends(),
+    current_user: User = Depends(get_current_user),
+) -> GenericResponse[TaskResponse]:
+    """Attach a note to a task.
+
+    Args:
+        task_id: ID of the task to update
+        note_id: ID of the note to attach
+    """
+    result = service.attach_note(
+        task_id, note_id, current_user.id
+    )
+    return GenericResponse(
+        data=result,
+        message="Note attached to task successfully",
+    )
+
+
+@router.delete(
+    "/{task_id}/note",
+    response_model=GenericResponse[TaskResponse],
+)
+@handle_exceptions
+async def detach_note(
+    task_id: int,
+    service: TaskService = Depends(),
+    current_user: User = Depends(get_current_user),
+) -> GenericResponse[TaskResponse]:
+    """Detach the note from a task."""
+    result = service.detach_note(task_id, current_user.id)
+    return GenericResponse(
+        data=result,
+        message="Note detached from task successfully",
+    )

@@ -6,7 +6,6 @@ from sqlalchemy.orm import Session
 from datetime import datetime, timezone
 
 from domain.moment import MomentData
-from schemas.graphql.types.Moment import Moment
 from repositories.MomentRepository import MomentRepository
 from configs.Database import get_db_connection
 from repositories.ActivityRepository import (
@@ -279,100 +278,74 @@ class MomentService:
 
         Args:
             moment_id: ID of moment to get
-            user_id: ID of user requesting moment
+            user_id: ID of user requesting the moment
 
         Returns:
-            Moment if found and belongs to user
+            Moment response
 
         Raises:
             HTTPException: If moment not found or doesn't belong to user
         """
         moment = self.moment_repository.get(moment_id)
-        if not moment or moment.activity.user_id != user_id:
+        if not moment or moment.user_id != user_id:
             raise HTTPException(
                 status_code=404,
-                detail="Moment not found",
+                detail="Moment not found or does not belong to user",
             )
 
         return MomentResponse.model_validate(moment)
 
-    def get_moment_graphql(
-        self, moment_id: int, user_id: str
-    ) -> Moment:
-        """Get a moment by ID for GraphQL
+    def update_moment(
+        self,
+        moment_id: int,
+        moment_update: MomentUpdate,
+        user_id: str,
+    ) -> MomentResponse:
+        """Update a moment
 
         Args:
-            moment_id: ID of moment to get
-            user_id: ID of user requesting moment
+            moment_id: ID of moment to update
+            moment_update: Update data
+            user_id: ID of user making the update
 
         Returns:
-            Moment if found and belongs to user
+            Updated moment response
 
         Raises:
             HTTPException: If moment not found or doesn't belong to user
         """
         moment = self.moment_repository.get(moment_id)
-        if not moment or moment.activity.user_id != user_id:
+        if not moment or moment.user_id != user_id:
             raise HTTPException(
                 status_code=404,
-                detail="Moment not found",
+                detail="Moment not found or does not belong to user",
             )
 
-        # Convert to domain model with user_id
-        domain_data = MomentData.from_orm(moment)
-        domain_data.user_id = (
-            user_id  # Ensure user_id is set
+        # Validate data against activity schema
+        activity = self.activity_repository.get(
+            moment.activity_id
         )
-        return Moment.from_domain(domain_data)
-
-    def update_moment(
-        self,
-        moment_id: int,
-        moment_data: MomentUpdate,
-        user_id: str,
-    ) -> MomentResponse:
-        """Update an existing moment
-
-        Args:
-            moment_id: ID of moment to update
-            moment_data: New moment data
-            user_id: ID of user updating moment
-
-        Returns:
-            Updated moment
-
-        Raises:
-            HTTPException: If moment not found or validation fails
-        """
-        # Get existing moment
-        moment = self.moment_repository.get(moment_id)
-        if not moment or moment.activity.user_id != user_id:
+        if not activity:
             raise HTTPException(
                 status_code=404,
-                detail="Moment not found",
+                detail="Activity not found",
             )
 
-        # Validate new data against activity schema
         try:
-            moment.activity.validate_moment_data(
-                moment_data.data
+            activity.validate_moment_data(
+                moment_update.data
             )
         except ValueError as e:
             raise HTTPException(
                 status_code=400,
-                detail=f"Moment data does not match"
-                f" activity schema: {str(e)}",
+                detail=f"Moment data does not match activity schema: {str(e)}",
             )
 
-        # Update moment
-        update_dict = moment_data.model_dump(
-            exclude_unset=True,
-            exclude_none=True,
+        # Update the moment
+        updated_moment = self.moment_repository.update(
+            moment_id, moment_update.model_dump()
         )
-        updated = self.moment_repository.update(
-            moment_id, update_dict
-        )
-        return MomentResponse.model_validate(updated)
+        return MomentResponse.model_validate(updated_moment)
 
     def list_recent_activities(
         self, user_id: str, limit: int = 10
@@ -384,21 +357,14 @@ class MomentService:
             limit: Maximum number of activities to return
 
         Returns:
-            List of recent activities
-
-        Raises:
-            HTTPException: If limit is invalid
+            List of recent moment responses
         """
-        if limit < 1 or limit > 100:
-            raise HTTPException(
-                status_code=400,
-                detail="Limit must be between 1 and 100",
-            )
-
-        moments = self.moment_repository.get_recent_by_user(
-            user_id, limit
+        moments = self.moment_repository.list_moments(
+            page=1,
+            size=limit,
+            user_id=user_id,
         )
         return [
             MomentResponse.model_validate(m)
-            for m in moments
+            for m in moments.items
         ]

@@ -24,8 +24,6 @@ class Note(Base):
         id: Primary key
         content: Note content
         user_id: ID of the user who created the note
-        activity_id: Optional ID of associated activity
-        moment_id: Optional ID of associated moment
         attachments: List of attachments
         processing_status: Current processing status
         enrichment_data: Data from note processing
@@ -40,14 +38,6 @@ class Note(Base):
     content = Column(String(4096), nullable=False)
     user_id = Column(
         String(36), ForeignKey("users.id"), nullable=False
-    )
-    activity_id = Column(
-        Integer,
-        ForeignKey("activities.id"),
-        nullable=True,
-    )
-    moment_id = Column(
-        Integer, ForeignKey("moments.id"), nullable=True
     )
     attachments = Column(JSON, nullable=False, default=list)
     processing_status = Column(
@@ -72,7 +62,8 @@ class Note(Base):
     )
 
     # Relationships
-    owner = relationship("User", back_populates="notes")
+    user = relationship("User", back_populates="notes")
+    moments = relationship("Moment", back_populates="note")
 
     def __init__(self, **kwargs):
         """Initialize note with default processing status if not provided."""
@@ -92,8 +83,6 @@ class Note(Base):
             "id": self.id,
             "content": self.content,
             "user_id": self.user_id,
-            "activity_id": self.activity_id,
-            "moment_id": self.moment_id,
             "attachments": self.attachments or [],
             "processing_status": self.processing_status,
             "enrichment_data": self.enrichment_data,

@@ -27,6 +27,7 @@ class MomentBase(BaseSchema):
         activity_id: ID of the activity this moment belongs to
         data: Activity-specific data matching activity's schema
         timestamp: UTC timestamp of when this moment occurred
+        note_id: Optional ID of an associated note
     """
 
     activity_id: int = Field(
@@ -41,6 +42,11 @@ class MomentBase(BaseSchema):
     timestamp: Optional[datetime] = Field(
         None,
         description="UTC timestamp of when this moment occurred",
+    )
+    note_id: Optional[int] = Field(
+        None,
+        gt=0,
+        description="Optional ID of an associated note",
     )
 
     model_config = model_config

@@ -2,7 +2,7 @@
 
 ## Overview
 
-The application services layer implements the business logic of the application. It acts as a mediator between the domain models and the external interfaces (GraphQL API). Services handle data validation, business rules, and coordinate operations between repositories.
+The application services layer implements the business logic of the application. It acts as a mediator between the domain models and the external interfaces (REST API). Services handle data validation, business rules, and coordinate operations between repositories.
 
 ## Service Implementation
 
@@ -15,7 +15,7 @@ class ActivityService:
         self.db = db
         self.activity_repository = ActivityRepository(db)
 
-    def create_activity(self, activity_data: ActivityCreate) -> ActivityType:
+    def create_activity(self, activity_data: ActivityCreate) -> ActivityResponse:
         """Create a new activity with schema validation"""
         activity = self.activity_repository.create(
             name=activity_data.name,
@@ -24,12 +24,12 @@ class ActivityService:
             icon=activity_data.icon,
             color=activity_data.color
         )
-        return ActivityType.from_db(activity)
+        return ActivityResponse.model_validate(activity)
 
-    def get_activity(self, activity_id: int) -> Optional[ActivityType]:
+    def get_activity(self, activity_id: int) -> Optional[ActivityResponse]:
         """Get an activity by ID"""
         activity = self.activity_repository.validate_existence(activity_id)
-        return ActivityType.from_db(activity)
+        return ActivityResponse.model_validate(activity)
 ```
 
 ### Moment Service
@@ -42,7 +42,7 @@ class MomentService:
         self.moment_repository = MomentRepository(db)
         self.activity_repository = ActivityRepository(db)
 
-    def create_moment(self, moment_data: MomentCreate) -> MomentType:
+    def create_moment(self, moment_data: MomentCreate) -> MomentResponse:
         """Create a new moment with data validation"""
         # Get activity to validate data against schema
         activity = self.activity_repository.validate_existence(moment_data.activity_id)
@@ -62,7 +62,7 @@ class MomentService:
             timestamp=moment_data.timestamp
         )
 
-        return MomentType.from_db(moment)
+        return MomentResponse.model_validate(moment)
 
     def list_moments(
         self,
@@ -71,7 +71,7 @@ class MomentService:
         activity_id: Optional[int] = None,
         start_time: Optional[str] = None,
         end_time: Optional[str] = None
-    ) -> MomentConnection:
+    ) -> PaginationResponse:
         """List moments with filtering and pagination"""
         moments_list = self.moment_repository.list_moments(
             page=page,
@@ -81,8 +81,8 @@ class MomentService:
             end_time=end_time
         )
 
-        return MomentConnection(
-            items=[MomentType.from_db(moment) for moment in moments_list.items],
+        return PaginationResponse(
+            items=[MomentResponse.model_validate(moment) for moment in moments_list.items],
             total=moments_list.total,
             page=moments_list.page,
             size=moments_list.size,
@@ -104,8 +104,8 @@ class MomentService:
 
 3. **Type Safety**
    - Strong typing with Pydantic models
-   - GraphQL type conversion
    - Runtime type checking
+   - Comprehensive type hints
 
 ## Service Layer Responsibilities
 
@@ -141,19 +141,19 @@ class MomentService:
    - Proper exception hierarchy
    - Informative error messages
 
-## GraphQL Integration
+## API Integration
 
-1. **Type Conversion**
-   - Converts between database models and GraphQL types
+1. **Response Formatting**
+   - Converts between database models and API responses
    - Handles nested relationships
-   - Manages field resolution
+   - Manages field serialization
 
-2. **Query Resolution**
+2. **Query Handling**
    - Efficient data loading
    - Proper pagination
    - Field-level permissions
 
-3. **Mutation Handling**
+3. **Request Processing**
    - Input validation
    - Transaction management
    - Response formatting

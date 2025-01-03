@@ -22,8 +22,6 @@ class NoteRepository:
         self,
         content: str,
         user_id: str,
-        activity_id: Optional[int] = None,
-        moment_id: Optional[int] = None,
         attachments: Optional[List[Dict[str, Any]]] = None,
         processing_status: ProcessingStatus = ProcessingStatus.PENDING,
     ) -> Note:
@@ -32,8 +30,6 @@ class NoteRepository:
         Args:
             content: Note content
             user_id: ID of the user creating the note
-            activity_id: Optional ID of associated activity
-            moment_id: Optional ID of associated moment
             attachments: Optional list of attachments
             processing_status: Initial processing status
 
@@ -43,8 +39,6 @@ class NoteRepository:
         note = Note(
             content=content,
             user_id=user_id,
-            activity_id=activity_id,
-            moment_id=moment_id,
             attachments=attachments or [],
             processing_status=processing_status,
         )

@@ -98,7 +98,7 @@ class User(EntityMeta):
     )
     notes: Mapped[List["Note"]] = relationship(
         "Note",
-        back_populates="owner",
+        back_populates="user",
         cascade="all, delete-orphan",
     )
     tasks: Mapped[List["Task"]] = relationship(

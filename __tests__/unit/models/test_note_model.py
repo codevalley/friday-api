@@ -1,7 +1,27 @@
 """Test NoteModel class."""
 
+import uuid
+from datetime import datetime
+
+import pytest
+
 from orm.NoteModel import Note
+from orm.UserModel import User
 from domain.values import ProcessingStatus
+
+
+@pytest.fixture
+def sample_user(test_db_session) -> User:
+    """Create a sample user for testing."""
+    user = User(
+        username=f"testuser_{uuid.uuid4().hex[:8]}",  # Make username unique
+        key_id=str(uuid.uuid4()),
+        user_secret="test-secret-hash",
+    )
+    test_db_session.add(user)
+    test_db_session.commit()
+    test_db_session.refresh(user)
+    return user
 
 
 def test_note_initialization():
@@ -80,8 +100,10 @@ def test_note_database_persistence(
     assert saved_note.attachments[0]["type"] == "document"
 
 
-def test_note_relationships(test_db_session, sample_user):
-    """Test note relationships."""
+def test_note_processing_status_update(
+    test_db_session, sample_user
+):
+    """Test updating note processing status."""
     note = Note(
         user_id=sample_user.id,
         content="Test Note Content",
@@ -90,6 +112,97 @@ def test_note_relationships(test_db_session, sample_user):
     test_db_session.add(note)
     test_db_session.commit()
 
-    # Test relationship with user
-    assert note.owner == sample_user
+    # Verify initial status
+    assert (
+        note.processing_status == ProcessingStatus.PENDING
+    )
+
+    # Update status
+    note.processing_status = ProcessingStatus.PROCESSING
+    test_db_session.commit()
+    test_db_session.refresh(note)
+
+    assert (
+        note.processing_status
+        == ProcessingStatus.PROCESSING
+    )
+
+    # Update to completed
+    note.processing_status = ProcessingStatus.COMPLETED
+    test_db_session.commit()
+    test_db_session.refresh(note)
+
+    assert (
+        note.processing_status == ProcessingStatus.COMPLETED
+    )
+
+
+def test_note_timestamps(test_db_session, sample_user):
+    """Test note timestamp handling."""
+    note = Note(
+        user_id=sample_user.id,
+        content="Test Note Content",
+        attachments=[],
+    )
+    test_db_session.add(note)
+    test_db_session.commit()
+
+    # Verify created_at is set
+    assert note.created_at is not None
+    assert isinstance(note.created_at, datetime)
+
+    # Initially updated_at should be None
+    assert note.updated_at is None
+
+    # Update note
+    original_content = note.content
+    note.content = "Updated content"
+    test_db_session.commit()
+    test_db_session.refresh(note)
+
+    # Verify updated_at is set
+    assert note.updated_at is not None
+    assert isinstance(note.updated_at, datetime)
+    assert note.content != original_content
+
+
+def test_note_user_relationship(
+    test_db_session, sample_user
+):
+    """Test relationship between Note and User models."""
+    note = Note(
+        user_id=sample_user.id,
+        content="Test Note Content",
+        attachments=[],
+    )
+    test_db_session.add(note)
+    test_db_session.commit()
+    test_db_session.refresh(note)
+
+    # Verify relationship
+    assert note.user == sample_user
     assert note in sample_user.notes
+
+
+def test_note_cascade_delete(test_db_session, sample_user):
+    """Test that notes are deleted when user is deleted."""
+    note = Note(
+        user_id=sample_user.id,
+        content="Test Note Content",
+        attachments=[],
+    )
+    test_db_session.add(note)
+    test_db_session.commit()
+    test_db_session.refresh(note)
+
+    # Delete user
+    test_db_session.delete(sample_user)
+    test_db_session.commit()
+
+    # Verify note is deleted
+    saved_note = (
+        test_db_session.query(Note)
+        .filter_by(id=note.id)
+        .first()
+    )
+    assert saved_note is None

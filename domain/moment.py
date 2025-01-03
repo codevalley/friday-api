@@ -1,8 +1,16 @@
 """Domain model for Moment."""
 
 from dataclasses import dataclass
-from datetime import datetime, timezone, timedelta, UTC
-from typing import Dict, Any, Optional, TypeVar, Type
+from datetime import datetime, timezone, timedelta
+from typing import (
+    Dict,
+    Any,
+    Optional,
+    TypeVar,
+    Type,
+    Set,
+    Union,
+)
 
 from domain.exceptions import (
     MomentValidationError,
@@ -22,6 +30,7 @@ class MomentData:
 
     This class represents a single moment or event recorded for an activity.
     It contains all the business logic and validation rules for moments.
+    A moment can optionally reference a note for additional context.
 
     Data Flow and Conversions:
     1. API Layer: Incoming data is validated by Pydantic schemas
@@ -39,6 +48,7 @@ class MomentData:
         user_id: ID of the user who created this moment
         data: JSON data specific to the activity type
         timestamp: When this moment occurred
+        note_id: Optional ID of an associated note
         id: Unique identifier for the moment (optional)
         created_at: When this record was created (optional)
         updated_at: When this record was last updated (optional)
@@ -48,6 +58,7 @@ class MomentData:
     user_id: str
     data: Dict[str, Any]
     timestamp: datetime
+    note_id: Optional[int] = None
     id: Optional[int] = None
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
@@ -65,8 +76,13 @@ class MomentData:
         3. Timezone-aware
 
         Raises:
-            ValueError: If timestamp validation fails
+            MomentTimestampError: If timestamp validation fails
         """
+        if not isinstance(self.timestamp, datetime):
+            raise MomentTimestampError(
+                "timestamp must be a datetime object"
+            )
+
         if self.timestamp.tzinfo is None:
             raise MomentTimestampError(
                 "timestamp must be timezone-aware"
@@ -86,25 +102,64 @@ class MomentData:
                 "timestamp cannot be more than 10 years in the past"
             )
 
+    def _validate_nested_data(
+        self, data: Any, visited: Set[int] = None
+    ) -> None:
+        """Validate nested data structure for circular references.
+
+        Args:
+            data: The data structure to validate
+            visited: Set of object ids already visited
+
+        Raises:
+            MomentDataError: If a circular reference is detected
+        """
+        if visited is None:
+            visited = set()
+
+        # Check for circular references
+        data_id = id(data)
+        if data_id in visited:
+            raise MomentDataError(
+                "Invalid data structure: circular reference detected"
+            )
+
+        # Only track references for mutable types that could be circular
+        if isinstance(data, (dict, list)):
+            visited.add(data_id)
+
+            if isinstance(data, dict):
+                for value in data.values():
+                    self._validate_nested_data(
+                        value, visited
+                    )
+            else:  # list
+                for item in data:
+                    self._validate_nested_data(
+                        item, visited
+                    )
+
     def validate(self) -> None:
         """Validate the moment data.
 
-        This method performs comprehensive validation of all fields
-        to ensure data integrity and consistency.
-
         Raises:
-            ValueError: If any validation fails
+            MomentValidationError: If validation fails
+            MomentTimestampError: If timestamp validation fails
+            MomentDataError: If data validation fails
         """
-        if (
-            not isinstance(self.activity_id, int)
-            or self.activity_id <= 0
-        ):
+        # Basic field validations
+        if not isinstance(self.activity_id, int):
+            raise MomentValidationError(
+                "activity_id must be a positive integer"
+            )
+        if self.activity_id <= 0:
             raise MomentValidationError(
                 "activity_id must be a positive integer"
             )
 
-        if not self.user_id or not isinstance(
-            self.user_id, str
+        if (
+            not isinstance(self.user_id, str)
+            or not self.user_id
         ):
             raise MomentValidationError(
                 "user_id must be a non-empty string"
@@ -115,76 +170,46 @@ class MomentData:
                 "data must be a dictionary"
             )
 
-        # Validate data structure
+        # Validate nested data structure
         try:
             self._validate_nested_data(self.data)
-        except ValueError as e:
-            raise MomentDataError(
-                f"Invalid data structure: {str(e)}"
-            )
+        except MomentDataError as e:
+            raise e
 
+        # Validate note_id if present
+        if self.note_id is not None:
+            if not isinstance(self.note_id, int):
+                raise MomentValidationError(
+                    "note_id must be a positive integer"
+                )
+            if self.note_id <= 0:
+                raise MomentValidationError(
+                    "note_id must be a positive integer"
+                )
+
+        # Validate timestamp
         if not isinstance(self.timestamp, datetime):
             raise MomentTimestampError(
                 "timestamp must be a datetime object"
             )
 
-        # Validate timestamp constraints
-        self.validate_timestamp()
-
-        # Validate microsecond precision
-        if self.timestamp.microsecond >= 1000000:
+        if self.timestamp.tzinfo is None:
             raise MomentTimestampError(
-                "microsecond must be in 0..999999"
+                "timestamp must be timezone-aware"
             )
 
-        if self.id is not None and (
-            not isinstance(self.id, int) or self.id <= 0
-        ):
-            raise MomentValidationError(
-                "id must be a positive integer"
+        # Validate timestamp range
+        now = datetime.now(timezone.utc)
+        if self.timestamp > now + timedelta(days=1):
+            raise MomentTimestampError(
+                "timestamp cannot be more than 1 day in the future"
             )
 
-        if self.created_at is not None and not isinstance(
-            self.created_at, datetime
-        ):
-            raise MomentValidationError(
-                "created_at must be a datetime object"
+        ten_years_ago = now - timedelta(days=365 * 10)
+        if self.timestamp < ten_years_ago:
+            raise MomentTimestampError(
+                "timestamp cannot be more than 10 years in the past"
             )
-
-        if self.updated_at is not None and not isinstance(
-            self.updated_at, datetime
-        ):
-            raise MomentValidationError(
-                "updated_at must be a datetime object"
-            )
-
-    def _validate_nested_data(
-        self, data: Dict[str, Any], depth: int = 0
-    ) -> None:
-        """Validate nested data structures.
-
-        Args:
-            data: Data to validate
-            depth: Current recursion depth
-
-        Raises:
-            ValueError: If validation fails
-        """
-        if depth > 10:
-            raise ValueError("circular reference detected")
-
-        if isinstance(data, dict):
-            for key, value in data.items():
-                if isinstance(value, (dict, list)):
-                    self._validate_nested_data(
-                        value, depth + 1
-                    )
-        elif isinstance(data, list):
-            for item in data:
-                if isinstance(item, (dict, list)):
-                    self._validate_nested_data(
-                        item, depth + 1
-                    )
 
     def validate_against_schema(
         self, activity_schema: Dict[str, Any]
@@ -214,45 +239,46 @@ class MomentData:
             "user_id": self.user_id,
             "data": self.data,
             "timestamp": self.timestamp,
+            "note_id": self.note_id,
             "created_at": self.created_at,
             "updated_at": self.updated_at,
         }
 
-    def to_json_dict(
-        self, graphql: bool = False
-    ) -> Dict[str, Any]:
+    def to_json_dict(self) -> Dict[str, Any]:
         """Convert to a JSON-compatible dictionary.
 
-        Args:
-            graphql: Whether to use GraphQL field naming (camelCase)
-
         Returns:
-            Dict[str, Any]: JSON-compatible dictionary
+            Dict[str, Any]: JSON-compatible dictionary representation
         """
-        data = self.to_dict()
-        if graphql:
-            # Convert snake_case to camelCase for GraphQL
-            return {
-                "id": data["id"],
-                "activityId": data["activity_id"],
-                "userId": data["user_id"],
-                "data": data["data"],
-                "timestamp": data["timestamp"],
-                "createdAt": data["created_at"],
-                "updatedAt": data["updated_at"],
-            }
-        return data
+        return {
+            "id": str(self.id) if self.id else None,
+            "activity_id": self.activity_id,
+            "user_id": self.user_id,
+            "data": self.data,
+            "timestamp": self.timestamp.isoformat(),
+            "note_id": self.note_id,
+            "created_at": (
+                self.created_at.isoformat()
+                if self.created_at
+                else None
+            ),
+            "updated_at": (
+                self.updated_at.isoformat()
+                if self.updated_at
+                else None
+            ),
+        }
 
     @classmethod
     def from_dict(
         cls: Type[T],
-        data: Dict[str, Any],
+        data: Union[Dict[str, Any], "MomentData"],
         user_id: Optional[str] = None,
     ) -> T:
         """Create a MomentData instance from a dictionary.
 
         Args:
-            data: Dictionary containing moment data
+            data: Dictionary containing moment data or MomentData instance
             user_id: Optional user ID to use if not present in data
 
         Returns:
@@ -261,40 +287,32 @@ class MomentData:
         Raises:
             ValueError: If required fields are missing or invalid
         """
+        if isinstance(data, MomentData):
+            return data
+
         # Handle both snake_case and camelCase keys
         activity_id = data.get("activity_id") or data.get(
             "activityId"
         )
-        timestamp = data.get("timestamp") or datetime.now(
-            UTC
+        moment_data = data.get("data") or data.get(
+            "momentData"
         )
-        created_at = data.get("created_at") or data.get(
-            "createdAt"
-        )
-        updated_at = data.get("updated_at") or data.get(
-            "updatedAt"
-        )
-
-        # Get user_id from data or use the provided one
-        data_user_id = data.get("user_id") or data.get(
+        timestamp = data.get("timestamp")
+        note_id = data.get("note_id") or data.get("noteId")
+        moment_user_id = data.get("user_id") or data.get(
             "userId"
         )
-        final_user_id = data_user_id or user_id
 
-        if not activity_id:
-            raise ValueError("activity_id is required")
-
-        if not final_user_id:
-            raise ValueError("user_id is required")
+        # Use provided user_id if not in data
+        if not moment_user_id and user_id:
+            moment_user_id = user_id
 
         return cls(
-            id=data.get("id"),
             activity_id=activity_id,
-            user_id=final_user_id,
-            data=data.get("data", {}),
+            user_id=moment_user_id,
+            data=moment_data,
             timestamp=timestamp,
-            created_at=created_at,
-            updated_at=updated_at,
+            note_id=note_id,
         )
 
     @classmethod
@@ -313,6 +331,7 @@ class MomentData:
             user_id=orm_model.user_id,
             data=orm_model.data,
             timestamp=orm_model.timestamp,
+            note_id=orm_model.note_id,
             created_at=orm_model.created_at,
             updated_at=orm_model.updated_at,
         )

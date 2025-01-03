@@ -50,8 +50,10 @@ def test_create(
 
     # Compare timestamps by converting both to UTC
     # and comparing the total seconds
-    task_due_date = task.due_date
-    sample_due_date = sample_task_data["due_date"]
+    task_due_date = task.due_date.replace(tzinfo=UTC)
+    sample_due_date = sample_task_data["due_date"].replace(
+        tzinfo=UTC
+    )
     assert int(task_due_date.timestamp()) == int(
         sample_due_date.timestamp()
     )
@@ -108,6 +110,9 @@ def test_list_tasks(task_repository, sample_user):
             user_id=sample_user.id,
             status=TaskStatus.TODO,
             priority=TaskPriority.MEDIUM,
+            due_date=datetime(
+                2025, 1, 2, 1, 0, 0, tzinfo=UTC
+            ),
         )
         tasks.append(task)
 
@@ -134,6 +139,7 @@ def test_list_tasks_with_filters(
         user_id=sample_user.id,
         status=TaskStatus.TODO,
         priority=TaskPriority.HIGH,
+        due_date=datetime(2025, 1, 2, 1, 0, 0, tzinfo=UTC),
     )
     task_repository.create(
         title="Medium Priority",
@@ -141,6 +147,7 @@ def test_list_tasks_with_filters(
         user_id=sample_user.id,
         status=TaskStatus.IN_PROGRESS,
         priority=TaskPriority.MEDIUM,
+        due_date=datetime(2025, 1, 2, 1, 0, 0, tzinfo=UTC),
     )
 
     # Test status filter
@@ -169,6 +176,9 @@ def test_count_tasks(task_repository, sample_user):
             description=f"Description {i}",
             user_id=sample_user.id,
             status=TaskStatus.TODO,
+            due_date=datetime(
+                2025, 1, 2, 1, 0, 0, tzinfo=UTC
+            ),
         )
 
     # Count all tasks
@@ -192,6 +202,7 @@ def test_get_subtasks(task_repository, sample_user):
         title="Parent Task",
         description="Parent Description",
         user_id=sample_user.id,
+        due_date=datetime(2025, 1, 2, 1, 0, 0, tzinfo=UTC),
     )
 
     # Create subtasks
@@ -202,6 +213,9 @@ def test_get_subtasks(task_repository, sample_user):
             description=f"Subtask Description {i}",
             user_id=sample_user.id,
             parent_id=parent.id,
+            due_date=datetime(
+                2025, 1, 2, 1, 0, 0, tzinfo=UTC
+            ),
         )
         subtasks.append(subtask)
 
@@ -225,6 +239,7 @@ def test_update_status(task_repository, sample_user):
         description="Test Description",
         user_id=sample_user.id,
         status=TaskStatus.TODO,
+        due_date=datetime(2025, 1, 2, 1, 0, 0, tzinfo=UTC),
     )
 
     # Update status
