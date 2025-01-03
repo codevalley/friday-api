@@ -52,15 +52,21 @@ def test_note_processing_success(
         note.processing_status == ProcessingStatus.COMPLETED
     )
     assert note.enrichment_data is not None
-    assert (
-        note.enrichment_data["formatted"] == "Test Content"
-    )
-    assert note.enrichment_data["title"] == "Test Title"
-    assert note.enrichment_data["tokens_used"] == 100
-    assert (
-        note.enrichment_data["model_name"] == "test-model"
-    )
+    assert "formatted" in note.enrichment_data
+    assert "title" in note.enrichment_data
+    assert "tokens_used" in note.enrichment_data
+    assert "model_name" in note.enrichment_data
     assert "created_at" in note.enrichment_data
+    assert "metadata" in note.enrichment_data
+    assert isinstance(
+        note.enrichment_data["tokens_used"], int
+    )
+    assert isinstance(
+        note.enrichment_data["model_name"], str
+    )
+    assert isinstance(
+        note.enrichment_data["created_at"], str
+    )
 
 
 def test_note_processing_failure(

@@ -206,15 +206,7 @@ class OpenAIService(RoboService):
             messages=[
                 {
                     "role": "system",
-                    "content": (
-                        "You are a note formatting assistant. "
-                        "Your task is to:\n"
-                        "1. Extract a concise title (<50 chars)\n"
-                        "2. Format the content in clean markdown\n"
-                        "3. Use appropriate formatting "
-                        "(bold, italic, lists)\n"
-                        "4. Keep the content concise but complete"
-                    ),
+                    "content": self.config.note_enrichment_prompt,
                 },
                 {"role": "user", "content": content},
             ],

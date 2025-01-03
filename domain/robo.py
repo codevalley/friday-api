@@ -16,6 +16,14 @@ class RoboConfig:
     timeout_seconds: int = 30
     temperature: float = 0.7
     max_tokens: int = 150
+    note_enrichment_prompt: str = (
+        "You are a note formatting assistant. "
+        "Your task is to:\n"
+        "1. Extract a concise title (<50 chars)\n"
+        "2. Format the content in clean markdown\n"
+        "3. Use appropriate formatting (bold, italic, lists)\n"
+        "4. Keep the content concise but complete"
+    )
 
 
 @dataclass

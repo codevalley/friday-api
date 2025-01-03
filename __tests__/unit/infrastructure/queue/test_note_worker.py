@@ -68,10 +68,15 @@ def test_process_note_success(
     mock_result = RoboProcessingResult(
         content="Processed content",
         metadata={
-            "processed": True,
             "title": "Test Note",
+            "model": "test_model",
+            "usage": {
+                "prompt_tokens": 50,
+                "completion_tokens": 50,
+                "total_tokens": 100,
+            },
         },
-        tokens_used=10,
+        tokens_used=100,
         model_name="test_model",
         created_at=datetime.now(timezone.utc),
     )

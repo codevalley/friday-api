@@ -5,7 +5,7 @@ from typing import Optional
 
 
 class RedisConfig(BaseSettings):
-    """Redis configuration settings."""
+    """Redis configuration."""
 
     # Basic Redis connection settings
     host: str = "localhost"
@@ -26,6 +26,13 @@ class RedisConfig(BaseSettings):
 
         env_prefix = "REDIS_"
         env_nested_delimiter = "__"
+
+    def __init__(self, **kwargs):
+        """Initialize Redis configuration."""
+        super().__init__(**kwargs)
+        # Convert empty password to None
+        if self.password == "":
+            self.password = None
 
     def get_connection_params(self) -> dict:
         """Get Redis connection parameters.
