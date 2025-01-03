@@ -30,6 +30,7 @@ from orm.UserModel import User
 from repositories.NoteRepository import NoteRepository
 from services.NoteService import NoteService
 from utils.security import hash_user_secret
+from domain.robo import RoboProcessingResult
 
 # Set test environment before any imports
 import os
@@ -208,9 +209,12 @@ def mock_note_repository():
 
 
 @pytest.fixture(scope="function")
-def note_service(mock_note_repository):
-    """Create a note service instance with mocked repository."""
-    return NoteService(mock_note_repository)
+def note_service(test_db_session, queue_service):
+    """Create a note service instance.
+
+    Uses real database session and mock queue service.
+    """
+    return NoteService(test_db_session, queue_service)
 
 
 @pytest.fixture(scope="function")
@@ -236,3 +240,26 @@ def mock_db():
 @pytest.fixture
 def mock_user():
     return Mock(id="test-user-id")
+
+
+@pytest.fixture(scope="function")
+def queue_service():
+    """Mock queue service for testing."""
+    mock_queue = Mock()
+    mock_queue.enqueue.return_value = None
+    return mock_queue
+
+
+@pytest.fixture(scope="function")
+def robo_service():
+    """Mock robo service for testing."""
+    mock_robo = Mock()
+    mock_robo.process_text.return_value = (
+        RoboProcessingResult(
+            content="Test Content",
+            metadata={"title": "Test Title"},
+            tokens_used=100,
+            model_name="test-model",
+        )
+    )
+    return mock_robo

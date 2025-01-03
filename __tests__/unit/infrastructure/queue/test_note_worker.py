@@ -67,7 +67,10 @@ def test_process_note_success(
     # Mock RoboService response
     mock_result = RoboProcessingResult(
         content="Processed content",
-        metadata={"processed": True},
+        metadata={
+            "processed": True,
+            "title": "Test Note",
+        },
         tokens_used=10,
         model_name="test_model",
         created_at=datetime.now(timezone.utc),
@@ -85,16 +88,18 @@ def test_process_note_success(
         == ProcessingStatus.COMPLETED
     )
     assert mock_note.enrichment_data == {
-        "content": mock_result.content,
-        "metadata": mock_result.metadata,
+        "title": mock_result.metadata["title"],
+        "formatted": mock_result.content,
         "tokens_used": mock_result.tokens_used,
         "model_name": mock_result.model_name,
         "created_at": mock_result.created_at.isoformat(),
+        "metadata": mock_result.metadata,
     }
 
     # Verify method calls
     mock_robo_service.process_text.assert_called_once_with(
-        mock_note.content
+        mock_note.content,
+        context={"type": "note_enrichment"},
     )
     assert mock_session.commit.call_count >= 2
 

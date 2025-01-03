@@ -1,16 +1,17 @@
 """Test stub implementation of RoboService."""
 
+from datetime import datetime, UTC
 from functools import lru_cache
 from typing import Dict, Any, List, Optional
 
 from domain.robo import (
-    RoboService as BaseRoboService,
+    RoboService,
     RoboConfig,
     RoboProcessingResult,
 )
 
 
-class TestRoboService(BaseRoboService):
+class TestRoboService(RoboService):
     """Test stub implementation of RoboService for testing."""
 
     def __init__(self, config: RoboConfig):
@@ -35,11 +36,29 @@ class TestRoboService(BaseRoboService):
         Returns:
             RoboProcessingResult: Stubbed processing result
         """
+        # Handle note enrichment
+        if (
+            context
+            and context.get("type") == "note_enrichment"
+        ):
+            return RoboProcessingResult(
+                content="- Test formatted content\n- Second line",
+                metadata={
+                    "title": "Test Note Title",
+                    "processed": True,
+                },
+                tokens_used=0,
+                model_name="test_model",
+                created_at=datetime.now(UTC),
+            )
+
+        # Default processing
         return RoboProcessingResult(
             content=text,
             metadata={"processed": True},
             tokens_used=0,
             model_name="test_model",
+            created_at=datetime.now(UTC),
         )
 
     def extract_entities(

@@ -3,6 +3,7 @@
 import logging
 from datetime import datetime, UTC
 from typing import Dict, Any, List, Optional
+import json
 
 from openai import OpenAI
 
@@ -23,17 +24,40 @@ from utils.retry import with_retry
 logger = logging.getLogger(__name__)
 
 
+# OpenAI function definitions
+ENRICH_NOTE_FUNCTION = {
+    "name": "enrich_note",
+    "description": (
+        "Enrich a raw note by formatting content and extracting title"
+    ),
+    "parameters": {
+        "type": "object",
+        "properties": {
+            "title": {
+                "type": "string",
+                "description": "Extracted title under 50 characters",
+            },
+            "formatted": {
+                "type": "string",
+                "description": "Well-formatted markdown content",
+            },
+        },
+        "required": ["title", "formatted"],
+    },
+}
+
+
 class OpenAIService(RoboService):
     """OpenAI implementation of RoboService."""
 
     def __init__(self, config: RoboConfig):
-        """Initialize the OpenAI service.
+        """Initialize OpenAI service.
 
         Args:
-            config: Configuration for the service
+            config: Service configuration
 
         Raises:
-            RoboConfigError: If API key is missing
+            RoboConfigError: If configuration is invalid
         """
         if not config.api_key:
             raise RoboConfigError(
@@ -41,13 +65,11 @@ class OpenAIService(RoboService):
             )
 
         self.config = config
-        self.client = OpenAI(
-            api_key=config.api_key,
-            timeout=config.timeout_seconds,
-        )
+        self.client = OpenAI(api_key=config.api_key)
         self.rate_limiter = RateLimiter(
-            requests_per_minute=60,  # Default OpenAI RPM limit
-            tokens_per_minute=90_000,  # Default OpenAI TPM limit
+            requests_per_minute=60,  # Default to 60 RPM
+            tokens_per_minute=90000,  # Default to 90K TPM
+            max_wait_seconds=60,  # Default to 60s max wait
         )
 
     @with_retry(
@@ -65,6 +87,10 @@ class OpenAIService(RoboService):
         context: Optional[Dict[str, Any]] = None,
     ) -> RoboProcessingResult:
         """Process text using OpenAI's API.
+
+        The processing type is determined by the context:
+        - context["type"] == "note_enrichment": Format note and extract title
+        - No context: Default text processing
 
         Args:
             text: Text to process
@@ -92,7 +118,14 @@ class OpenAIService(RoboService):
                     "Failed to acquire capacity after retries"
                 )
 
-            # Make the API call
+            # Choose processing type based on context
+            if (
+                context
+                and context.get("type") == "note_enrichment"
+            ):
+                return self._enrich_note(text)
+
+            # Default text processing
             response = self.client.chat.completions.create(
                 model=self.config.model_name,
                 messages=[
@@ -154,6 +187,75 @@ class OpenAIService(RoboService):
                     f"OpenAI API error: {str(e)}"
                 )
 
+    def _enrich_note(
+        self, content: str
+    ) -> RoboProcessingResult:
+        """Internal method to enrich notes using function calling.
+
+        Args:
+            content: Raw note content to enrich
+
+        Returns:
+            RoboProcessingResult with enriched content and metadata
+
+        Raises:
+            RoboAPIError: If API call fails
+        """
+        response = self.client.chat.completions.create(
+            model=self.config.model_name,
+            messages=[
+                {
+                    "role": "system",
+                    "content": (
+                        "You are a note formatting assistant. "
+                        "Your task is to:\n"
+                        "1. Extract a concise title (<50 chars)\n"
+                        "2. Format the content in clean markdown\n"
+                        "3. Use appropriate formatting "
+                        "(bold, italic, lists)\n"
+                        "4. Keep the content concise but complete"
+                    ),
+                },
+                {"role": "user", "content": content},
+            ],
+            tools=[
+                {
+                    "type": "function",
+                    "function": ENRICH_NOTE_FUNCTION,
+                }
+            ],
+            tool_choice={
+                "type": "function",
+                "function": {"name": "enrich_note"},
+            },
+            temperature=self.config.temperature,
+            max_tokens=self.config.max_tokens,
+        )
+
+        # Extract function call results
+        tool_call = response.choices[0].message.tool_calls[
+            0
+        ]
+        result = json.loads(tool_call.function.arguments)
+
+        return RoboProcessingResult(
+            content=result["formatted"],
+            metadata={
+                "title": result["title"],
+                "model": response.model,
+                "usage": {
+                    "prompt_tokens": response.usage.prompt_tokens,
+                    "completion_tokens": response.usage.completion_tokens,
+                    "total_tokens": response.usage.total_tokens,
+                },
+            },
+            tokens_used=response.usage.total_tokens,
+            model_name=response.model,
+            created_at=datetime.fromtimestamp(
+                response.created, UTC
+            ),
+        )
+
     def extract_entities(
         self, text: str, entity_types: List[str]
     ) -> Dict[str, List[Dict[str, Any]]]:
@@ -193,14 +295,26 @@ class OpenAIService(RoboService):
         )
 
     def health_check(self) -> bool:
-        """Check if the OpenAI service is healthy.
+        """Check if the service is healthy.
 
         Returns:
             bool: True if healthy, False otherwise
         """
         try:
-            self.process_text("test")
-            return True
+            response = self.client.chat.completions.create(
+                model=self.config.model_name,
+                messages=[
+                    {
+                        "role": "system",
+                        "content": "Respond with 'OK'",
+                    }
+                ],
+                max_tokens=1,
+            )
+            return (
+                response.choices[0].message.content.strip()
+                == "OK"
+            )
         except Exception as e:
             logger.error(f"Health check failed: {str(e)}")
             return False

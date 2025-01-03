@@ -1,3 +1,5 @@
+"""Domain interfaces for Robo service."""
+
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import Optional, Dict, Any, List
@@ -36,7 +38,19 @@ class RoboService(ABC):
         text: str,
         context: Optional[Dict[str, Any]] = None,
     ) -> RoboProcessingResult:
-        """Process text input and return enhanced/analyzed result."""
+        """Process text input and return enhanced/analyzed result.
+
+        The processing type is determined by the context:
+        - context["type"] == "note_enrichment": Format note and extract title
+        - No context: Default text processing
+
+        Args:
+            text: Text to process
+            context: Optional context for processing
+
+        Returns:
+            RoboProcessingResult: Processing result
+        """
         pass
 
     @abstractmethod

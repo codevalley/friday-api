@@ -1,51 +1,15 @@
-"""Integration tests for note processing flow."""
+"""Integration tests for note processing."""
 
 import pytest
 from datetime import datetime, timezone
 
 from domain.values import ProcessingStatus
+from schemas.pydantic.NoteSchema import NoteCreate
 from domain.robo import RoboProcessingResult
-from infrastructure.queue.RQNoteQueue import RQNoteQueue
+from repositories.NoteRepository import NoteRepository
 from infrastructure.queue.note_worker import (
     process_note_job,
 )
-from services.NoteService import NoteService
-from services.TestRoboService import TestRoboService
-from schemas.pydantic.NoteSchema import NoteCreate
-from repositories.NoteRepository import NoteRepository
-from configs.RoboConfig import RoboConfig
-
-
-@pytest.fixture
-def robo_service():
-    """Create a RoboService instance for testing."""
-    config = RoboConfig(
-        api_key="test_key",
-        model_name="test_model",
-        is_test=True,
-    )
-    return TestRoboService(config)
-
-
-@pytest.fixture
-def note_service(test_db_session, queue_service):
-    """Create a note service with test dependencies."""
-    return NoteService(
-        db=test_db_session,
-        queue_service=queue_service,
-    )
-
-
-@pytest.fixture
-def queue_service(redis_connection):
-    """Create a queue service with test Redis connection."""
-    from rq import Queue
-
-    queue = Queue(
-        "test_note_processing",
-        connection=redis_connection,
-    )
-    return RQNoteQueue(queue=queue)
 
 
 def test_note_processing_success(
@@ -89,15 +53,12 @@ def test_note_processing_success(
     )
     assert note.enrichment_data is not None
     assert (
-        note.enrichment_data["content"]
-        == "Test note content"
+        note.enrichment_data["formatted"] == "Test Content"
     )
-    assert note.enrichment_data["metadata"] == {
-        "processed": True
-    }
-    assert note.enrichment_data["tokens_used"] == 0
+    assert note.enrichment_data["title"] == "Test Title"
+    assert note.enrichment_data["tokens_used"] == 100
     assert (
-        note.enrichment_data["model_name"] == "test_model"
+        note.enrichment_data["model_name"] == "test-model"
     )
     assert "created_at" in note.enrichment_data
 
@@ -185,6 +146,7 @@ def test_note_processing_retry(
         return RoboProcessingResult(
             content="Processed after retries",
             metadata={
+                "title": "Test Note",
                 "processed": True,
                 "attempts": attempts,
             },
@@ -213,7 +175,8 @@ def test_note_processing_retry(
     )
     assert note.enrichment_data is not None
     assert (
-        note.enrichment_data["content"]
+        note.enrichment_data["formatted"]
         == "Processed after retries"
     )
+    assert note.enrichment_data["title"] == "Test Note"
     assert note.enrichment_data["metadata"]["attempts"] == 3
