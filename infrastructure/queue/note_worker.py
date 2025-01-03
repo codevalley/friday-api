@@ -13,9 +13,11 @@ from repositories.NoteRepository import NoteRepository
 from services.TestRoboService import get_robo_service
 from utils.retry import calculate_backoff
 from configs.Database import SessionLocal
-from orm.NoteModel import Note  # noqa
-from orm.UserModel import User  # noqa
-from orm.ActivityModel import Activity  # noqa
+import orm.NoteModel  # noqa: F401 Required for SQLAlchemy model registry
+import orm.UserModel  # noqa: F401 Required for SQLAlchemy model registry
+import orm.MomentModel  # noqa: F401 Required for SQLAlchemy model registry
+import orm.TaskModel  # noqa: F401 Required for SQLAlchemy model registry
+import orm.ActivityModel  # noqa: F401 Required for SQLAlchemy model registry
 
 logger = logging.getLogger(__name__)
 
