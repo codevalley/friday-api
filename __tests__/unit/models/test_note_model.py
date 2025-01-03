@@ -7,7 +7,12 @@ import pytest
 
 from orm.NoteModel import Note
 from orm.UserModel import User
-from domain.values import ProcessingStatus
+from orm.TaskModel import Task
+from domain.values import (
+    ProcessingStatus,
+    TaskStatus,
+    TaskPriority,
+)
 
 
 @pytest.fixture
@@ -206,3 +211,61 @@ def test_note_cascade_delete(test_db_session, sample_user):
         .first()
     )
     assert saved_note is None
+
+
+def test_note_tasks_relationship(
+    test_db_session, sample_user
+):
+    """Test back-population relationship between Note and Task models."""
+    # Create a note
+    note = Note(
+        user_id=sample_user.id,
+        content="Test Note Content",
+        attachments=[],
+    )
+    test_db_session.add(note)
+    test_db_session.commit()
+    test_db_session.refresh(note)
+
+    # Create tasks associated with the note
+    task1 = Task(
+        title="Task 1",
+        description="First task",
+        user_id=sample_user.id,
+        note_id=note.id,
+        status=TaskStatus.TODO,
+        priority=TaskPriority.MEDIUM,
+    )
+    task2 = Task(
+        title="Task 2",
+        description="Second task",
+        user_id=sample_user.id,
+        note_id=note.id,
+        status=TaskStatus.TODO,
+        priority=TaskPriority.HIGH,
+    )
+
+    test_db_session.add(task1)
+    test_db_session.add(task2)
+    test_db_session.commit()
+    test_db_session.refresh(note)
+
+    # Verify tasks relationship
+    assert len(note.tasks) == 2
+    assert task1 in note.tasks
+    assert task2 in note.tasks
+
+    # Verify task attributes
+    tasks = sorted(note.tasks, key=lambda t: t.title)
+    assert tasks[0].title == "Task 1"
+    assert tasks[1].title == "Task 2"
+
+    # Remove a task's association
+    task1.note_id = None
+    test_db_session.commit()
+    test_db_session.refresh(note)
+
+    # Verify task was removed from relationship
+    assert len(note.tasks) == 1
+    assert task1 not in note.tasks
+    assert task2 in note.tasks

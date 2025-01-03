@@ -30,6 +30,9 @@ class Note(Base):
         processed_at: When the note was processed
         created_at: When the note was created
         updated_at: When the note was last updated
+        user: User who created the note
+        moments: List of moments referencing this note
+        tasks: List of tasks referencing this note
     """
 
     __tablename__ = "notes"
@@ -64,6 +67,11 @@ class Note(Base):
     # Relationships
     user = relationship("User", back_populates="notes")
     moments = relationship("Moment", back_populates="note")
+    tasks = relationship(
+        "Task",
+        back_populates="note",
+        doc="All tasks referencing this note via note_id",
+    )
 
     def __init__(self, **kwargs):
         """Initialize note with default processing status if not provided."""

@@ -127,6 +127,8 @@ class Task(EntityMeta):
     note: Mapped[Optional["Note"]] = relationship(
         "Note",
         uselist=False,
+        back_populates="tasks",
+        doc="Optional note associated with this task",
     )
 
     # Constraints

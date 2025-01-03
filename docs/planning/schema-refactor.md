@@ -117,7 +117,7 @@ Implementation details:
 
 ## Epic 3: Clean Up Routers & Schemas ✓
 
-**Goal**: Ensure that the new relationships are consistent at the API layer (both REST and GraphQL).
+**Goal**: Ensure that the new relationships are consistent at the API layer.
 
 ### Task 3.1: REST Endpoints ✓
 - **`NoteRouter`**: ✓
@@ -127,18 +127,12 @@ Implementation details:
 - **`TaskRouter`**: ✓
   - Added endpoints to set or update `note_id` (`PUT /tasks/{task_id}/note` and `DELETE /tasks/{task_id}/note`). ✓
 
-### Task 3.2: GraphQL Schemas ✓
-- **`NoteMutation`**, **`NoteQuery`**: removed fields referencing `moment_id` or `activity_id`. ✓
-- **`MomentMutation`**: added `attachNoteToMoment` and `detachNoteFromMoment` mutations. ✓
-- **`TaskMutation`**: added `attachNoteToTask` and `detachNoteFromTask` mutations. ✓
-
 Implementation details:
 - Added comprehensive validation in note attachment endpoints
 - Ensured proper error handling for invalid note IDs
 - Added ownership validation for all operations
-- Updated GraphQL types to include note relationships
 - Added proper documentation for all new endpoints
-- Maintained consistent response formats across REST and GraphQL
+- Maintained consistent response formats
 - Added proper authorization checks for all operations
 
 ---
