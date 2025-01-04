@@ -201,52 +201,98 @@ class OpenAIService(RoboService):
         Raises:
             RoboAPIError: If API call fails
         """
-        response = self.client.chat.completions.create(
-            model=self.config.model_name,
-            messages=[
-                {
-                    "role": "system",
-                    "content": self.config.note_enrichment_prompt,
-                },
-                {"role": "user", "content": content},
-            ],
-            tools=[
-                {
+        try:
+            response = self.client.chat.completions.create(
+                model=self.config.model_name,
+                messages=[
+                    {
+                        "role": "system",
+                        "content": self.config.note_enrichment_prompt,
+                    },
+                    {"role": "user", "content": content},
+                ],
+                tools=[
+                    {
+                        "type": "function",
+                        "function": ENRICH_NOTE_FUNCTION,
+                    }
+                ],
+                tool_choice={
                     "type": "function",
-                    "function": ENRICH_NOTE_FUNCTION,
-                }
-            ],
-            tool_choice={
-                "type": "function",
-                "function": {"name": "enrich_note"},
-            },
-            temperature=self.config.temperature,
-            max_tokens=self.config.max_tokens,
-        )
-
-        # Extract function call results
-        tool_call = response.choices[0].message.tool_calls[
-            0
-        ]
-        result = json.loads(tool_call.function.arguments)
-
-        return RoboProcessingResult(
-            content=result["formatted"],
-            metadata={
-                "title": result["title"],
-                "model": response.model,
-                "usage": {
-                    "prompt_tokens": response.usage.prompt_tokens,
-                    "completion_tokens": response.usage.completion_tokens,
-                    "total_tokens": response.usage.total_tokens,
+                    "function": {"name": "enrich_note"},
                 },
-            },
-            tokens_used=response.usage.total_tokens,
-            model_name=response.model,
-            created_at=datetime.fromtimestamp(
-                response.created, UTC
-            ),
-        )
+                temperature=self.config.temperature,
+                max_tokens=self.config.max_tokens,
+            )
+
+            # Extract function call results
+            if not response.choices:
+                raise RoboAPIError(
+                    "No choices in OpenAI response"
+                )
+
+            if not response.choices[0].message.tool_calls:
+                raise RoboAPIError(
+                    "No tool calls in OpenAI response"
+                )
+
+            tool_call = response.choices[
+                0
+            ].message.tool_calls[0]
+
+            # Log the raw arguments for debugging
+            logger.debug(
+                f"Raw function arguments: {tool_call.function.arguments}"
+            )
+
+            try:
+                result = json.loads(
+                    tool_call.function.arguments
+                )
+            except json.JSONDecodeError as e:
+                logger.error(
+                    f"Failed to parse function arguments: {str(e)}"
+                )
+                logger.error(
+                    f"Raw arguments: {tool_call.function.arguments}"
+                )
+                raise RoboAPIError(
+                    f"Invalid JSON in OpenAI response: {str(e)}"
+                )
+
+            # Validate required fields
+            if (
+                "formatted" not in result
+                or "title" not in result
+            ):
+                raise RoboAPIError(
+                    f"Missing required fields in response: {result}"
+                )
+
+            return RoboProcessingResult(
+                content=result["formatted"],
+                metadata={
+                    "title": result["title"],
+                    "model": response.model,
+                    "usage": {
+                        "prompt_tokens": response.usage.prompt_tokens,
+                        "completion_tokens": response.usage.completion_tokens,
+                        "total_tokens": response.usage.total_tokens,
+                    },
+                },
+                tokens_used=response.usage.total_tokens,
+                model_name=response.model,
+                created_at=datetime.fromtimestamp(
+                    response.created, UTC
+                ),
+            )
+        except Exception as e:
+            if isinstance(e, RoboAPIError):
+                raise
+            logger.error(f"Error in _enrich_note: {str(e)}")
+            raise RoboAPIError(
+                f"Failed to enrich note: {str(e)}"
+            )
 
     def extract_entities(
         self, text: str, entity_types: List[str]

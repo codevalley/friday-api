@@ -5,7 +5,8 @@ DOMAIN=${1:-"api.acme.me"}
 EMAIL=${2:-"admin@acme.me"}
 FETCH_CODE=false
 INSTALL_DOCKER=false
-EXTERNAL_DB=false
+EXTERNAL_DB=true
+RESTART_ONLY=true
 
 # Colors
 RED='\033[0;31m'
@@ -21,12 +22,13 @@ log()   { echo -e "${GREEN}[LOG]${NC} $1"; }
 
 show_help() {
 cat <<EOF
-Usage: $0 [domain] [email] [--docker] [--fetch-code] [--external-db]
+Usage: $0 [domain] [email] [--docker] [--fetch-code] [--external-db] [--restart]
   domain    : Domain name to serve (default: api.acme.me)
   email     : Email for Let's Encrypt (default: admin@acme.me)
   --docker  : Install Docker + Docker Compose if not present
   --fetch-code : Pull latest changes from Git
   --external-db : Use docker-compose.no-db.yml (skip local MySQL container)
+  --restart : Only restart containers without rebuilding or fetching code
 Example:
   $0 api.acme.me admin@acme.me --fetch-code
 EOF
@@ -45,6 +47,10 @@ while [[ $# -gt 0 ]]; do
       ;;
     --external-db)
       EXTERNAL_DB=true
+      shift
+      ;;
+    --restart)
+      RESTART_ONLY=true
       shift
       ;;
     -h|--help)
@@ -125,14 +131,25 @@ else
   fi
 fi
 
-if [ "$EXTERNAL_DB" = true ]; then
-  log "Using the 'no-db' Docker Compose file..."
-  docker compose -f docker-compose.no-db.yml build
-  docker compose -f docker-compose.no-db.yml up -d
+if [ "$RESTART_ONLY" = true ]; then
+  log "Restarting containers without rebuilding..."
+  if [ "$EXTERNAL_DB" = true ]; then
+    docker compose -f docker-compose.no-db.yml down
+    docker compose -f docker-compose.no-db.yml up -d
+  else
+    docker compose -f docker-compose.yml down
+    docker compose -f docker-compose.yml up -d
+  fi
 else
-  log "Using the default Docker Compose file (with local MySQL)..."
-  docker compose -f docker-compose.yml build
-  docker compose -f docker-compose.yml up -d
+  if [ "$EXTERNAL_DB" = true ]; then
+    log "Using the 'no-db' Docker Compose file..."
+    docker compose -f docker-compose.no-db.yml build
+    docker compose -f docker-compose.no-db.yml up -d
+  else
+    log "Using the default Docker Compose file (with local MySQL)..."
+    docker compose -f docker-compose.yml build
+    docker compose -f docker-compose.yml up -d
+  fi
 fi
 
 log "Verifying containers..."
