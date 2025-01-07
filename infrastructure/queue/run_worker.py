@@ -23,7 +23,7 @@ def run_worker():
     # Configure logging
     configure_logging()
     logger = logging.getLogger(__name__)
-    logger.info("Starting note processing worker")
+    logger.info("Starting note and activity processing worker")
 
     try:
         # Get Redis connection and config
@@ -32,10 +32,11 @@ def run_worker():
 
         # Start worker
         with Connection(redis_conn):
-            queue = Queue(redis_config.queue_name)
-            worker = Worker([queue])
+            note_queue = Queue(redis_config.queue_name)
+            activity_queue = Queue("activity_processing")
+            worker = Worker([note_queue, activity_queue])
             logger.info(
-                f"Worker listening on queue: {queue.name}"
+                f"Worker listening on queues: {note_queue.name}, {activity_queue.name}"
             )
             worker.work(with_scheduler=True)
 

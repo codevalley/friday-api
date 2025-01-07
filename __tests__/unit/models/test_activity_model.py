@@ -20,6 +20,9 @@ def test_activity_initialization():
         },
         icon="📝",
         color="#FF0000",
+        processing_status="pending",
+        schema_render={"rendered": "schema"},
+        processed_at=datetime(2023, 1, 1, tzinfo=timezone.utc),
     )
 
     assert activity.name == "Test Activity"
@@ -30,6 +33,9 @@ def test_activity_initialization():
         "type": "object",
         "properties": {},
     }
+    assert activity.processing_status == "pending"
+    assert activity.schema_render == {"rendered": "schema"}
+    assert activity.processed_at == datetime(2023, 1, 1, tzinfo=timezone.utc)
 
 
 def test_activity_database_persistence(
@@ -46,6 +52,9 @@ def test_activity_database_persistence(
         },
         icon="📝",
         color="#FF0000",
+        processing_status="pending",
+        schema_render={"rendered": "schema"},
+        processed_at=datetime(2023, 1, 1, tzinfo=timezone.utc),
     )
     test_db_session.add(activity)
     test_db_session.commit()
@@ -61,6 +70,9 @@ def test_activity_database_persistence(
     assert saved_activity.user_id == sample_user.id
     assert isinstance(saved_activity.created_at, datetime)
     assert saved_activity.updated_at is None
+    assert saved_activity.processing_status == "pending"
+    assert saved_activity.schema_render == {"rendered": "schema"}
+    assert saved_activity.processed_at == datetime(2023, 1, 1, tzinfo=timezone.utc)
 
 
 def test_activity_relationships(
@@ -107,6 +119,9 @@ def test_activity_constraints(test_db_session, sample_user):
         },
         icon="📝",
         color="#FF0000",
+        processing_status="pending",
+        schema_render={"rendered": "schema"},
+        processed_at=datetime(2023, 1, 1, tzinfo=timezone.utc),
     )
     test_db_session.add(activity1)
     test_db_session.commit()
@@ -123,6 +138,9 @@ def test_activity_constraints(test_db_session, sample_user):
             },
             icon="📝",
             color="#00FF00",
+            processing_status="pending",
+            schema_render={"rendered": "schema"},
+            processed_at=datetime(2023, 1, 1, tzinfo=timezone.utc),
         )
         test_db_session.add(activity2)
         test_db_session.commit()
@@ -149,6 +167,9 @@ def test_activity_schema_validation(
         activity_schema=valid_schema,
         icon="📝",
         color="#FF0000",
+        processing_status="pending",
+        schema_render={"rendered": "schema"},
+        processed_at=datetime(2023, 1, 1, tzinfo=timezone.utc),
     )
     test_db_session.add(activity)
     test_db_session.commit()
@@ -167,6 +188,9 @@ def test_activity_schema_validation(
             activity_schema="not a dict",
             icon="📝",
             color="#FF0000",
+            processing_status="pending",
+            schema_render={"rendered": "schema"},
+            processed_at=datetime(2023, 1, 1, tzinfo=timezone.utc),
         )
 
     # Test invalid schema structure
@@ -184,6 +208,9 @@ def test_activity_schema_validation(
             activity_schema={"invalid": "schema"},
             icon="📝",
             color="#FF0000",
+            processing_status="pending",
+            schema_render={"rendered": "schema"},
+            processed_at=datetime(2023, 1, 1, tzinfo=timezone.utc),
         )
 
 
@@ -208,6 +235,9 @@ def test_color_validation(test_db_session, sample_user):
             },
             icon="📝",
             color=color,
+            processing_status="pending",
+            schema_render={"rendered": "schema"},
+            processed_at=datetime(2023, 1, 1, tzinfo=timezone.utc),
         )
         test_db_session.add(activity)
         test_db_session.commit()
@@ -228,6 +258,9 @@ def test_color_validation(test_db_session, sample_user):
             },
             icon="📝",
             color="invalid-color",
+            processing_status="pending",
+            schema_render={"rendered": "schema"},
+            processed_at=datetime(2023, 1, 1, tzinfo=timezone.utc),
         )
 
     # Test invalid hex characters
@@ -245,6 +278,9 @@ def test_color_validation(test_db_session, sample_user):
             },
             icon="📝",
             color="#GGHHII",
+            processing_status="pending",
+            schema_render={"rendered": "schema"},
+            processed_at=datetime(2023, 1, 1, tzinfo=timezone.utc),
         )
 
 
@@ -308,6 +344,9 @@ def test_schema_validation_methods(
         },
         icon="📝",
         color="#FF0000",
+        processing_status="pending",
+        schema_render={"rendered": "schema"},
+        processed_at=datetime(2023, 1, 1, tzinfo=timezone.utc),
     )
     test_db_session.add(activity)
     test_db_session.commit()
@@ -357,6 +396,9 @@ def test_activity_initialization_validation():
             },
             icon="📝",
             color="#FF0000",
+            processing_status="pending",
+            schema_render={"rendered": "schema"},
+            processed_at=datetime(2023, 1, 1, tzinfo=timezone.utc),
         )
 
 
@@ -381,6 +423,9 @@ def test_schema_meta_validation(
             },
             icon="📝",
             color="#FF0000",
+            processing_status="pending",
+            schema_render={"rendered": "schema"},
+            processed_at=datetime(2023, 1, 1, tzinfo=timezone.utc),
         )
 
     # Test schema with invalid type
@@ -400,6 +445,9 @@ def test_schema_meta_validation(
             },
             icon="📝",
             color="#FF0000",
+            processing_status="pending",
+            schema_render={"rendered": "schema"},
+            processed_at=datetime(2023, 1, 1, tzinfo=timezone.utc),
         )
 
 
@@ -430,6 +478,9 @@ def test_moment_data_complex_validation(
         },
         icon="📝",
         color="#FF0000",
+        processing_status="pending",
+        schema_render={"rendered": "schema"},
+        processed_at=datetime(2023, 1, 1, tzinfo=timezone.utc),
     )
     test_db_session.add(activity)
     test_db_session.commit()
@@ -478,6 +529,9 @@ def test_string_representation_edge_cases(
         },
         icon="📝",
         color="#FF0000",
+        processing_status="pending",
+        schema_render={"rendered": "schema"},
+        processed_at=datetime(2023, 1, 1, tzinfo=timezone.utc),
     )
     test_db_session.add(activity)
     test_db_session.commit()
@@ -500,6 +554,9 @@ def test_string_representation_edge_cases(
         },
         icon="📝",
         color="#FF0000",
+        processing_status="pending",
+        schema_render={"rendered": "schema"},
+        processed_at=datetime(2023, 1, 1, tzinfo=timezone.utc),
     )
     test_db_session.add(activity)
     test_db_session.commit()

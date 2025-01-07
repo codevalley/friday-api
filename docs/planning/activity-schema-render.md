@@ -9,6 +9,7 @@ This document outlines the plan to implement schema rendering for activities, si
 ### Relevant Components
 1. **RoboService Interface**
    - Defines abstract methods for AI processing
+
    - Currently handles note enrichment
    - Implemented by OpenAIService
 
@@ -408,6 +409,18 @@ class ActivityService:
 - [ ] Test end-to-end activity creation and processing
 - [ ] Test error handling and status updates
 - [ ] Test concurrent processing
+
+### Testing Activity Schema Rendering
+
+#### Unit Tests
+- Test the new fields in the `Activity` model.
+- Test the `enqueue_activity` method in the `RQNoteQueue` class.
+- Test the `analyze_activity_schema` method in the `OpenAIService` class.
+
+#### Integration Tests
+- Add integration tests for end-to-end activity creation and processing.
+- Test error handling and status updates.
+- Test concurrent processing.
 
 ## Timeline
 

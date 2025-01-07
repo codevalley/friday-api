@@ -70,7 +70,7 @@ class RoboService(ABC):
 
     @abstractmethod
     def validate_content(
-        self, content: str, validation_rules: Dict[str, Any]
+        self, content: str, validation_rules: Dict[str, Any]]
     ) -> Dict[str, Any]:
         """Validate content against specified rules."""
         pass
@@ -78,4 +78,18 @@ class RoboService(ABC):
     @abstractmethod
     def health_check(self) -> bool:
         """Check if the service is operational."""
+        pass
+
+    @abstractmethod
+    def analyze_activity_schema(
+        self, activity_schema: Dict[str, Any]
+    ) -> RoboProcessingResult:
+        """Analyze and render an activity schema.
+
+        Args:
+            activity_schema: Schema to analyze
+
+        Returns:
+            RoboProcessingResult: Analysis result
+        """
         pass

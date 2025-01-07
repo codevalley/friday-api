@@ -42,6 +42,9 @@ class ActivityData:
         moments: List of moments of this activity type (optional)
         created_at: When this record was created (optional)
         updated_at: When this record was last updated (optional)
+        processing_status: Status of the activity processing (optional)
+        schema_render: Rendered schema for the activity (optional)
+        processed_at: When the activity was processed (optional)
     """
 
     name: str
@@ -55,6 +58,9 @@ class ActivityData:
     moments: Optional[List[MomentData]] = None
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
+    processing_status: Optional[str] = None
+    schema_render: Optional[Dict[str, Any]] = None
+    processed_at: Optional[datetime] = None
     _color_obj: Optional[Color] = None
     _schema_obj: Optional[ActivitySchema] = None
 
@@ -162,6 +168,30 @@ class ActivityData:
                 "updated_at must be a datetime object",
             )
 
+        if self.processing_status is not None and not isinstance(
+            self.processing_status, str
+        ):
+            raise ActivityValidationError.invalid_field_value(
+                "processing_status",
+                "processing_status must be a string",
+            )
+
+        if self.schema_render is not None and not isinstance(
+            self.schema_render, dict
+        ):
+            raise ActivityValidationError.invalid_field_value(
+                "schema_render",
+                "schema_render must be a dictionary",
+            )
+
+        if self.processed_at is not None and not isinstance(
+            self.processed_at, datetime
+        ):
+            raise ActivityValidationError.invalid_field_value(
+                "processed_at",
+                "processed_at must be a datetime object",
+            )
+
     def _validate_color(self) -> None:
         """Validate color format.
 
@@ -234,6 +264,9 @@ class ActivityData:
             "moment_count": self.moment_count,
             "created_at": self.created_at,
             "updated_at": self.updated_at,
+            "processing_status": self.processing_status,
+            "schema_render": self.schema_render,
+            "processed_at": self.processed_at,
         }
         if self.moments:
             data["moments"] = [
@@ -270,6 +303,9 @@ class ActivityData:
                 - moments: List of moment data (optional)
                 - created_at: Creation timestamp (optional)
                 - updated_at: Last update timestamp (optional)
+                - processing_status: Status of the activity processing (optional)
+                - schema_render: Rendered schema for the activity (optional)
+                - processed_at: When the activity was processed (optional)
 
         Returns:
             ActivityData: New instance with validated data
@@ -302,6 +338,9 @@ class ActivityData:
             moments=moments,
             created_at=data.get("created_at"),
             updated_at=data.get("updated_at"),
+            processing_status=data.get("processing_status"),
+            schema_render=data.get("schema_render"),
+            processed_at=data.get("processed_at"),
         )
 
     @classmethod
@@ -340,4 +379,7 @@ class ActivityData:
             moments=moments,
             created_at=orm_model.created_at,
             updated_at=orm_model.updated_at,
+            processing_status=orm_model.processing_status,
+            schema_render=orm_model.schema_render,
+            processed_at=orm_model.processed_at,
         )

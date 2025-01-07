@@ -281,3 +281,94 @@ def test_health_check_failure(
 
         # Test
         assert service.health_check() is False
+
+
+def test_analyze_activity_schema_success(
+    test_config, mock_openai_client, mock_rate_limiter
+):
+    """Test successful activity schema analysis."""
+    # Setup mock response
+    mock_response = Mock(spec=ChatCompletion)
+    mock_message = Mock(spec=ChatCompletionMessage)
+    mock_message.content = "Analyzed schema"
+    mock_response.choices = [Mock(message=mock_message)]
+    mock_response.usage = Mock(
+        spec=CompletionUsage,
+        prompt_tokens=10,
+        completion_tokens=20,
+        total_tokens=30,
+    )
+    mock_response.model = "test-model"
+    mock_response.created = 1704067200  # 2024-01-01
+
+    # Setup service
+    with patch(
+        "services.OpenAIService.OpenAI",
+        return_value=mock_openai_client,
+    ), patch(
+        "services.OpenAIService.RateLimiter",
+        return_value=mock_rate_limiter,
+    ):
+        service = OpenAIService(test_config)
+        mock_openai_client.chat.completions.create.return_value = (
+            mock_response
+        )
+
+        # Test
+        result = service.analyze_activity_schema({"type": "test"})
+
+        # Verify
+        assert result.content == "Analyzed schema"
+        assert result.tokens_used == 30
+        assert result.model_name == "test-model"
+        assert isinstance(result.created_at, datetime)
+
+
+def test_analyze_activity_schema_rate_limit_error(
+    test_config, mock_openai_client, mock_rate_limiter
+):
+    """Test handling of rate limit errors during activity schema analysis."""
+    # Setup rate limiter to deny capacity
+    mock_rate_limiter.wait_for_capacity.return_value = False
+
+    # Setup service
+    with patch(
+        "services.OpenAIService.OpenAI",
+        return_value=mock_openai_client,
+    ), patch(
+        "services.OpenAIService.RateLimiter",
+        return_value=mock_rate_limiter,
+    ):
+        service = OpenAIService(test_config)
+
+        # Test
+        with pytest.raises(RoboRateLimitError) as exc_info:
+            service.analyze_activity_schema({"type": "test"})
+
+        assert "capacity" in str(exc_info.value)
+
+
+def test_analyze_activity_schema_api_error(
+    test_config, mock_openai_client, mock_rate_limiter
+):
+    """Test handling of API errors during activity schema analysis."""
+    # Setup mock to raise error
+    mock_openai_client.chat.completions.create.side_effect = Exception(
+        "API Error"
+    )
+
+    # Setup service
+    with patch(
+        "services.OpenAIService.OpenAI",
+        return_value=mock_openai_client,
+    ), patch(
+        "services.OpenAIService.RateLimiter",
+        return_value=mock_rate_limiter,
+    ):
+        service = OpenAIService(test_config)
+
+        # Test
+        with pytest.raises(RoboAPIError) as exc_info:
+            service.analyze_activity_schema({"type": "test"})
+
+        assert "API error" in str(exc_info.value)

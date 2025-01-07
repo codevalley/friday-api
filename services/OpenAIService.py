@@ -356,3 +356,68 @@ class OpenAIService(RoboService):
         except Exception as e:
             logger.error(f"Health check failed: {str(e)}")
             return False
+
+    def analyze_activity_schema(
+        self, activity_schema: Dict[str, Any]
+    ) -> RoboProcessingResult:
+        """Analyze and render an activity schema.
+
+        Args:
+            activity_schema: Schema to analyze
+
+        Returns:
+            RoboProcessingResult: Analysis result
+
+        Raises:
+            RoboAPIError: If API call fails
+        """
+        try:
+            response = self.client.chat.completions.create(
+                model=self.config.model_name,
+                messages=[
+                    {
+                        "role": "system",
+                        "content": "Analyze and render the following activity schema.",
+                    },
+                    {
+                        "role": "user",
+                        "content": json.dumps(activity_schema),
+                    },
+                ],
+                temperature=self.config.temperature,
+                max_tokens=self.config.max_tokens or 150,
+            )
+
+            # Record actual token usage
+            self.rate_limiter.record_usage(
+                datetime.fromtimestamp(response.created, UTC),
+                response.usage.total_tokens,
+            )
+
+            return RoboProcessingResult(
+                content=response.choices[0].message.content,
+                metadata={
+                    "model": response.model,
+                    "usage": {
+                        "prompt_tokens": response.usage.prompt_tokens,
+                        "completion_tokens": response.usage.completion_tokens,
+                        "total_tokens": response.usage.total_tokens,
+                    },
+                },
+                tokens_used=response.usage.total_tokens,
+                model_name=response.model,
+                created_at=datetime.fromtimestamp(response.created, UTC),
+            )
+
+        except Exception as e:
+            logger.error(f"Error analyzing activity schema with OpenAI: {str(e)}")
+            if isinstance(e, RoboRateLimitError):
+                raise
+            if "rate limit" in str(e).lower():
+                raise RoboRateLimitError("OpenAI rate limit exceeded")
+            elif "invalid api key" in str(e).lower():
+                raise RoboConfigError("Invalid OpenAI API key")
+            elif "billing" in str(e).lower():
+                raise RoboConfigError("OpenAI billing issue")
+            else:
+                raise RoboAPIError(f"OpenAI API error: {str(e)}")

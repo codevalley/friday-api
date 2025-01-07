@@ -68,6 +68,45 @@ def test_enqueue_note_failure(queue_service):
     assert job_id is None
 
 
+def test_enqueue_activity_success(queue_service):
+    """Test successful activity enqueueing."""
+    # Setup
+    mock_job = Mock()
+    mock_job.id = "test_job_id"
+    queue_service.queue.enqueue.return_value = mock_job
+
+    # Execute
+    job_id = queue_service.enqueue_activity(456)
+
+    # Verify
+    assert job_id == "test_job_id"
+    queue_service.queue.enqueue.assert_called_once()
+    call_args = queue_service.queue.enqueue.call_args
+    assert (
+        call_args.args[0]
+        == "infrastructure.queue.activity_worker.process_activity_job"
+    )
+    assert call_args.kwargs["args"] == (456,)
+    assert call_args.kwargs["job_timeout"] == "10m"
+    assert call_args.kwargs["result_ttl"] == 24 * 60 * 60
+    assert call_args.kwargs["meta"]["activity_id"] == 456
+    assert "queued_at" in call_args.kwargs["meta"]
+
+
+def test_enqueue_activity_failure(queue_service):
+    """Test failed activity enqueueing."""
+    # Setup
+    queue_service.queue.enqueue.side_effect = Exception(
+        "Queue error"
+    )
+
+    # Execute
+    job_id = queue_service.enqueue_activity(456)
+
+    # Verify
+    assert job_id is None
+
+
 def test_get_job_status_found(queue_service, mock_job):
     """Test getting status of existing job."""
     # Setup

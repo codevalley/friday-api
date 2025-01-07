@@ -48,6 +48,30 @@ class RQNoteQueue(QueueService):
         except Exception:
             return None
 
+    def enqueue_activity(self, activity_id: int) -> Optional[str]:
+        """Enqueue an activity for processing.
+
+        Args:
+            activity_id: ID of the activity to process
+
+        Returns:
+            Optional[str]: Job ID if enqueued successfully, None otherwise
+        """
+        try:
+            job = self.queue.enqueue(
+                "infrastructure.queue.activity_worker.process_activity_job",
+                args=(activity_id,),
+                job_timeout="10m",
+                result_ttl=24 * 60 * 60,  # Keep results for 24 hours
+                meta={
+                    "activity_id": activity_id,
+                    "queued_at": datetime.now(UTC).isoformat(),
+                },
+            )
+            return job.id if job else None
+        except Exception:
+            return None
+
     def get_job_status(self, job_id: str) -> Dict[str, Any]:
         """Get status of a job.
 

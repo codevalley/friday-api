@@ -56,6 +56,9 @@ class Activity(EntityMeta):
         user: User who created the activity
         created_at: When the activity was created
         updated_at: When the activity was last updated
+        processing_status: Status of the activity processing
+        schema_render: Rendered schema for the activity
+        processed_at: When the activity was processed
     """
 
     __tablename__ = "activities"
@@ -83,6 +86,9 @@ class Activity(EntityMeta):
     )
     icon: Mapped[str] = Column(String(255), nullable=False)
     color: Mapped[str] = Column(String(7), nullable=False)
+    processing_status: Mapped[str] = Column(String(50), nullable=True)
+    schema_render: Mapped[Optional[Dict[str, Any]]] = Column(JSON, nullable=True)
+    processed_at: Mapped[Optional[datetime]] = Column(DateTime, nullable=True)
 
     # Timestamp fields
     created_at: Mapped[datetime] = Column(

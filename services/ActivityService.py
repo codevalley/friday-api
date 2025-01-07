@@ -24,6 +24,7 @@ from utils.validation import (
 from utils.errors.domain_exceptions import (
     handle_domain_exception,
 )
+from domain.ports.QueueService import QueueService
 
 import logging
 
@@ -32,18 +33,20 @@ logger = logging.getLogger(__name__)
 
 class ActivityService:
     def __init__(
-        self, db: Session = Depends(get_db_connection)
+        self, db: Session = Depends(get_db_connection), queue_service: QueueService = Depends()
     ):
-        """Initialize the service with database session.
+        """Initialize the service with database session and queue service.
 
         Args:
             db (Session): SQLAlchemy database session
+            queue_service (QueueService): Queue service for enqueuing activities
         """
         self.db = db
+        self.queue_service = queue_service
         self.activity_repository = ActivityRepository(db)
         self.moment_repository = MomentRepository(db)
         logger.info(
-            "ActivityService initialized with database session"
+            "ActivityService initialized with database session and queue service"
         )
 
     def _validate_color(self, color: str) -> None:
@@ -150,6 +153,13 @@ class ActivityService:
             logger.info(
                 f"Activity created with ID: {activity.id}"
             )
+
+            # Enqueue activity for processing
+            job_id = self.queue_service.enqueue_activity(activity.id)
+            if job_id:
+                logger.info(f"Activity enqueued for processing with job ID: {job_id}")
+            else:
+                logger.warning("Failed to enqueue activity for processing")
 
             # Convert back to response model
             return ActivityResponse.from_orm(activity)
