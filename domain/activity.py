@@ -3,25 +3,20 @@
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Dict, Any, List, Optional, TypeVar
-from enum import Enum
 
 from domain.moment import MomentData
 from domain.exceptions import ActivityValidationError
-from domain.values import Color, ActivitySchema
+from domain.values import (
+    Color,
+    ActivitySchema,
+    ProcessingStatus,
+)
 from utils.validation import validate_moment_data
 
 T = TypeVar("T", bound="ActivityData")
 
-
-class ProcessingStatus(str, Enum):
-    """Status of activity schema processing."""
-
-    NOT_PROCESSED = "NOT_PROCESSED"
-    PENDING = "PENDING"
-    PROCESSING = "PROCESSING"
-    COMPLETED = "COMPLETED"
-    FAILED = "FAILED"
-    SKIPPED = "SKIPPED"
+# Deprecated: Use domain.values.ProcessingStatus instead
+ProcessingStatus = ProcessingStatus
 
 
 @dataclass
@@ -68,7 +63,9 @@ class ActivityData:
     id: Optional[int] = None
     moment_count: int = 0
     moments: Optional[List[MomentData]] = None
-    processing_status: str = "NOT_PROCESSED"
+    processing_status: str = (
+        ProcessingStatus.NOT_PROCESSED.value
+    )
     schema_render: Optional[Dict[str, Any]] = None
     processed_at: Optional[datetime] = None
     created_at: Optional[datetime] = None
@@ -201,12 +198,12 @@ class ActivityData:
 
         # Validate processing_status
         valid_statuses = {
-            "NOT_PROCESSED",
-            "PENDING",
-            "PROCESSING",
-            "COMPLETED",
-            "FAILED",
-            "SKIPPED",
+            ProcessingStatus.NOT_PROCESSED.value,
+            ProcessingStatus.PENDING.value,
+            ProcessingStatus.PROCESSING.value,
+            ProcessingStatus.COMPLETED.value,
+            ProcessingStatus.FAILED.value,
+            ProcessingStatus.SKIPPED.value,
         }
         if self.processing_status not in valid_statuses:
             raise ActivityValidationError.invalid_field_value(
@@ -217,7 +214,8 @@ class ActivityData:
 
         # Validate schema_render if status is COMPLETED
         if (
-            self.processing_status == "COMPLETED"
+            self.processing_status
+            == ProcessingStatus.COMPLETED.value
             and self.schema_render is None
         ):
             raise ActivityValidationError.invalid_field_value(
@@ -227,7 +225,8 @@ class ActivityData:
 
         # Validate processed_at if status is COMPLETED
         if (
-            self.processing_status == "COMPLETED"
+            self.processing_status
+            == ProcessingStatus.COMPLETED.value
             and self.processed_at is None
         ):
             raise ActivityValidationError.invalid_field_value(

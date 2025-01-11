@@ -42,7 +42,7 @@ class ActivityService:
         """Create activity and queue for processing.
 
         Args:
-            data: Activity data to create
+            data: Activity data (Pydantic or domain model)
             user_id: ID of user creating activity
 
         Returns:
@@ -52,8 +52,12 @@ class ActivityService:
             ActivityServiceError: If creation fails
         """
         try:
-            # Convert to domain model with user ID
-            activity_data = data.to_domain(user_id=user_id)
+            # Convert to domain model if needed
+            activity_data = (
+                data.to_domain(user_id=user_id)
+                if hasattr(data, "to_domain")
+                else data
+            )
 
             # Convert domain model to ORM model
             activity = Activity(
@@ -63,7 +67,7 @@ class ActivityService:
                 icon=activity_data.icon,
                 color=activity_data.color,
                 user_id=activity_data.user_id,
-                processing_status=ProcessingStatus.PENDING,
+                processing_status=ProcessingStatus.PENDING.value,
             )
 
             # Create activity
@@ -85,7 +89,7 @@ class ActivityService:
                     activity = self.repository.update(
                         activity.id,
                         {
-                            "processing_status": ProcessingStatus.FAILED
+                            "processing_status": ProcessingStatus.FAILED.value
                         },
                     )
 
@@ -97,11 +101,11 @@ class ActivityService:
                 activity = self.repository.update(
                     activity.id,
                     {
-                        "processing_status": ProcessingStatus.FAILED
+                        "processing_status": ProcessingStatus.FAILED.value
                     },
                 )
 
-            # Return activity regardless of queue status
+            # Return activity with updated status
             return ActivityData.from_orm(activity)
 
         except Exception as e:
@@ -245,8 +249,6 @@ class ActivityService:
             activity_id,
             {
                 "processing_status": "PENDING",
-                "processed_at": None,
-                "schema_render": None,
             },
         )
 

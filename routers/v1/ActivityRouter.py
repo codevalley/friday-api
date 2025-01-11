@@ -8,6 +8,7 @@ from schemas.pydantic.ActivitySchema import (
     ActivityResponse,
     ActivityList,
     ProcessingStatusResponse,
+    RetryResponse,
 )
 from schemas.pydantic.PaginationSchema import (
     PaginationParams,
@@ -169,7 +170,7 @@ async def get_processing_status(
 
 @router.post(
     "/{activity_id}/retry-processing",
-    response_model=GenericResponse[MessageResponse],
+    response_model=GenericResponse[RetryResponse],
 )
 @handle_exceptions
 async def retry_processing(
@@ -184,11 +185,6 @@ async def retry_processing(
         activity_id, current_user.id
     )
     return GenericResponse(
-        data=MessageResponse(
-            message=(
-                f"Activity queued for retry processing "
-                f"with job ID: {job_id}"
-            )
-        ),
+        data=RetryResponse(job_id=job_id),
         message="Activity queued for retry processing",
     )

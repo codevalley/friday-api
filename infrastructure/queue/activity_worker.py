@@ -28,6 +28,7 @@ def process_activity_job(
     activity_id: int,
     session: Optional[Session] = None,
     robo_service: Optional[RoboService] = None,
+    max_retries: int = 3,
 ) -> None:
     """Process an activity's schema for rendering suggestions.
 
@@ -35,12 +36,14 @@ def process_activity_job(
         activity_id: ID of the activity to process
         session: Optional database session
         robo_service: Optional RoboService instance
+        max_retries: Maximum number of retries for RoboAPI errors
     """
     logger.info(
         f"Starting to process activity {activity_id}"
     )
     session_provided = session is not None
     start_time = datetime.now(UTC)
+    attempts = 0
 
     try:
         # Create session if not provided
@@ -75,31 +78,51 @@ def process_activity_job(
         if not robo_service:
             robo_service = get_robo_service()
 
-        logger.info(
-            f"Analyzing schema for activity {activity_id}"
-        )
-        render_suggestion = (
-            robo_service.analyze_activity_schema(
-                activity.activity_schema
-            )
-        )
+        while attempts < max_retries:
+            try:
+                attempts += 1
+                logger.info(
+                    f"Analyzing schema for activity {activity_id} "
+                    f"(attempt {attempts})"
+                )
+                render_suggestion = (
+                    robo_service.analyze_activity_schema(
+                        activity.activity_schema
+                    )
+                )
 
-        # Update activity with results
-        activity.schema_render = render_suggestion
-        activity.processing_status = (
-            ProcessingStatus.COMPLETED
-        )
-        activity.processed_at = datetime.now(UTC)
+                # Update activity with results
+                activity.schema_render = render_suggestion
+                activity.processing_status = (
+                    ProcessingStatus.COMPLETED
+                )
+                activity.processed_at = datetime.now(UTC)
+                activity.updated_at = datetime.now(UTC)
+                session.add(activity)
+                session.commit()
+                logger.info(
+                    f"Activity {activity_id} processing completed successfully"
+                )
+                return
+
+            except RoboAPIError as e:
+                logger.error(
+                    f"RoboAPI error processing activity {activity_id} "
+                    f"(attempt {attempts}): {str(e)}"
+                )
+                if attempts >= max_retries:
+                    raise
+
+        # If we get here, all retries failed
+        activity.processing_status = ProcessingStatus.FAILED
         activity.updated_at = datetime.now(UTC)
         session.add(activity)
         session.commit()
-        logger.info(
-            f"Activity {activity_id} processing completed successfully"
-        )
 
     except RoboAPIError as e:
         logger.error(
-            f"RoboAPI error processing activity {activity_id}: {str(e)}"
+            f"RoboAPI error processing activity {activity_id} "
+            f"after {attempts} attempts: {str(e)}"
         )
         if activity:
             activity.processing_status = (

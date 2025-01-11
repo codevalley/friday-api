@@ -251,18 +251,29 @@ def queue_service():
 
 
 @pytest.fixture(scope="function")
-def robo_service():
-    """Mock robo service for testing."""
-    mock_robo = Mock()
-    mock_robo.process_text.return_value = (
-        RoboProcessingResult(
-            content="Test Content",
-            metadata={"title": "Test Title"},
-            tokens_used=100,
-            model_name="test-model",
+def robo_service(request):
+    """Create a robo service for testing.
+
+    By default, returns a mock service. For integration tests,
+    use @pytest.mark.integration to get a real service.
+    """
+    if request.node.get_closest_marker("integration"):
+        from services.OpenAIService import OpenAIService
+        from configs.RoboConfig import get_robo_settings
+
+        config = get_robo_settings()
+        return OpenAIService(config)
+    else:
+        mock_robo = Mock()
+        mock_robo.process_text.return_value = (
+            RoboProcessingResult(
+                content="Test Content",
+                metadata={"title": "Test Title"},
+                tokens_used=100,
+                model_name="test-model",
+            )
         )
-    )
-    return mock_robo
+        return mock_robo
 
 
 @pytest.fixture(scope="function")
@@ -281,3 +292,15 @@ def mock_auth_middleware():
 def fastapi_app():
     """Get the FastAPI app instance."""
     return app
+
+
+@pytest.fixture(scope="function")
+def activity_service(test_db_session, queue_service):
+    """Create an activity service instance for testing."""
+    from services.ActivityService import ActivityService
+    from repositories.ActivityRepository import (
+        ActivityRepository,
+    )
+
+    repository = ActivityRepository(test_db_session)
+    return ActivityService(repository, queue_service)

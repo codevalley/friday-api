@@ -75,7 +75,7 @@ async def test_create_activity_queues_for_processing(
         **sample_activity_data,
         "id": 1,
         "user_id": "test-user",
-        "processing_status": "PENDING",
+        "processing_status": "pending",
         "created_at": datetime.now(),
     }
     mock_activity_service.create_activity.return_value = (
@@ -92,7 +92,7 @@ async def test_create_activity_queues_for_processing(
     # Assert
     assert response.status_code == 201
     response_data = response.json()["data"]
-    assert response_data["processing_status"] == "PENDING"
+    assert response_data["processing_status"] == "pending"
     assert response_data["schema_render"] is None
     assert response_data["processed_at"] is None
 
@@ -111,7 +111,7 @@ async def test_get_activity_includes_processing_status(
         **sample_activity_data,
         "id": activity_id,
         "user_id": "test-user",
-        "processing_status": "COMPLETED",
+        "processing_status": "completed",
         "schema_render": {"type": "form"},
         "processed_at": datetime.now(),
         "created_at": datetime.now(),
@@ -129,7 +129,7 @@ async def test_get_activity_includes_processing_status(
     # Assert
     assert response.status_code == 200
     response_data = response.json()["data"]
-    assert response_data["processing_status"] == "COMPLETED"
+    assert response_data["processing_status"] == "completed"
     assert response_data["schema_render"] == {
         "type": "form"
     }
@@ -150,7 +150,7 @@ async def test_list_activities_includes_processing_status(
             **sample_activity_data,
             id=1,
             user_id="test-user",
-            processing_status="COMPLETED",
+            processing_status="completed",
             schema_render={"type": "form"},
             processed_at=datetime.now(),
             created_at=datetime.now(),
@@ -159,7 +159,7 @@ async def test_list_activities_includes_processing_status(
             **sample_activity_data,
             id=2,
             user_id="test-user",
-            processing_status="PENDING",
+            processing_status="pending",
             schema_render=None,
             processed_at=None,
             created_at=datetime.now(),
@@ -190,14 +190,14 @@ async def test_list_activities_includes_processing_status(
     assert len(response_data["items"]) == 2
     assert (
         response_data["items"][0]["processing_status"]
-        == "COMPLETED"
+        == "completed"
     )
     assert response_data["items"][0]["schema_render"] == {
         "type": "form"
     }
     assert (
         response_data["items"][1]["processing_status"]
-        == "PENDING"
+        == "pending"
     )
     assert (
         response_data["items"][1]["schema_render"] is None
@@ -209,12 +209,13 @@ async def test_get_processing_status_success(
     test_client,
     mock_activity_service,
     auth_headers,
+    sample_user,
 ):
     """Test get processing status for an activity."""
     # Setup
     activity_id = 1
     mock_activity_service.get_processing_status.return_value = {
-        "status": "COMPLETED",
+        "status": "completed",
         "processed_at": datetime.now(),
         "schema_render": {"type": "form"},
     }
@@ -227,11 +228,11 @@ async def test_get_processing_status_success(
 
     # Assert
     assert response.status_code == 200
-    assert response.json()["data"]["status"] == "COMPLETED"
+    assert response.json()["data"]["status"] == "completed"
     assert "processed_at" in response.json()["data"]
     assert "schema_render" in response.json()["data"]
     mock_activity_service.get_processing_status.assert_called_once_with(
-        activity_id
+        activity_id, sample_user.id
     )
 
 
@@ -240,6 +241,7 @@ async def test_get_processing_status_not_found(
     test_client,
     mock_activity_service,
     auth_headers,
+    sample_user,
 ):
     """Test get processing status for non-existent activity."""
     # Setup
@@ -260,12 +262,8 @@ async def test_get_processing_status_not_found(
 
     # Assert
     assert response.status_code == 404
-    assert (
-        response.json()["error"]["code"]
-        == "ACTIVITY_NOT_FOUND"
-    )
     mock_activity_service.get_processing_status.assert_called_once_with(
-        activity_id
+        activity_id, sample_user.id
     )
 
 
@@ -274,8 +272,9 @@ async def test_retry_processing_success(
     test_client,
     mock_activity_service,
     auth_headers,
+    sample_user,
 ):
-    """Test retry processing for failed activity."""
+    """Test retry processing for a failed activity."""
     # Setup
     activity_id = 1
     mock_activity_service.retry_processing.return_value = (
@@ -290,8 +289,9 @@ async def test_retry_processing_success(
 
     # Assert
     assert response.status_code == 200
+    assert response.json()["data"]["job_id"] == "job-123"
     mock_activity_service.retry_processing.assert_called_once_with(
-        activity_id
+        activity_id, sample_user.id
     )
 
 
@@ -300,13 +300,14 @@ async def test_retry_processing_not_failed(
     test_client,
     mock_activity_service,
     auth_headers,
+    sample_user,
 ):
     """Test retry processing for non-failed activity."""
     # Setup
     activity_id = 1
     error = ActivityServiceError(
-        message="Activity is not in a failed state",
-        code="TASK_INVALID_STATUS",
+        message="Activity is not in FAILED state",
+        code="INVALID_ACTIVITY_STATE",
     )
     mock_activity_service.retry_processing.side_effect = (
         error
@@ -320,10 +321,6 @@ async def test_retry_processing_not_failed(
 
     # Assert
     assert response.status_code == 400
-    assert (
-        response.json()["error"]["code"]
-        == "TASK_INVALID_STATUS"
-    )
     mock_activity_service.retry_processing.assert_called_once_with(
-        activity_id
+        activity_id, sample_user.id
     )

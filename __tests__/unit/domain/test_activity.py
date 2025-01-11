@@ -19,12 +19,12 @@ def test_activity_data_with_processing_fields():
         icon="📝",
         color="#FF0000",
         user_id="test-user",
-        processing_status="COMPLETED",
+        processing_status="completed",
         schema_render={"render_type": "form"},
         processed_at=now,
     )
 
-    assert activity.processing_status == "COMPLETED"
+    assert activity.processing_status == "completed"
     assert activity.schema_render == {"render_type": "form"}
     assert activity.processed_at == now
 
@@ -43,7 +43,7 @@ def test_activity_data_default_processing_status():
         user_id="test-user",
     )
 
-    assert activity.processing_status == "NOT_PROCESSED"
+    assert activity.processing_status == "not_processed"
     assert activity.schema_render is None
     assert activity.processed_at is None
 
@@ -61,7 +61,7 @@ def test_activity_data_invalid_processing_status():
             icon="📝",
             color="#FF0000",
             user_id="test-user",
-            processing_status="INVALID",
+            processing_status="invalid_status",
         )
 
     assert "processing_status must be one of" in str(
@@ -82,7 +82,7 @@ def test_activity_data_completed_without_render():
             icon="📝",
             color="#FF0000",
             user_id="test-user",
-            processing_status="COMPLETED",
+            processing_status="completed",
             processed_at=datetime.now(UTC),
         )
 
@@ -105,7 +105,7 @@ def test_activity_data_completed_without_processed_at():
             icon="📝",
             color="#FF0000",
             user_id="test-user",
-            processing_status="COMPLETED",
+            processing_status="completed",
             schema_render={"render_type": "form"},
         )
 
@@ -128,13 +128,13 @@ def test_activity_data_serialization():
         icon="📝",
         color="#FF0000",
         user_id="test-user",
-        processing_status="COMPLETED",
+        processing_status="completed",
         schema_render={"render_type": "form"},
         processed_at=now,
     )
 
     data = activity.to_dict()
-    assert data["processing_status"] == "COMPLETED"
+    assert data["processing_status"] == "completed"
     assert data["schema_render"] == {"render_type": "form"}
     assert data["processed_at"] == now
 

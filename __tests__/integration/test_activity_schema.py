@@ -2,8 +2,8 @@
 
 import pytest
 from datetime import datetime
+from unittest.mock import Mock
 
-from domain.values import ProcessingStatus
 from schemas.pydantic.ActivitySchema import ActivityCreate
 from repositories.ActivityRepository import (
     ActivityRepository,
@@ -11,15 +11,36 @@ from repositories.ActivityRepository import (
 from infrastructure.queue.activity_worker import (
     process_activity_job,
 )
-from configs.RoboConfig import get_robo_settings
+from domain.exceptions import RoboAPIError
+from domain.values import ProcessingStatus
 
 
 @pytest.fixture
 def robo_service():
     """Get robo service for testing."""
-    return get_robo_settings().to_domain_config()
+    mock_service = Mock()
+    mock_service.analyze_activity_schema.return_value = {
+        "render_type": "form",
+        "layout": {
+            "sections": [
+                {
+                    "title": "Basic Info",
+                    "fields": ["field1"],
+                }
+            ],
+        },
+        "field_groups": [
+            {
+                "name": "basic",
+                "fields": ["field1"],
+                "description": "Basic fields",
+            }
+        ],
+    }
+    return mock_service
 
 
+@pytest.mark.integration
 def test_activity_schema_success(
     test_db_session,
     activity_service,
@@ -53,9 +74,8 @@ def test_activity_schema_success(
     # Process activity
     process_activity_job(
         activity.id,
-        test_db_session,
-        robo_service,
-        activity_repo,
+        session=test_db_session,
+        robo_service=robo_service,
     )
 
     # Refresh session to see worker's changes
@@ -74,6 +94,7 @@ def test_activity_schema_success(
     assert isinstance(activity.processed_at, datetime)
 
 
+@pytest.mark.integration
 def test_activity_schema_failure(
     test_db_session,
     activity_service,
@@ -104,21 +125,16 @@ def test_activity_schema_failure(
     activity = activity_repo.get(activity_response.id)
 
     # Mock RoboService to raise an error
-    def mock_analyze_schema(*args, **kwargs):
-        raise Exception("Test processing failure")
-
-    robo_service.analyze_activity_schema = (
-        mock_analyze_schema
+    robo_service.analyze_activity_schema.side_effect = (
+        RoboAPIError("Test processing failure")
     )
 
     # Process activity
-    with pytest.raises(Exception):
-        process_activity_job(
-            activity.id,
-            test_db_session,
-            robo_service,
-            activity_repo,
-        )
+    process_activity_job(
+        activity.id,
+        session=test_db_session,
+        robo_service=robo_service,
+    )
 
     # Refresh session to see worker's changes
     test_db_session.expire_all()
@@ -133,6 +149,7 @@ def test_activity_schema_failure(
     assert activity.processed_at is None
 
 
+@pytest.mark.integration
 def test_activity_schema_retry(
     test_db_session,
     activity_service,
@@ -169,7 +186,7 @@ def test_activity_schema_retry(
         nonlocal attempts
         attempts += 1
         if attempts <= 2:
-            raise Exception(
+            raise RoboAPIError(
                 f"Test failure attempt {attempts}"
             )
         return {
@@ -194,16 +211,15 @@ def test_activity_schema_retry(
             },
         }
 
-    robo_service.analyze_activity_schema = (
+    robo_service.analyze_activity_schema.side_effect = (
         mock_analyze_schema
     )
 
     # Process activity
     process_activity_job(
         activity.id,
-        test_db_session,
-        robo_service,
-        activity_repo,
+        session=test_db_session,
+        robo_service=robo_service,
     )
 
     # Refresh session to see worker's changes

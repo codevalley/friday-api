@@ -43,6 +43,7 @@ class ActivityCreate(ActivityBase):
         """
         data = self.model_dump()
         data["user_id"] = user_id
+        data["processing_status"] = "not_processed"
         return ActivityData.from_dict(data)
 
 
@@ -236,5 +237,23 @@ class ProcessingStatusResponse(BaseModel):
                         }
                     ],
                 },
+            }
+        }
+
+
+class RetryResponse(BaseModel):
+    """Response model for retry processing."""
+
+    job_id: str = Field(
+        description="ID of the queued job",
+        examples=["job-123"],
+    )
+
+    class Config:
+        """Pydantic model configuration."""
+
+        json_schema_extra = {
+            "example": {
+                "job_id": "job-123",
             }
         }

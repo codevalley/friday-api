@@ -451,7 +451,10 @@ class OpenAIService(RoboService):
                     },
                     {
                         "role": "user",
-                        "content": f"Analyze this schema and suggest how to render it: {json.dumps(schema)}",
+                        "content": (
+                            f"Analyze this schema, suggest how to render it: "
+                            f"{json.dumps(schema)}"
+                        ),
                     },
                 ],
                 tools=[
