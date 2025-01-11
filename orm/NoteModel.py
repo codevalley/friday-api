@@ -1,7 +1,7 @@
 """Note ORM model."""
 
 from datetime import datetime
-from typing import Dict, Any
+from typing import Dict, Any, TYPE_CHECKING, List
 from sqlalchemy import (
     Column,
     Integer,
@@ -11,10 +11,15 @@ from sqlalchemy import (
     DateTime,
     Enum as SQLEnum,
 )
-from sqlalchemy.orm import relationship
+from sqlalchemy.orm import relationship, Mapped
 
 from domain.values import ProcessingStatus
 from .BaseModel import Base
+
+if TYPE_CHECKING:
+    from orm.UserModel import User
+    from orm.MomentModel import Moment
+    from orm.TaskModel import Task
 
 
 class Note(Base):
@@ -65,9 +70,13 @@ class Note(Base):
     )
 
     # Relationships
-    user = relationship("User", back_populates="notes")
-    moments = relationship("Moment", back_populates="note")
-    tasks = relationship(
+    user: Mapped["User"] = relationship(
+        "User", back_populates="notes"
+    )
+    moments: Mapped[List["Moment"]] = relationship(
+        "Moment", back_populates="note"
+    )
+    tasks: Mapped[List["Task"]] = relationship(
         "Task",
         back_populates="note",
         doc="All tasks referencing this note via note_id",

@@ -137,3 +137,4 @@ dmypy.json
 .pyre/
 docs/bugs.md
 review-*.md
+app.log.*

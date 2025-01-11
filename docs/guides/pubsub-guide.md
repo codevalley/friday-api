@@ -1,6 +1,6 @@
-# Redis Pub/Sub and Note Processing Guide
+# Redis Pub/Sub and Processing Guide
 
-This guide covers the setup, monitoring, and debugging of the note processing system using Redis and RQ (Redis Queue).
+This guide covers the setup, monitoring, and debugging of the note and activity schema processing system using Redis and RQ (Redis Queue).
 
 ## Setup Guide
 
@@ -40,22 +40,22 @@ QUEUE_JOB_TTL=3600  # How long jobs can stay in queue (1 hour)
 
 1. **Starting Workers**
 ```bash
-# Start a single worker
-rq worker note_enrichment
+# Start a single worker for both queues
+PYTHONPATH=$PYTHONPATH:. rq worker note_enrichment activity_schema --url redis://localhost:6379
+
+# Start dedicated workers for each queue
+rq worker note_enrichment --url redis://localhost:6379  # Note processing only
+rq worker activity_schema --url redis://localhost:6379  # Activity schema only
 
 # Start multiple workers
-rq worker note_enrichment -c worker_settings --count 3
-
-# or this
-PYTHONPATH=$PYTHONPATH:. rq worker note_enrichment --url redis://localhost:6379
+rq worker note_enrichment activity_schema -c worker_settings --count 3
 ```
-
 
 2. **Worker Configuration**
 Create `worker_settings.py`:
 ```python
 REDIS_URL = 'redis://localhost:6379/0'
-QUEUES = ['note_enrichment']
+QUEUES = ['note_enrichment', 'activity_schema']  # List all queues
 JOB_TIMEOUT = '10m'
 RESULT_TTL = 24 * 60 * 60  # 24 hours
 ```
@@ -74,9 +74,16 @@ health_status = get_system_health()
 # {
 #     "redis_connected": true,
 #     "queue_stats": {
-#         "queue_size": 10,
-#         "failed_jobs": 0,
-#         "scheduled_jobs": 5
+#         "note_enrichment": {
+#             "queue_size": 10,
+#             "failed_jobs": 0,
+#             "scheduled_jobs": 5
+#         },
+#         "activity_schema": {
+#             "queue_size": 5,
+#             "failed_jobs": 0,
+#             "scheduled_jobs": 2
+#         }
 #     },
 #     "workers": {
 #         "count": 3,
@@ -90,6 +97,7 @@ health_status = get_system_health()
 The system uses structured JSON logging for better observability:
 
 ```python
+# Note processing log
 {
     "timestamp": "2024-01-20T10:30:00Z",
     "level": "INFO",
@@ -97,23 +105,30 @@ The system uses structured JSON logging for better observability:
     "module": "note_worker",
     "note_id": 123
 }
+
+# Activity schema processing log
+{
+    "timestamp": "2024-01-20T10:30:00Z",
+    "level": "INFO",
+    "message": "Processing activity schema 456",
+    "module": "activity_worker",
+    "activity_id": 456
+}
 ```
 
 ### Queue Monitoring
 
 1. **Queue Statistics**
 ```python
-from queues.NoteProcessingQueue import NoteProcessingQueue
+from infrastructure.queue.RQNoteQueue import RQNoteQueue
 
-queue = NoteProcessingQueue()
+queue = RQNoteQueue(redis_queue)
 stats = queue.get_queue_health()
 ```
 
 2. **Job Status Tracking**
 ```python
-from infrastructure.queue.RQNoteQueue import RQNoteQueue
-
-queue = RQNoteQueue(redis_queue)
+# Check status of any job
 status = queue.get_job_status(job_id)
 # Returns job status, timing, and error information
 ```
@@ -140,8 +155,9 @@ Error states are tracked in the `ProcessingStatus` enum:
 # View logs for all workers
 tail -f rq.log
 
-# Filter for specific note ID
+# Filter for specific IDs
 grep "note_id=123" rq.log
+grep "activity_id=456" rq.log
 ```
 
 2. **Monitor Queue Size**
@@ -149,6 +165,7 @@ grep "note_id=123" rq.log
 # Using redis-cli
 redis-cli
 > LLEN rq:queue:note_enrichment
+> LLEN rq:queue:activity_schema
 ```
 
 3. **Inspect Failed Jobs**
@@ -169,7 +186,7 @@ rq info -j <job_id>
 
 - **Processing Failures**
   - Check RoboService connectivity
-  - Verify note content validity
+  - Verify input data validity
   - Review rate limiting status
 
 - **Worker Crashes**
@@ -222,9 +239,9 @@ Solution: Check for memory leaks, adjust worker count
 ### Performance Optimization
 
 1. **Queue Performance**
-   - Monitor queue length
+   - Monitor queue length for each queue type
    - Adjust worker count based on load
-   - Implement job prioritization if needed
+   - Consider dedicated workers for high-volume queues
 
 2. **Worker Performance**
    - Profile memory usage

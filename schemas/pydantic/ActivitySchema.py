@@ -129,6 +129,18 @@ class ActivityResponse(BaseModel):
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
     moments: Optional[List[MomentResponse]] = None
+    processing_status: str = Field(
+        default="NOT_PROCESSED",
+        description="Current processing status",
+    )
+    schema_render: Optional[Dict[str, Any]] = Field(
+        None,
+        description="Rendering suggestions from AI",
+    )
+    processed_at: Optional[datetime] = Field(
+        None,
+        description="When processing completed",
+    )
 
     @classmethod
     def from_domain(
@@ -146,6 +158,9 @@ class ActivityResponse(BaseModel):
             "moment_count": domain.moment_count,
             "created_at": domain.created_at,
             "updated_at": domain.updated_at,
+            "processing_status": domain.processing_status,
+            "schema_render": domain.schema_render,
+            "processed_at": domain.processed_at,
         }
         if domain.moments and len(domain.moments) > 0:
             data["moments"] = [
@@ -177,3 +192,49 @@ class ActivityList(PaginationResponse):
             size=size,
             pages=(len(items) + size - 1) // size,
         )
+
+
+class ProcessingStatusResponse(BaseModel):
+    """Response model for activity processing status."""
+
+    status: str = Field(
+        description="Current processing status",
+        examples=[
+            "PENDING",
+            "PROCESSING",
+            "COMPLETED",
+            "FAILED",
+            "SKIPPED",
+        ],
+    )
+    processed_at: Optional[datetime] = Field(
+        None,
+        description="When processing completed (if done)",
+    )
+    schema_render: Optional[Dict[str, Any]] = Field(
+        None,
+        description="Rendering suggestions (if done)",
+    )
+
+    class Config:
+        """Pydantic model configuration."""
+
+        json_schema_extra = {
+            "example": {
+                "status": "COMPLETED",
+                "processed_at": "2024-01-11T12:00:00Z",
+                "schema_render": {
+                    "type": "form",
+                    "layout": "vertical",
+                    "field_groups": [
+                        {
+                            "name": "basic_info",
+                            "fields": [
+                                "title",
+                                "description",
+                            ],
+                        }
+                    ],
+                },
+            }
+        }

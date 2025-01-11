@@ -233,3 +233,42 @@ class ActivityRepository(BaseRepository[Activity, int]):
                 ),
             )
         return activity
+
+    def list_by_user(
+        self, user_id: str, page: int = 1, size: int = 10
+    ) -> Dict[str, Any]:
+        """List activities for a user with pagination.
+
+        Args:
+            user_id: User ID to filter activities
+            page: Page number (1-based)
+            size: Number of items per page
+
+        Returns:
+            Dict containing:
+                - items: List of activities
+                - total: Total number of activities
+        """
+        # Calculate offset
+        offset = (page - 1) * size
+
+        # Get total count
+        total = (
+            self.db.query(Activity)
+            .filter(Activity.user_id == user_id)
+            .count()
+        )
+
+        # Get paginated items
+        items = (
+            self.db.query(Activity)
+            .filter(Activity.user_id == user_id)
+            .offset(offset)
+            .limit(size)
+            .all()
+        )
+
+        return {
+            "items": items,
+            "total": total,
+        }

@@ -1,8 +1,9 @@
 """Domain model for Activity."""
 
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Dict, Any, List, Optional, TypeVar
+from enum import Enum
 
 from domain.moment import MomentData
 from domain.exceptions import ActivityValidationError
@@ -10,6 +11,17 @@ from domain.values import Color, ActivitySchema
 from utils.validation import validate_moment_data
 
 T = TypeVar("T", bound="ActivityData")
+
+
+class ProcessingStatus(str, Enum):
+    """Status of activity schema processing."""
+
+    NOT_PROCESSED = "NOT_PROCESSED"
+    PENDING = "PENDING"
+    PROCESSING = "PROCESSING"
+    COMPLETED = "COMPLETED"
+    FAILED = "FAILED"
+    SKIPPED = "SKIPPED"
 
 
 @dataclass
@@ -40,6 +52,9 @@ class ActivityData:
         id: Unique identifier for this activity (optional)
         moment_count: Number of moments of this activity type
         moments: List of moments of this activity type (optional)
+        processing_status: Status of schema render processing
+        schema_render: Rendered schema suggestions from AI
+        processed_at: When the schema was last processed
         created_at: When this record was created (optional)
         updated_at: When this record was last updated (optional)
     """
@@ -53,6 +68,9 @@ class ActivityData:
     id: Optional[int] = None
     moment_count: int = 0
     moments: Optional[List[MomentData]] = None
+    processing_status: str = "NOT_PROCESSED"
+    schema_render: Optional[Dict[str, Any]] = None
+    processed_at: Optional[datetime] = None
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
     _color_obj: Optional[Color] = None
@@ -146,20 +164,75 @@ class ActivityData:
                     "moment count mismatch: count does not match list length",
                 )
 
-        if self.created_at is not None and not isinstance(
-            self.created_at, datetime
-        ):
+        if self.created_at is not None:
+            if not isinstance(self.created_at, datetime):
+                raise ActivityValidationError.invalid_field_value(
+                    "created_at",
+                    "created_at must be a datetime object",
+                )
+            if self.created_at.tzinfo is None:
+                self.created_at = self.created_at.replace(
+                    tzinfo=timezone.utc
+                )
+
+        if self.updated_at is not None:
+            if not isinstance(self.updated_at, datetime):
+                raise ActivityValidationError.invalid_field_value(
+                    "updated_at",
+                    "updated_at must be a datetime object",
+                )
+            if self.updated_at.tzinfo is None:
+                self.updated_at = self.updated_at.replace(
+                    tzinfo=timezone.utc
+                )
+
+        if self.processed_at is not None:
+            if not isinstance(self.processed_at, datetime):
+                raise ActivityValidationError.invalid_field_value(
+                    "processed_at",
+                    "processed_at must be a datetime object",
+                )
+            if self.processed_at.tzinfo is None:
+                self.processed_at = (
+                    self.processed_at.replace(
+                        tzinfo=timezone.utc
+                    )
+                )
+
+        # Validate processing_status
+        valid_statuses = {
+            "NOT_PROCESSED",
+            "PENDING",
+            "PROCESSING",
+            "COMPLETED",
+            "FAILED",
+            "SKIPPED",
+        }
+        if self.processing_status not in valid_statuses:
             raise ActivityValidationError.invalid_field_value(
-                "created_at",
-                "created_at must be a datetime object",
+                "processing_status",
+                f"processing_status must be one of: "
+                f"{', '.join(valid_statuses)}",
             )
 
-        if self.updated_at is not None and not isinstance(
-            self.updated_at, datetime
+        # Validate schema_render if status is COMPLETED
+        if (
+            self.processing_status == "COMPLETED"
+            and self.schema_render is None
         ):
             raise ActivityValidationError.invalid_field_value(
-                "updated_at",
-                "updated_at must be a datetime object",
+                "schema_render",
+                "schema_render must be set when status is COMPLETED",
+            )
+
+        # Validate processed_at if status is COMPLETED
+        if (
+            self.processing_status == "COMPLETED"
+            and self.processed_at is None
+        ):
+            raise ActivityValidationError.invalid_field_value(
+                "processed_at",
+                "processed_at must be set when status is COMPLETED",
             )
 
     def _validate_color(self) -> None:
@@ -232,6 +305,9 @@ class ActivityData:
             "color": str(self.color_value),
             "user_id": self.user_id,
             "moment_count": self.moment_count,
+            "processing_status": self.processing_status,
+            "schema_render": self.schema_render,
+            "processed_at": self.processed_at,
             "created_at": self.created_at,
             "updated_at": self.updated_at,
         }
@@ -268,6 +344,9 @@ class ActivityData:
                 - id: Unique identifier for the activity (optional)
                 - moment_count: Number of moments (optional)
                 - moments: List of moment data (optional)
+                - processing_status: Status of schema render processing
+                - schema_render: Rendered schema suggestions from AI
+                - processed_at: When the schema was last processed
                 - created_at: Creation timestamp (optional)
                 - updated_at: Last update timestamp (optional)
 
@@ -300,6 +379,11 @@ class ActivityData:
             user_id=data["user_id"],
             moment_count=moment_count or 0,
             moments=moments,
+            processing_status=data.get(
+                "processing_status", "NOT_PROCESSED"
+            ),
+            schema_render=data.get("schema_render"),
+            processed_at=data.get("processed_at"),
             created_at=data.get("created_at"),
             updated_at=data.get("updated_at"),
         )
@@ -323,10 +407,56 @@ class ActivityData:
             hasattr(orm_model, "moments")
             and orm_model.moments
         ):
+            # Ensure each moment's timestamps are timezone-aware
+            for moment in orm_model.moments:
+                if moment.timestamp.tzinfo is None:
+                    moment.timestamp = (
+                        moment.timestamp.replace(
+                            tzinfo=timezone.utc
+                        )
+                    )
+                if (
+                    moment.created_at
+                    and moment.created_at.tzinfo is None
+                ):
+                    moment.created_at = (
+                        moment.created_at.replace(
+                            tzinfo=timezone.utc
+                        )
+                    )
+                if (
+                    moment.updated_at
+                    and moment.updated_at.tzinfo is None
+                ):
+                    moment.updated_at = (
+                        moment.updated_at.replace(
+                            tzinfo=timezone.utc
+                        )
+                    )
+
             moments = [
                 MomentData.from_orm(m)
                 for m in orm_model.moments
             ]
+
+        # Ensure activity timestamps are timezone-aware
+        created_at = orm_model.created_at
+        if created_at and created_at.tzinfo is None:
+            created_at = created_at.replace(
+                tzinfo=timezone.utc
+            )
+
+        updated_at = orm_model.updated_at
+        if updated_at and updated_at.tzinfo is None:
+            updated_at = updated_at.replace(
+                tzinfo=timezone.utc
+            )
+
+        processed_at = orm_model.processed_at
+        if processed_at and processed_at.tzinfo is None:
+            processed_at = processed_at.replace(
+                tzinfo=timezone.utc
+            )
 
         return cls(
             id=orm_model.id,
@@ -338,6 +468,9 @@ class ActivityData:
             user_id=orm_model.user_id,
             moment_count=orm_model.moment_count,
             moments=moments,
-            created_at=orm_model.created_at,
-            updated_at=orm_model.updated_at,
+            processing_status=orm_model.processing_status,
+            schema_render=orm_model.schema_render,
+            processed_at=processed_at,
+            created_at=created_at,
+            updated_at=updated_at,
         )

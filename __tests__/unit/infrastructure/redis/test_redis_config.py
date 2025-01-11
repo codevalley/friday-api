@@ -17,7 +17,10 @@ def test_redis_config_defaults():
     assert config.decode_responses is True
     assert config.job_timeout == 600
     assert config.job_ttl == 3600
-    assert config.queue_name == "note_enrichment"
+    assert config.queue_names == [
+        "note_enrichment",
+        "activity_schema",
+    ]
 
 
 @pytest.mark.parametrize(
@@ -77,11 +80,14 @@ def test_redis_config_queue_settings():
         {
             "REDIS_JOB_TIMEOUT": "300",
             "REDIS_JOB_TTL": "1800",
-            "REDIS_QUEUE_NAME": "test_queue",
+            "REDIS_QUEUE_NAMES": '["test_queue1", "test_queue2"]',
         },
         clear=True,
     ):
         config = RedisConfig()
         assert config.job_timeout == 300
         assert config.job_ttl == 1800
-        assert config.queue_name == "test_queue"
+        assert config.queue_names == [
+            "test_queue1",
+            "test_queue2",
+        ]

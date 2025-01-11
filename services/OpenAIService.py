@@ -46,6 +46,73 @@ ENRICH_NOTE_FUNCTION = {
     },
 }
 
+ANALYZE_SCHEMA_FUNCTION = {
+    "name": "analyze_schema",
+    "description": "Analyze JSON schema and suggest rendering strategy",
+    "parameters": {
+        "type": "object",
+        "properties": {
+            "render_type": {
+                "type": "string",
+                "description": "Suggested rendering type",
+                "enum": [
+                    "form",
+                    "table",
+                    "timeline",
+                    "cards",
+                ],
+            },
+            "layout": {
+                "type": "object",
+                "properties": {
+                    "sections": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "title": {"type": "string"},
+                                "fields": {
+                                    "type": "array",
+                                    "items": {
+                                        "type": "string"
+                                    },
+                                },
+                            },
+                        },
+                    },
+                    "suggestions": {
+                        "type": "object",
+                        "properties": {
+                            "column_count": {
+                                "type": "integer"
+                            },
+                            "responsive_breakpoints": {
+                                "type": "array",
+                                "items": {"type": "string"},
+                            },
+                        },
+                    },
+                },
+            },
+            "field_groups": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "name": {"type": "string"},
+                        "fields": {
+                            "type": "array",
+                            "items": {"type": "string"},
+                        },
+                        "description": {"type": "string"},
+                    },
+                },
+            },
+        },
+        "required": ["render_type", "layout"],
+    },
+}
+
 
 class OpenAIService(RoboService):
     """OpenAI implementation of RoboService."""
@@ -356,3 +423,75 @@ class OpenAIService(RoboService):
         except Exception as e:
             logger.error(f"Health check failed: {str(e)}")
             return False
+
+    def analyze_activity_schema(
+        self, schema: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        """Analyze schema using OpenAI."""
+        try:
+            # Estimate token usage
+            estimated_tokens = (
+                len(json.dumps(schema)) // 4
+            ) + 100  # Buffer for response
+
+            # Wait for rate limit capacity
+            if not self.rate_limiter.wait_for_capacity(
+                estimated_tokens
+            ):
+                raise RoboRateLimitError(
+                    "Failed to acquire capacity after retries"
+                )
+
+            response = self.client.chat.completions.create(
+                model=self.config.model_name,
+                messages=[
+                    {
+                        "role": "system",
+                        "content": self.config.schema_analysis_prompt,
+                    },
+                    {
+                        "role": "user",
+                        "content": f"Analyze this schema and suggest how to render it: {json.dumps(schema)}",
+                    },
+                ],
+                tools=[
+                    {
+                        "type": "function",
+                        "function": ANALYZE_SCHEMA_FUNCTION,
+                    }
+                ],
+                tool_choice={
+                    "type": "function",
+                    "function": {"name": "analyze_schema"},
+                },
+                temperature=self.config.temperature,
+                max_tokens=self.config.max_tokens,
+            )
+
+            # Record token usage
+            self.rate_limiter.record_usage(
+                datetime.fromtimestamp(
+                    response.created, UTC
+                ),
+                response.usage.total_tokens,
+            )
+
+            # Extract and validate response
+            tool_call = response.choices[
+                0
+            ].message.tool_calls[0]
+            result = json.loads(
+                tool_call.function.arguments
+            )
+
+            return result
+
+        except Exception as e:
+            logger.error(
+                f"Error analyzing schema: {str(e)}"
+            )
+            if isinstance(e, RoboRateLimitError):
+                raise
+            raise RoboAPIError(
+                f"Failed to analyze schema: {str(e)}"
+            )

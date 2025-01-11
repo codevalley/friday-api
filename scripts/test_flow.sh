@@ -40,11 +40,19 @@ extract_json_value() {
 
     # First try to extract from data field (GenericResponse format)
     # This handles nested fields like data.id, data.items, etc.
-    value=$(echo "$response" | grep -o "\"data\":{[^}]*\"$field\":[[:space:]]*[^,}]*" | grep -o "\"$field\":[[:space:]]*[^,}]*" | sed -E "s/\"$field\":[[:space:]]*//;s/\"//g")
+    value=$(echo "$response" | grep -o "\"data\":{[^}]*\"$field\":\"[^\"]*\"" | grep -o "\"$field\":\"[^\"]*\"" | sed -E "s/\"$field\":\"//;s/\"$//")
 
     # If not found in data field, try direct field (for backward compatibility)
     if [ -z "$value" ]; then
-        value=$(echo "$response" | grep -o "\"$field\":[[:space:]]*[^,}]*" | sed -E "s/\"$field\":[[:space:]]*//;s/\"//g")
+        value=$(echo "$response" | grep -o "\"$field\":\"[^\"]*\"" | sed -E "s/\"$field\":\"//;s/\"$//")
+    fi
+
+    # If still not found, try for non-string values
+    if [ -z "$value" ]; then
+        value=$(echo "$response" | grep -o "\"data\":{[^}]*\"$field\":[^,}]*" | grep -o "\"$field\":[^,}]*" | sed -E "s/\"$field\"://;s/\"//g")
+        if [ -z "$value" ]; then
+            value=$(echo "$response" | grep -o "\"$field\":[^,}]*" | sed -E "s/\"$field\"://;s/\"//g")
+        fi
     fi
 
     # Trim any whitespace
@@ -58,31 +66,79 @@ check_api_response() {
     local response=$1
     local context=$2
 
-    # Check for error response
-    if echo "$response" | grep -q "\"detail\""; then
+    # Check for error response with non-null error field
+    if echo "$response" | grep -q "\"error\":[^n]"; then
         echo -e "${RED}✗ Failed - $context${NC}"
         echo "$response"
-        exit 1
+        return 1
     fi
 
     # Check for data field (GenericResponse format)
-    if ! echo "$response" | grep -q "\"data\":{"; then
-        # Special case for auth endpoints that might not be wrapped yet
-        if echo "$response" | grep -q "\"user_secret\":\|\"access_token\":"; then
-            echo -e "${GREEN}✓ Success${NC}"
-            return
-        fi
-        # Special case for MessageResponse format
-        if echo "$response" | grep -q "\"message\":"; then
-            echo -e "${GREEN}✓ Success${NC}"
-            return
-        fi
-        echo -e "${RED}✗ Failed - $context - Invalid response format${NC}"
-        echo "$response"
-        exit 1
+    if echo "$response" | grep -q "\"data\":{"; then
+        echo -e "${GREEN}✓ Success${NC}"
+        return 0
     fi
 
-    echo -e "${GREEN}✓ Success${NC}"
+    # Special case for auth endpoints that might not be wrapped yet
+    if echo "$response" | grep -q "\"user_secret\":\|\"access_token\":"; then
+        echo -e "${GREEN}✓ Success${NC}"
+        return 0
+    fi
+
+    # Special case for MessageResponse format
+    if echo "$response" | grep -q "\"message\":"; then
+        echo -e "${GREEN}✓ Success${NC}"
+        return 0
+    fi
+
+    echo -e "${RED}✗ Failed - $context - Invalid response format${NC}"
+    echo "$response"
+    return 1
+}
+
+# Function to wait for activity processing
+wait_for_activity_processing() {
+    local activity_id=$1
+    local token=$2
+    local max_attempts=30
+    local attempt=1
+    local status=""
+
+    echo -e "\n${BLUE}Waiting for activity $activity_id to be processed...${NC}"
+
+    while [ $attempt -le $max_attempts ]; do
+        local response=$(curl -s -X GET "$BASE_URL/activities/$activity_id" \
+            -H "Authorization: Bearer $token")
+        echo "Raw response: $response"  # Debug line
+        status=$(extract_json_value "$response" "processing_status")
+        echo "Extracted status: '$status'"  # Debug line with quotes
+
+        case "$status" in
+            "COMPLETED")
+                echo -e "${GREEN}Activity processing completed successfully${NC}"
+                return 0
+                ;;
+            "FAILED")
+                echo -e "${RED}Activity processing failed${NC}"
+                return 1
+                ;;
+            "PROCESSING")
+                echo "Processing status: $status (attempt $attempt/$max_attempts)"
+                ;;
+            "PENDING"|"NOT_PROCESSED")
+                echo "Waiting for processing to start... (attempt $attempt/$max_attempts)"
+                ;;
+            *)
+                echo "Unknown status: $status (attempt $attempt/$max_attempts)"
+                ;;
+        esac
+
+        sleep 1
+        attempt=$((attempt + 1))
+    done
+
+    echo -e "${RED}Activity processing timed out after $max_attempts attempts${NC}"
+    return 1
 }
 
 # Store responses in variables for better JSON handling
@@ -151,9 +207,19 @@ ACTIVITY1_RESPONSE=$(curl -s -X POST "$BASE_URL/activities" \
         \"color\": \"#4A90E2\"
     }")
 echo "Activity1 Response: $ACTIVITY1_RESPONSE"
-ACTIVITY1_ID=$(extract_json_value "$ACTIVITY1_RESPONSE" "id")
-echo "Activity1 ID (raw): '$ACTIVITY1_ID'"  # Debug output with quotes
-check_api_response "$ACTIVITY1_RESPONSE" "Creating reading activity"
+if check_api_response "$ACTIVITY1_RESPONSE" "Creating reading activity"; then
+    ACTIVITY1_ID=$(extract_json_value "$ACTIVITY1_RESPONSE" "id")
+    echo "Activity1 ID (raw): '$ACTIVITY1_ID'"  # Debug output with quotes
+    if [ ! -z "$ACTIVITY1_ID" ]; then
+        wait_for_activity_processing "$ACTIVITY1_ID" "$TOKEN1"
+    else
+        echo -e "${RED}Failed to extract activity ID${NC}"
+        exit 1
+    fi
+else
+    echo -e "${RED}Failed to create activity${NC}"
+    exit 1
+fi
 
 # Activity 2: Exercise
 ACTIVITY2_RESPONSE=$(curl -s -X POST "$BASE_URL/activities" \
@@ -167,9 +233,19 @@ ACTIVITY2_RESPONSE=$(curl -s -X POST "$BASE_URL/activities" \
         \"color\": \"#FF5733\"
     }")
 echo "Activity2 Response: $ACTIVITY2_RESPONSE"
-ACTIVITY2_ID=$(extract_json_value "$ACTIVITY2_RESPONSE" "id")
-echo "Activity2 ID (raw): '$ACTIVITY2_ID'"  # Debug output with quotes
-check_api_response "$ACTIVITY2_RESPONSE" "Creating exercise activity"
+if check_api_response "$ACTIVITY2_RESPONSE" "Creating exercise activity"; then
+    ACTIVITY2_ID=$(extract_json_value "$ACTIVITY2_RESPONSE" "id")
+    echo "Activity2 ID (raw): '$ACTIVITY2_ID'"  # Debug output with quotes
+    if [ ! -z "$ACTIVITY2_ID" ]; then
+        wait_for_activity_processing "$ACTIVITY2_ID" "$TOKEN1"
+    else
+        echo -e "${RED}Failed to extract activity ID${NC}"
+        exit 1
+    fi
+else
+    echo -e "${RED}Failed to create activity${NC}"
+    exit 1
+fi
 
 # Verify activity IDs
 if [ -z "$ACTIVITY1_ID" ] || [ -z "$ACTIVITY2_ID" ]; then

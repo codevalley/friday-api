@@ -24,6 +24,14 @@ class RoboConfig:
         "3. Use appropriate formatting (bold, italic, lists)\n"
         "4. Keep the content concise but complete"
     )
+    schema_analysis_prompt: str = (
+        "You are a UI/UX expert analyzing JSON schemas. "
+        "Your task is to:\n"
+        "1. Analyze the schema structure\n"
+        "2. Suggest optimal rendering strategy\n"
+        "3. Group related fields\n"
+        "4. Provide layout recommendations"
+    )
 
 
 @dataclass
@@ -58,6 +66,30 @@ class RoboService(ABC):
 
         Returns:
             RoboProcessingResult: Processing result
+        """
+        pass
+
+    @abstractmethod
+    def analyze_activity_schema(
+        self, schema: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        """Analyze activity schema and suggest rendering strategy.
+
+        This method analyzes a JSON Schema that defines an activity's
+        data structure and suggests optimal ways to render it in the UI.
+
+        Args:
+            schema: JSON Schema defining activity data structure
+
+        Returns:
+            Dict containing:
+                - render_type: rendering type (form/table/timeline/cards)
+                - layout: Layout suggestions for the UI
+                - field_groups: Suggested groupings of related fields
+
+        Raises:
+            RoboAPIError: If API call fails
+            RoboValidationError: If schema is invalid
         """
         pass
 

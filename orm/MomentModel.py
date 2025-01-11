@@ -12,6 +12,7 @@ from sqlalchemy import (
 from sqlalchemy.orm import relationship, Session
 import json
 from jsonschema import validate as validate_json_schema
+from datetime import datetime, UTC
 
 from orm.BaseModel import EntityMeta
 
@@ -42,7 +43,21 @@ class Moment(EntityMeta):
         nullable=True,
     )
     data = Column(JSON, nullable=False)
-    timestamp = Column(DateTime, nullable=False)
+    timestamp = Column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=lambda: datetime.now(UTC),
+    )
+    created_at = Column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=lambda: datetime.now(UTC),
+    )
+    updated_at = Column(
+        DateTime(timezone=True),
+        nullable=True,
+        onupdate=lambda: datetime.now(UTC),
+    )
 
     # Relationships
     user = relationship("User", back_populates="moments")

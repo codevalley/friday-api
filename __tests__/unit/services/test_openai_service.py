@@ -51,6 +51,75 @@ def test_config():
     )
 
 
+@pytest.fixture
+def mock_openai():
+    """Create a mock OpenAI client with helper methods."""
+
+    class MockOpenAI:
+        def __init__(self):
+            self.mock_client = Mock()
+            self.mock_client.chat.completions.create = (
+                MagicMock()
+            )
+
+        def setup_mock_response(self, content):
+            """Set up a mock response with the given content."""
+            response = ChatCompletion(
+                id="test-id",
+                model="test-model",
+                object="chat.completion",
+                created=int(datetime.now().timestamp()),
+                choices=[
+                    {
+                        "index": 0,
+                        "message": ChatCompletionMessage(
+                            role="assistant",
+                            content=json.dumps(content),
+                            tool_calls=[
+                                ChatCompletionMessageToolCall(
+                                    id="test-call",
+                                    type="function",
+                                    function={
+                                        "name": "analyze_schema",
+                                        "arguments": json.dumps(
+                                            content
+                                        ),
+                                    },
+                                )
+                            ],
+                        ),
+                        "finish_reason": "stop",
+                    }
+                ],
+                usage=CompletionUsage(
+                    prompt_tokens=10,
+                    completion_tokens=20,
+                    total_tokens=30,
+                ),
+            )
+            self.mock_client.chat.completions.create.return_value = (
+                response
+            )
+
+        def setup_rate_limit_error(self):
+            """Set up a rate limit error response."""
+            error = RoboRateLimitError(
+                "Rate limit exceeded"
+            )
+            self.mock_client.chat.completions.create.side_effect = (
+                error
+            )
+
+        def setup_api_error(self):
+            """Set up a generic API error response."""
+            error = RoboAPIError("API error")
+            self.mock_client.chat.completions.create.side_effect = (
+                error
+            )
+
+    return MockOpenAI()
+
+
 def test_init_missing_api_key():
     """Test initialization with missing API key."""
     config = RoboConfig(api_key="", model_name="test-model")
@@ -281,3 +350,94 @@ def test_health_check_failure(
 
         # Test
         assert service.health_check() is False
+
+
+def test_analyze_activity_schema(mock_openai, test_config):
+    """Test activity schema analysis."""
+    # Setup mock response
+    mock_response = {
+        "render_type": "form",
+        "layout": {
+            "sections": [
+                {
+                    "title": "Basic Info",
+                    "fields": ["name", "description"],
+                }
+            ],
+            "suggestions": {
+                "column_count": 2,
+                "responsive_breakpoints": [
+                    "sm",
+                    "md",
+                    "lg",
+                ],
+            },
+        },
+        "field_groups": [
+            {
+                "name": "basic",
+                "fields": ["name", "description"],
+                "description": "Basic information fields",
+            }
+        ],
+    }
+
+    mock_openai.setup_mock_response(mock_response)
+
+    # Test schema
+    test_schema = {
+        "type": "object",
+        "properties": {
+            "name": {"type": "string"},
+            "description": {"type": "string"},
+        },
+    }
+
+    with patch(
+        "services.OpenAIService.OpenAI",
+        return_value=mock_openai.mock_client,
+    ):
+        service = OpenAIService(test_config)
+        result = service.analyze_activity_schema(
+            test_schema
+        )
+
+        assert result["render_type"] == "form"
+        assert "layout" in result
+        assert "field_groups" in result
+
+
+def test_analyze_activity_schema_rate_limit(
+    mock_openai, test_config
+):
+    """Test rate limit handling in schema analysis."""
+    mock_openai.setup_rate_limit_error()
+
+    with patch(
+        "services.OpenAIService.OpenAI",
+        return_value=mock_openai.mock_client,
+    ):
+        service = OpenAIService(test_config)
+
+        with pytest.raises(RoboRateLimitError):
+            service.analyze_activity_schema(
+                {"type": "object"}
+            )
+
+
+def test_analyze_activity_schema_api_error(
+    mock_openai, test_config
+):
+    """Test API error handling in schema analysis."""
+    mock_openai.setup_api_error()
+
+    with patch(
+        "services.OpenAIService.OpenAI",
+        return_value=mock_openai.mock_client,
+    ):
+        service = OpenAIService(test_config)
+
+        with pytest.raises(RoboAPIError):
+            service.analyze_activity_schema(
+                {"type": "object"}
+            )

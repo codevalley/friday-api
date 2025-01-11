@@ -44,392 +44,167 @@ ALTER TABLE activities ADD COLUMN
 
 ## Implementation Plan
 
-### Epic 1: Database and Model Updates
+### Epic 1: Database and Model Updates ✅
 
-#### Task 1: Update Database Schema
-- [ ] Add migration script for new columns
-- [ ] Update init_database.sql
-- [ ] Add rollback script
+#### Task 1: Update Database Schema ✅
+- [x] Add migration script for new columns
+- [x] Update init_database.sql with new schema
+- [-] Add rollback script (skipped as not in production)
 
-#### Task 2: Update Activity Models
-- [ ] Update ActivityModel.py with new fields:
-```python:orm/ActivityModel.py
-class Activity(EntityMeta):
-    # ... existing fields ...
+#### Task 2: Update Activity Models ✅
+- [x] Update ActivityModel.py with new fields
+- [x] Update domain/activity.py to include new fields
+- [x] Add tests for new functionality
 
-    processing_status: Mapped[str] = Column(
-        Enum(
-            'NOT_PROCESSED',
-            'PENDING',
-            'PROCESSING',
-            'COMPLETED',
-            'FAILED',
-            'SKIPPED'
-        ),
-        nullable=False,
-        default='NOT_PROCESSED'
-    )
-    schema_render: Mapped[Optional[Dict[str, Any]]] = Column(
-        JSON,
-        nullable=True
-    )
-    processed_at: Mapped[Optional[datetime]] = Column(
-        DateTime,
-        nullable=True
-    )
+To verify the tests, run:
+```bash
+pytest __tests__/unit/domain/test_activity.py -v
 ```
 
-- [ ] Update domain/activity.py to include new fields
-- [ ] Update related schemas and tests
+### Epic 2: Queue Integration ✅
 
-### Epic 2: Queue Integration
+#### Task 1: Update Queue Service Interface ✅
+- [x] Added enqueue_activity method to QueueService interface
+- [x] Updated method signatures and documentation
 
-#### Task 1: Update Queue Service Interface
-```python:domain/ports/QueueService.py
-class QueueService(ABC):
-    """Interface for queue operations."""
+#### Task 2: Update RQ Queue Implementation ✅
+- [x] Added enqueue_activity implementation to RQNoteQueue
+- [x] Maintained consistent patterns with note processing
+- [x] Added proper error handling
 
-    @abstractmethod
-    def enqueue_note(self, note_id: int) -> Optional[str]:
-        """Enqueue a note for processing.
+### Epic 3: RoboService Updates ✅
 
-        Args:
-            note_id: ID of the note to process
+#### Task 1: Update RoboService Interface ✅
+- [x] Add analyze_activity_schema method to RoboService
+- [x] Define interface and documentation
+- [x] Add schema analysis prompt to RoboConfig
 
-        Returns:
-            Optional[str]: Job ID if enqueued successfully, None otherwise
-        """
-        pass
+#### Task 2: Update OpenAI Implementation ✅
+- [x] Add ANALYZE_SCHEMA_FUNCTION definition
+- [x] Implement analyze_activity_schema method
+- [x] Add error handling and logging
+- [x] Add comprehensive tests
 
-    @abstractmethod
-    def enqueue_activity(self, activity_id: int) -> Optional[str]:
-        """Enqueue an activity for schema render processing.
+### Epic 4: Worker Implementation ✅
 
-        Args:
-            activity_id: ID of the activity to process
+#### Task 1: Create Activity Worker ✅
+- [x] Created activity_worker.py
+- [x] Implemented process_activity_job function
+- [x] Added error handling and logging
 
-        Returns:
-            Optional[str]: Job ID if enqueued successfully, None otherwise
-        """
-        pass
+#### Task 2: Update Worker Runner ✅
+- [x] Modified run_worker.py to handle both note and activity processing
+- [x] Added proper error handling and logging
+- [x] Added tests for worker initialization and shutdown
+- [x] Fixed RQ library integration issues
 
-    @abstractmethod
-    def get_job_status(self, job_id: str) -> Dict[str, Any]:
-        """Get status of a job."""
-        pass
+### Epic 5: Service Layer Integration 🚧
 
-    @abstractmethod
-    def get_queue_health(self) -> Dict[str, Any]:
-        """Get health metrics for the queue."""
-        pass
-```
+#### Task 1: Update ActivityService ✅
+- [x] Add queue service to ActivityService constructor
+- [x] Implement activity processing queue integration
+- [x] Add status check methods
+- [x] Add retry/error handling logic
+- [x] Add comprehensive tests
 
-#### Task 2: Update RQ Queue Implementation
-```python:infrastructure/queue/RQNoteQueue.py
-class RQNoteQueue(QueueService):
-    def __init__(self, queue: Queue):
-        self.queue = queue
+#### Task 2: Add Integration Tests 🚧 (Next Up)
+- [ ] Test activity creation with queue integration
+- [ ] Test processing status updates
+- [ ] Test error scenarios
+- [ ] Test retry mechanisms
 
-    def enqueue_note(self, note_id: int) -> Optional[str]:
-        """Enqueue a note for processing."""
-        try:
-            job = self.queue.enqueue(
-                "infrastructure.queue.note_worker.process_note_job",
-                args=(note_id,),
-                job_timeout="10m",
-                result_ttl=24 * 60 * 60,  # Keep results for 24 hours
-                meta={
-                    "note_id": note_id,
-                    "queued_at": datetime.now(UTC).isoformat(),
-                },
-            )
-            return job.id if job else None
-        except Exception:
-            return None
+#### Task 3: Update API Layer
+- [ ] Add processing status to activity responses
+- [ ] Add endpoints for checking processing status
+- [ ] Add documentation for new endpoints
 
-    def enqueue_activity(self, activity_id: int) -> Optional[str]:
-        """Enqueue an activity for schema render processing."""
-        try:
-            job = self.queue.enqueue(
-                "infrastructure.queue.activity_worker.process_activity_job",
-                args=(activity_id,),
-                job_timeout="10m",
-                result_ttl=24 * 60 * 60,  # Keep results for 24 hours
-                meta={
-                    "activity_id": activity_id,
-                    "queued_at": datetime.now(UTC).isoformat(),
-                },
-            )
-            return job.id if job else None
-        except Exception:
-            return None
+### Epic 6: Testing 🚧
 
-    # Existing methods remain unchanged
-    def get_job_status(self, job_id: str) -> Dict[str, Any]:
-        """Get status of a job."""
-        try:
-            job = Job.fetch(job_id, connection=self.queue.connection)
-            return {
-                "status": job.get_status(),
-                "created_at": job.created_at.isoformat() if job.created_at else None,
-                "ended_at": job.ended_at.isoformat() if job.ended_at else None,
-                "exc_info": job.exc_info,
-                "meta": job.meta,
-            }
-        except Exception:
-            return {"status": "not_found"}
+#### Task 1: Fix Unit Tests (Current Focus)
+- [x] Domain Tests
+  - Fixed `test_activity_data_completed_without_processed_at` by adding validation for processed_at field
+  - Updated ActivityData validation logic to ensure COMPLETED status requires both schema_render and processed_at
 
-    def get_queue_health(self) -> Dict[str, Any]:
-        """Get health metrics for the queue."""
-        try:
-            return {
-                "jobs_total": len(self.queue),
-                "workers": len(self.queue.workers),
-                "is_empty": self.queue.is_empty,
-            }
-        except Exception:
-            return {
-                "jobs_total": 0,
-                "workers": 0,
-                "is_empty": True,
-                "error": "Failed to get queue metrics",
-            }
-```
+- [x] Queue Tests
+  - Fixed `RQNoteQueue` missing queue attribute by using `note_queue` and `activity_queue`
+  - Updated tests for `test_enqueue_note_success`, `test_enqueue_note_failure`, `test_get_queue_health`
+  - Added proper mocking for queue health metrics using `count` and `Worker.all()`
+  - All queue tests now passing
 
-Key Changes:
-1. Aligned method signatures with existing `RQNoteQueue` implementation
-2. Consistent error handling and return types
-3. Maintained the same job metadata pattern
-4. Kept existing health check and status methods
+- [x] Redis Config Tests
+  - Updated tests to use `queue_names` instead of `queue_name`
+  - Fixed `test_redis_config_defaults` and `test_redis_config_queue_settings`
+  - Added support for multiple queues in configuration
+  - All Redis config tests now passing
 
-The rest of the epics remain unchanged.
+- [ ] Activity Router Tests (Next Up)
+  - Update tests to include required `user_id` parameter
+  - Fix `test_get_processing_status` and `test_retry_processing` tests
+  - Add tests for new processing status endpoints
 
-### Epic 3: RoboService Updates
-
-#### Task 1: Update RoboService Interface
-```python:domain/robo.py
-class RoboService(ABC):
-    # ... existing methods ...
-
-    @abstractmethod
-    def analyze_activity_schema(
-        self,
-        schema: Dict[str, Any]
-    ) -> Dict[str, Any]:
-        """Analyze activity schema and suggest rendering strategy.
-
-        Args:
-            schema: JSON Schema defining activity data structure
-
-        Returns:
-            Dict with rendering suggestions
-        """
-        pass
-```
-
-#### Task 2: Update OpenAI Implementation
-```python:services/OpenAIService.py
-ANALYZE_SCHEMA_FUNCTION = {
-    "name": "analyze_schema",
-    "description": "Analyze JSON schema and suggest rendering strategy",
-    "parameters": {
-        "type": "object",
-        "properties": {
-            "render_type": {
-                "type": "string",
-                "description": "Suggested rendering type",
-                "enum": ["form", "table", "timeline", "cards"]
-            },
-            "layout": {
-                "type": "object",
-                "description": "Layout suggestions"
-            },
-            "field_groups": {
-                "type": "array",
-                "description": "Suggested field groupings"
-            }
-        },
-        "required": ["render_type", "layout"]
-    }
-}
-
-class OpenAIService(RoboService):
-    # ... existing methods ...
-
-    def analyze_activity_schema(
-        self,
-        schema: Dict[str, Any]
-    ) -> Dict[str, Any]:
-        """Analyze schema using OpenAI."""
-        try:
-            response = self.client.chat.completions.create(
-                model=self.config.model_name,
-                messages=[
-                    {
-                        "role": "system",
-                        "content": "You are a UI/UX expert. Analyze JSON schemas and suggest optimal rendering strategies.",
-                    },
-                    {
-                        "role": "user",
-                        "content": f"Analyze this schema and suggest how to render it: {json.dumps(schema)}",
-                    }
-                ],
-                tools=[{"type": "function", "function": ANALYZE_SCHEMA_FUNCTION}],
-                tool_choice={"type": "function", "function": {"name": "analyze_schema"}},
-            )
-
-            # Extract and validate response
-            tool_call = response.choices[0].message.tool_calls[0]
-            result = json.loads(tool_call.function.arguments)
-
-            return result
-
-        except Exception as e:
-            logger.error(f"Error analyzing schema: {str(e)}")
-            raise RoboAPIError(f"Failed to analyze schema: {str(e)}")
-```
-
-### Epic 4: Worker Implementation
-
-#### Task 1: Create Activity Worker
-```python:infrastructure/queue/activity_worker.py
-"""Worker for processing activity schemas."""
-
-import logging
-from datetime import datetime, UTC
-from typing import Dict, Any
-
-from sqlalchemy.orm import Session
-
-from configs.Database import get_db_connection
-from configs.RoboConfig import get_robo_service
-from domain.exceptions import RoboAPIError
-from orm.ActivityModel import Activity
-
-logger = logging.getLogger(__name__)
-
-def process_activity(
-    activity_id: int,
-    user_id: str,
-    activity_schema: Dict[str, Any]
-) -> None:
-    """Process an activity's schema for rendering suggestions.
-
-    Args:
-        activity_id: ID of activity to process
-        user_id: Owner of the activity
-        activity_schema: Schema to analyze
-    """
-    logger.info(f"Processing activity {activity_id}")
-
-    # Get database session
-    db = next(get_db_connection())
-
-    try:
-        # Update status to PROCESSING
-        activity = db.query(Activity).filter(
-            Activity.id == activity_id,
-            Activity.user_id == user_id
-        ).first()
-
-        if not activity:
-            logger.error(f"Activity {activity_id} not found")
-            return
-
-        activity.processing_status = 'PROCESSING'
-        db.commit()
-
-        # Get RoboService and process
-        robo_service = get_robo_service()
-        render_suggestion = robo_service.analyze_activity_schema(
-            activity_schema
-        )
-
-        # Update activity with results
-        activity.schema_render = render_suggestion
-        activity.processing_status = 'COMPLETED'
-        activity.processed_at = datetime.now(UTC)
-        db.commit()
-
-        logger.info(f"Successfully processed activity {activity_id}")
-
-    except RoboAPIError as e:
-        logger.error(f"RoboAPI error processing activity {activity_id}: {str(e)}")
-        activity.processing_status = 'FAILED'
-        db.commit()
-    except Exception as e:
-        logger.error(f"Error processing activity {activity_id}: {str(e)}")
-        activity.processing_status = 'FAILED'
-        db.commit()
-    finally:
-        db.close()
-```
-
-#### Task 2: Update Worker Runner
-- [ ] Modify run_worker.py to handle both note and activity processing
-- [ ] Add proper error handling and logging
-
-### Epic 5: Service Layer Integration
-
-#### Task 1: Update ActivityService
-```python:services/ActivityService.py
-class ActivityService:
-    def __init__(
-        self,
-        repository: ActivityRepository,
-        queue_service: ActivityQueueService
-    ):
-        self.repository = repository
-        self.queue_service = queue_service
-
-    def create_activity(self, data: ActivityData) -> ActivityData:
-        """Create activity and queue for processing."""
-        activity = self.repository.create(data)
-
-        # Queue for processing
-        self.queue_service.queue_activity_processing(
-            activity_id=activity.id,
-            user_id=activity.user_id,
-            activity_schema=activity.activity_schema
-        )
-
-        return activity
-```
-
-### Epic 6: Testing
-
-#### Task 1: Unit Tests
-- [ ] Test new activity model fields
-- [ ] Test queue service
-- [ ] Test worker processing
-- [ ] Test RoboService schema analysis
+- [ ] Activity Service Tests
+  - Add `to_domain` method to `ActivityData`
+  - Fix `test_create_activity_success` and `test_create_activity_queue_failure`
+  - Add tests for processing status updates
 
 #### Task 2: Integration Tests
-- [ ] Test end-to-end activity creation and processing
-- [ ] Test error handling and status updates
-- [ ] Test concurrent processing
+- [ ] Fix and implement `test_activity_schema_success`
+  - Test activity creation with schema
+  - Verify processing status transitions
+  - Check schema render output
 
-## Timeline
+- [ ] Fix and implement `test_activity_schema_failure`
+  - Test invalid schema handling
+  - Verify error status updates
+  - Check error message propagation
 
-1. **Week 1**: Database and Model Updates
-   - Database migration
-   - Model updates
-   - Basic tests
+- [ ] Fix and implement `test_activity_schema_retry`
+  - Test retry mechanism for failed processing
+  - Verify status updates during retry
+  - Check final processing outcome
 
-2. **Week 2**: Queue and RoboService
-   - Queue service implementation
-   - RoboService updates
-   - OpenAI integration
+#### Task 3: Test Infrastructure
+- [ ] Ensure consistent test data and fixtures
+  - Create shared test data for activities
+  - Set up proper database state
+  - Add cleanup procedures
 
-3. **Week 3**: Worker Implementation
-   - Activity worker
-   - Worker runner updates
-   - Service integration
+- [ ] Add proper cleanup in teardown
+  - Clear queues between tests
+  - Reset database state
+  - Clean up any created files
 
-4. **Week 4**: Testing and Documentation
-   - Unit tests
-   - Integration tests
-   - Documentation updates
+- [ ] Implement proper mocking for external services
+  - Mock RoboService for testing
+  - Mock Redis for queue tests
+  - Mock database connections where needed
+
+### Next Steps
+1. Fix Activity Router Tests
+   - Focus on proper user_id handling
+   - Add tests for processing status endpoints
+   - Ensure proper error handling
+
+2. Complete Activity Service Tests
+   - Implement missing domain methods
+   - Add tests for queue integration
+   - Verify processing status handling
+
+3. Implement Integration Tests
+   - Set up test infrastructure
+   - Add comprehensive test cases
+   - Ensure proper cleanup
+
+### Timeline
+Week 1:
+- Complete Activity Router Tests
+- Fix Activity Service Tests
+- Set up test infrastructure
+
+Week 2:
+- Implement integration tests
+- Add cleanup procedures
+- Document test coverage
 
 ## Notes
 
@@ -452,3 +227,80 @@ class ActivityService:
    - Cache common rendering patterns
    - Implement schema versioning
    - Add rendering preview capability
+
+## Activity Schema Render Implementation
+
+### Current Status
+- Epic 1: Database and Model Updates ✅
+  - Added processing_status field to Activity model
+  - Added schema_render field to Activity model
+  - Added processed_at timestamp field
+  - Added timezone awareness to all datetime fields
+
+- Epic 2: Queue Integration ✅
+  - Implemented activity_schema queue in RQNoteQueue
+  - Added queue health monitoring
+  - Fixed queue tests:
+    - Corrected function path comparison in enqueue tests
+    - Updated queue health metrics to use count() instead of len()
+    - Properly mocked queue attributes and worker counts
+    - All queue tests now passing
+
+- Epic 3: RoboService Updates ✅
+  - Added analyze_activity_schema method
+  - Implemented schema analysis logic
+  - Added test coverage
+
+- Epic 4: Worker Implementation ✅
+  - Implemented activity_worker.py
+  - Added error handling and retries
+  - Added proper logging
+
+- Epic 5: Service Layer Updates
+  Task 1: ActivityService Updates ✅
+    - Added queue integration
+    - Updated error handling
+    - Fixed timezone handling
+
+  Task 2: Integration Tests 🔄
+    - Added basic test structure
+    - Need to add more test cases for:
+      - Error scenarios
+      - Retry mechanisms
+      - Edge cases
+
+  Task 3: API Layer Updates (Pending)
+    - Add new endpoints for:
+      - Getting processing status
+      - Retrying failed processing
+      - Getting schema render results
+
+### Next Steps
+1. Fix Redis Config Tests
+   - Update RedisConfig to handle multiple queue names
+   - Update tests to reflect new queue configuration
+   - Ensure backward compatibility
+
+2. Complete Integration Tests
+   - Add remaining test cases
+   - Ensure proper test isolation
+   - Add cleanup procedures
+
+3. Implement API Layer Updates
+   - Design new endpoints
+   - Add request/response schemas
+   - Add error handling
+
+4. Documentation
+   - Update API documentation
+   - Add usage examples
+   - Document error scenarios and recovery procedures
+
+### Timeline
+- Week 1: Complete Redis Config Tests and remaining Integration Tests
+- Week 2: Implement API Layer Updates and Documentation
+
+### Notes
+- All datetime fields are now timezone-aware
+- Queue health monitoring is working correctly
+- Worker properly handles both note and activity processing

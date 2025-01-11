@@ -7,6 +7,10 @@ from configs.Database import get_db_connection
 from configs.OpenAPI import security
 from configs.queue_dependencies import get_queue_service
 from repositories.UserRepository import UserRepository
+from repositories.ActivityRepository import (
+    ActivityRepository,
+)
+from services.ActivityService import ActivityService
 from utils.security import verify_token
 from orm.UserModel import User
 from domain.ports.QueueService import QueueService
@@ -79,3 +83,14 @@ async def get_optional_user(
 def get_queue() -> QueueService:
     """Get queue service instance."""
     return get_queue_service()
+
+
+def get_activity_service(
+    db: Session = Depends(get_db_connection),
+    queue: QueueService = Depends(get_queue),
+) -> ActivityService:
+    """Get activity service instance."""
+    repository = ActivityRepository(db)
+    return ActivityService(
+        repository=repository, queue_service=queue
+    )

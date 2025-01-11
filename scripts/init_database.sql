@@ -29,6 +29,16 @@ CREATE TABLE IF NOT EXISTS activities (
     activity_schema JSON NOT NULL,
     icon VARCHAR(255) NOT NULL,
     color VARCHAR(7) NOT NULL,
+    processing_status ENUM(
+        'NOT_PROCESSED',
+        'PENDING',
+        'PROCESSING',
+        'COMPLETED',
+        'FAILED',
+        'SKIPPED'
+    ) NOT NULL DEFAULT 'NOT_PROCESSED',
+    schema_render JSON NULL,
+    processed_at TIMESTAMP NULL,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
@@ -115,3 +125,6 @@ CREATE INDEX idx_tasks_note_id ON tasks(note_id);
 CREATE INDEX idx_notes_user_id ON notes(user_id);
 CREATE INDEX idx_notes_created_at ON notes(created_at);
 CREATE INDEX idx_notes_processing_status ON notes(processing_status);
+
+-- Add index for processing_status (after the existing indexes)
+CREATE INDEX idx_activities_processing_status ON activities(processing_status);

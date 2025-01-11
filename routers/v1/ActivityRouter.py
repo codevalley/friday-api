@@ -7,6 +7,7 @@ from schemas.pydantic.ActivitySchema import (
     ActivityUpdate,
     ActivityResponse,
     ActivityList,
+    ProcessingStatusResponse,
 )
 from schemas.pydantic.PaginationSchema import (
     PaginationParams,
@@ -15,7 +16,10 @@ from schemas.pydantic.CommonSchema import (
     MessageResponse,
     GenericResponse,
 )
-from dependencies import get_current_user
+from dependencies import (
+    get_current_user,
+    get_activity_service,
+)
 from orm.UserModel import User
 from utils.error_handlers import handle_exceptions
 
@@ -37,7 +41,9 @@ router = APIRouter(
 @handle_exceptions
 async def create_activity(
     activity: ActivityCreate,
-    service: ActivityService = Depends(),
+    service: ActivityService = Depends(
+        get_activity_service
+    ),
     current_user: User = Depends(get_current_user),
 ):
     """Create a new activity"""
@@ -56,7 +62,9 @@ async def create_activity(
 @handle_exceptions
 async def list_activities(
     pagination: PaginationParams = Depends(),
-    service: ActivityService = Depends(),
+    service: ActivityService = Depends(
+        get_activity_service
+    ),
     current_user: User = Depends(get_current_user),
 ):
     """List all activities with pagination"""
@@ -78,7 +86,9 @@ async def list_activities(
 @handle_exceptions
 async def get_activity(
     activity_id: int,
-    service: ActivityService = Depends(),
+    service: ActivityService = Depends(
+        get_activity_service
+    ),
     current_user: User = Depends(get_current_user),
 ):
     """Get an activity by ID"""
@@ -96,7 +106,9 @@ async def get_activity(
 async def update_activity(
     activity_id: int,
     activity: ActivityUpdate,
-    service: ActivityService = Depends(),
+    service: ActivityService = Depends(
+        get_activity_service
+    ),
     current_user: User = Depends(get_current_user),
 ):
     """Update an activity"""
@@ -119,11 +131,64 @@ async def update_activity(
 @handle_exceptions
 async def delete_activity(
     activity_id: int,
-    service: ActivityService = Depends(),
+    service: ActivityService = Depends(
+        get_activity_service
+    ),
     current_user: User = Depends(get_current_user),
 ):
     """Delete an activity"""
     service.delete_activity(activity_id, current_user.id)
     return MessageResponse(
         message="Activity deleted successfully"
+    )
+
+
+@router.get(
+    "/{activity_id}/processing-status",
+    response_model=GenericResponse[
+        ProcessingStatusResponse
+    ],
+)
+@handle_exceptions
+async def get_processing_status(
+    activity_id: int,
+    service: ActivityService = Depends(
+        get_activity_service
+    ),
+    current_user: User = Depends(get_current_user),
+):
+    """Get activity processing status"""
+    result = service.get_processing_status(
+        activity_id, current_user.id
+    )
+    return GenericResponse(
+        data=result,
+        message="Retrieved processing status",
+    )
+
+
+@router.post(
+    "/{activity_id}/retry-processing",
+    response_model=GenericResponse[MessageResponse],
+)
+@handle_exceptions
+async def retry_processing(
+    activity_id: int,
+    service: ActivityService = Depends(
+        get_activity_service
+    ),
+    current_user: User = Depends(get_current_user),
+):
+    """Retry processing for a failed activity"""
+    job_id = service.retry_processing(
+        activity_id, current_user.id
+    )
+    return GenericResponse(
+        data=MessageResponse(
+            message=(
+                f"Activity queued for retry processing "
+                f"with job ID: {job_id}"
+            )
+        ),
+        message="Activity queued for retry processing",
     )

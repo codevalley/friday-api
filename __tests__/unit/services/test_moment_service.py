@@ -1,8 +1,8 @@
-"""Test suite for MomentService."""
+"""Tests for MomentService."""
 
 import pytest
 from datetime import datetime, timezone, timedelta
-from unittest.mock import Mock, PropertyMock
+from unittest.mock import Mock
 from fastapi import HTTPException
 
 from services.MomentService import MomentService
@@ -36,27 +36,29 @@ def valid_moment_data():
 
 @pytest.fixture
 def mock_activity():
-    """Create a mock activity for testing."""
+    """Mock activity for tests."""
     activity = Mock()
     activity.id = 1
-    activity.user_id = "test_user"
     activity.name = "Test Activity"
     activity.description = "Test Description"
-    activity.icon = "test-icon"
-    activity.color = "#000000"
-    activity.created_at = datetime.now(timezone.utc)
-    activity.updated_at = datetime.now(timezone.utc)
-    activity.moment_count = 0
     activity.activity_schema = {
         "type": "object",
-        "properties": {"test_field": {"type": "string"}},
+        "properties": {},
     }
-    activity.validate_moment_data = Mock()
-
-    # Mock the moments property to return an empty list
-    moments_property = PropertyMock(return_value=[])
-    type(activity).moments = moments_property
-
+    activity.icon = "test-icon"
+    activity.color = "#000000"
+    activity.user_id = "test-user-id"
+    activity.moment_count = 0
+    activity.created_at = datetime(
+        2024, 12, 16, 18, 41, 0, 140952
+    )
+    activity.updated_at = datetime(
+        2024, 12, 16, 18, 41, 0, 140952
+    )
+    activity.moments = None
+    activity.processing_status = "NOT_PROCESSED"
+    activity.schema_render = None
+    activity.processed_at = None
     return activity
 
 

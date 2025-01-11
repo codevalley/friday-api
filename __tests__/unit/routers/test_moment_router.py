@@ -414,6 +414,9 @@ class TestMomentRouter:
                 "created_at": "2024-12-16T18:41:00.140952",
                 "updated_at": "2024-12-16T18:41:00.140952",
                 "moments": None,
+                "processing_status": "NOT_PROCESSED",
+                "schema_render": None,
+                "processed_at": None,
             }
         ]
         mock_moment_service.list_recent_activities.assert_called_once_with(

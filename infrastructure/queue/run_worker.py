@@ -2,13 +2,10 @@
 
 import sys
 import logging
-from rq import Worker, Queue, Connection
+from rq import Worker, Queue
 
 from configs.Logging import configure_logging
-from configs.queue_dependencies import (
-    get_redis_connection,
-    get_redis_config,
-)
+from configs.queue_dependencies import get_redis_connection
 
 
 def run_worker():
@@ -17,27 +14,28 @@ def run_worker():
     This function:
     1. Sets up logging
     2. Creates Redis connection
-    3. Starts RQ worker process
+    3. Starts RQ worker process listening to multiple queues
     4. Handles graceful shutdown
     """
     # Configure logging
     configure_logging()
     logger = logging.getLogger(__name__)
-    logger.info("Starting note processing worker")
+    logger.info("Starting worker process")
 
     try:
         # Get Redis connection and config
         redis_conn = get_redis_connection()
-        redis_config = get_redis_config()
 
-        # Start worker
-        with Connection(redis_conn):
-            queue = Queue(redis_config.queue_name)
-            worker = Worker([queue])
-            logger.info(
-                f"Worker listening on queue: {queue.name}"
-            )
-            worker.work(with_scheduler=True)
+        # Start worker with multiple queues
+        queues = [
+            Queue("note_enrichment", connection=redis_conn),
+            Queue("activity_schema", connection=redis_conn),
+        ]
+        worker = Worker(queues, connection=redis_conn)
+        logger.info(
+            f"Worker listening on queues: {[q.name for q in queues]}"
+        )
+        worker.work(with_scheduler=True)
 
     except KeyboardInterrupt:
         logger.info(

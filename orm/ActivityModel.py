@@ -1,41 +1,43 @@
+from datetime import datetime, UTC
+from typing import (
+    Dict,
+    Any,
+    List,
+    Optional,
+    cast,
+    TYPE_CHECKING,
+)
+import json
+import re
+from jsonschema import validate as validate_json_schema
 from sqlalchemy import (
     Column,
     Integer,
     String,
-    JSON,
     ForeignKey,
     select,
     func,
     DateTime,
     CheckConstraint,
     UniqueConstraint,
+    Enum,
 )
 from sqlalchemy.orm import (
+    Mapped,
     relationship,
     column_property,
-    Mapped,
 )
-from jsonschema import validate as validate_json_schema
-import json
-import re
-from typing import (
-    Any,
-    Dict,
-    cast,
-    List,
-    TYPE_CHECKING,
-    Optional,
-)
-from datetime import datetime
+from sqlalchemy.dialects.mysql import JSON
 
-from orm.BaseModel import EntityMeta
-from orm.MomentModel import Moment
+from orm.BaseModel import Base
+from domain.activity import ProcessingStatus
 
 if TYPE_CHECKING:
     from orm.UserModel import User
+from orm.MomentModel import Moment
 
 
-class Activity(EntityMeta):
+class Activity(Base):
     """Activity Model represents different types of activities
     that can be logged.
 
@@ -56,6 +58,9 @@ class Activity(EntityMeta):
         user: User who created the activity
         created_at: When the activity was created
         updated_at: When the activity was last updated
+        processing_status: Status of the activity processing
+        schema_render: JSON Schema render
+        processed_at: Timestamp of when the activity was processed
     """
 
     __tablename__ = "activities"
@@ -86,23 +91,24 @@ class Activity(EntityMeta):
 
     # Timestamp fields
     created_at: Mapped[datetime] = Column(
-        DateTime,
+        DateTime(timezone=True),
         nullable=False,
-        default=datetime.utcnow,
+        default=lambda: datetime.now(UTC),
     )
     updated_at: Mapped[Optional[datetime]] = Column(
-        DateTime,
+        DateTime(timezone=True),
         nullable=True,
         default=None,
-        onupdate=datetime.utcnow,
+        onupdate=lambda: datetime.now(UTC),
     )
 
     # Computed fields
     moment_count: Mapped[int] = column_property(
-        select(func.count(Moment.id))
+        select(func.count(1))
+        .select_from(Moment)
         .where(Moment.activity_id == id)
-        .scalar_subquery()
         .correlate_except(Moment)
+        .scalar_subquery()
     )
 
     # Relationships
@@ -138,6 +144,22 @@ class Activity(EntityMeta):
             "user_id",
             name="unique_name_per_user",
         ),
+    )
+
+    # Add new columns after existing ones
+    processing_status: Mapped[str] = Column(
+        Enum(ProcessingStatus),
+        nullable=False,
+        default=ProcessingStatus.NOT_PROCESSED,
+        index=True,
+    )
+    schema_render: Mapped[
+        Optional[Dict[str, Any]]
+    ] = Column(JSON, nullable=True)
+    processed_at: Mapped[Optional[datetime]] = Column(
+        DateTime(timezone=True),
+        nullable=True,
+        default=None,
     )
 
     def __init__(self, **kwargs):

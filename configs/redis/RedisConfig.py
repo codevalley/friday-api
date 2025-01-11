@@ -1,7 +1,7 @@
 """Redis configuration module."""
 
 from pydantic_settings import BaseSettings
-from typing import Optional
+from typing import Optional, List
 
 
 class RedisConfig(BaseSettings):
@@ -19,7 +19,10 @@ class RedisConfig(BaseSettings):
     # Queue specific settings
     job_timeout: int = 600  # 10 minutes
     job_ttl: int = 3600  # 1 hour
-    queue_name: str = "note_enrichment"
+    queue_names: List[str] = [
+        "note_enrichment",
+        "activity_schema",
+    ]
 
     class Config:
         """Pydantic configuration."""

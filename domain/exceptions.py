@@ -108,6 +108,18 @@ class ActivityValidationError(ValidationException):
         )
 
 
+class ActivityServiceError(DomainException):
+    """Raised when activity service operations fail."""
+
+    pass
+
+
+class ActivityNotFoundError(DomainException):
+    """Raised when an activity is not found."""
+
+    pass
+
+
 class MomentValidationError(Exception):
     """Base exception for moment domain validation failures."""
 
@@ -224,7 +236,7 @@ class NoteReferenceError(NoteValidationError):
         )
 
 
-class RoboError(Exception):
+class RoboError(DomainException):
     """Base exception for all Robo-related errors."""
 
     pass
@@ -236,8 +248,10 @@ class RoboAPIError(RoboError):
     def __init__(
         self, message: str, status_code: int = None
     ):
+        super().__init__(
+            message=message, code="ROBO_API_ERROR"
+        )
         self.status_code = status_code
-        super().__init__(message)
 
 
 class RoboRateLimitError(RoboAPIError):
@@ -246,10 +260,18 @@ class RoboRateLimitError(RoboAPIError):
     pass
 
 
-class RoboConfigError(RoboError):
-    """Raised when there's an error with Robo configuration."""
+class RoboConfigError(DomainException):
+    """Exception raised for invalid robo configuration."""
 
-    pass
+    def __init__(self, message: str):
+        """Initialize RoboConfigError.
+
+        Args:
+            message: Error message
+        """
+        super().__init__(
+            message=message, code="ROBO_CONFIG_ERROR"
+        )
 
 
 class RoboProcessingError(RoboError):
@@ -264,10 +286,13 @@ class RoboValidationError(RoboError):
     pass
 
 
-class RoboServiceError(Exception):
-    """Raised when RoboService operations fail."""
+class RoboServiceError(DomainException):
+    """Exception raised when RoboService encounters an error."""
 
-    pass
+    def __init__(
+        self, message: str, code: str = "ROBO_SERVICE_ERROR"
+    ):
+        super().__init__(message=message, code=code)
 
 
 class TaskValidationError(Exception):

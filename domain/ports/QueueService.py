@@ -20,6 +20,20 @@ class QueueService(ABC):
         pass
 
     @abstractmethod
+    def enqueue_activity(
+        self, activity_id: int
+    ) -> Optional[str]:
+        """Enqueue an activity for schema render processing.
+
+        Args:
+            activity_id: ID of the activity to process
+
+        Returns:
+            Optional[str]: Job ID if enqueued successfully, None otherwise
+        """
+        pass
+
+    @abstractmethod
     def get_job_status(self, job_id: str) -> Dict[str, Any]:
         """Get status of a job.
 

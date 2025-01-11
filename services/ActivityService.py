@@ -1,315 +1,263 @@
-"""Service for handling activity-related operations."""
+"""Activity service implementation."""
 
-from typing import Dict, Any, Optional
-from fastapi import Depends, HTTPException, status
-from sqlalchemy.orm import Session
+import logging
+from typing import Optional
 
-from configs.Database import get_db_connection
-from domain.exceptions import ActivityValidationError
+from domain.activity import ActivityData
 from repositories.ActivityRepository import (
     ActivityRepository,
 )
-from repositories.MomentRepository import MomentRepository
-from schemas.pydantic.ActivitySchema import (
-    ActivityCreate,
-    ActivityResponse,
-    ActivityUpdate,
-    ActivityList,
+from domain.ports.QueueService import QueueService
+from domain.exceptions import (
+    ActivityServiceError,
+    ErrorCode,
 )
-from utils.validation import (
-    validate_pagination,
-    validate_color,
-    validate_activity_schema,
-)
-from utils.errors.domain_exceptions import (
-    handle_domain_exception,
-)
-
-import logging
+from schemas.pydantic.ActivitySchema import ActivityList
+from orm.ActivityModel import Activity
+from domain.values import ProcessingStatus
 
 logger = logging.getLogger(__name__)
 
 
 class ActivityService:
+    """Service for managing activities."""
+
     def __init__(
-        self, db: Session = Depends(get_db_connection)
+        self,
+        repository: ActivityRepository,
+        queue_service: QueueService,
     ):
-        """Initialize the service with database session.
+        """Initialize activity service.
 
         Args:
-            db (Session): SQLAlchemy database session
+            repository: Repository for activity persistence
+            queue_service: Queue service for async processing
         """
-        self.db = db
-        self.activity_repository = ActivityRepository(db)
-        self.moment_repository = MomentRepository(db)
-        logger.info(
-            "ActivityService initialized with database session"
-        )
-
-    def _validate_color(self, color: str) -> None:
-        """Validate color format.
-
-        Args:
-            color: Color string to validate
-
-        Raises:
-            HTTPException: If color format is invalid
-        """
-        try:
-            validate_color(color)
-        except ValueError:
-            raise ActivityValidationError.invalid_color(
-                color
-            )
-        except ActivityValidationError as e:
-            raise handle_domain_exception(e)
-
-    def _validate_activity_schema(
-        self, schema: Dict
-    ) -> None:
-        """Validate activity schema structure.
-
-        Args:
-            schema: Schema dictionary to validate
-
-        Raises:
-            HTTPException: If schema is invalid
-        """
-        try:
-            validate_activity_schema(schema)
-        except ValueError as e:
-            raise ActivityValidationError.invalid_field_value(
-                "activity_schema", str(e)
-            )
-        except ActivityValidationError as e:
-            raise handle_domain_exception(e)
-
-    def _validate_pagination(
-        self, page: int, size: int
-    ) -> None:
-        """Validate pagination parameters using centralized validation.
-
-        Args:
-            page (int): Page number to validate
-            size (int): Page size to validate
-
-        Raises:
-            HTTPException: If validation fails
-        """
-        try:
-            validate_pagination(page, size)
-        except ValueError as e:
-            raise HTTPException(
-                status_code=400,
-                detail=str(e),
-            )
+        self.repository = repository
+        self.queue_service = queue_service
 
     def create_activity(
-        self, activity_data: ActivityCreate, user_id: str
-    ) -> ActivityResponse:
-        """Create a new activity with schema validation
+        self, data: ActivityData, user_id: str
+    ) -> ActivityData:
+        """Create activity and queue for processing.
 
         Args:
-            activity_data: Activity data to create
-            user_id: ID of the user creating the activity
+            data: Activity data to create
+            user_id: ID of user creating activity
 
         Returns:
-            Created activity response
+            Created activity with processing status
 
         Raises:
-            HTTPException: If validation fails
+            ActivityServiceError: If creation fails
         """
         try:
-            logger.info(
-                f"Creating activity for user {user_id}"
-            )
-            logger.debug(f"Activity data: {activity_data}")
+            # Convert to domain model with user ID
+            activity_data = data.to_domain(user_id=user_id)
 
-            # Validate color and schema
-            if activity_data.color:
-                self._validate_color(activity_data.color)
-            if activity_data.activity_schema:
-                self._validate_activity_schema(
-                    activity_data.activity_schema
+            # Convert domain model to ORM model
+            activity = Activity(
+                name=activity_data.name,
+                description=activity_data.description,
+                activity_schema=activity_data.activity_schema,
+                icon=activity_data.icon,
+                color=activity_data.color,
+                user_id=activity_data.user_id,
+                processing_status=ProcessingStatus.PENDING,
+            )
+
+            # Create activity
+            activity = self.repository.create(activity)
+
+            try:
+                # Queue for processing
+                job_id = (
+                    self.queue_service.enqueue_activity(
+                        activity.id
+                    )
                 )
 
-            # Convert to domain model with user_id
-            domain_data = activity_data.to_domain(
-                str(user_id)
-            )
+                if not job_id:
+                    logger.error(
+                        f"Failed to queue activity {activity.id}"
+                    )
+                    # Update status if queueing failed
+                    activity = self.repository.update(
+                        activity.id,
+                        {
+                            "processing_status": ProcessingStatus.FAILED
+                        },
+                    )
 
-            # Create activity - validation handled by domain model
-            activity = self.activity_repository.create(
-                instance_or_name=domain_data.name,
-                description=domain_data.description,
-                activity_schema=domain_data.activity_schema,
-                icon=domain_data.icon,
-                color=domain_data.color,
-                user_id=domain_data.user_id,
-            )
-            logger.info(
-                f"Activity created with ID: {activity.id}"
-            )
+            except Exception as e:
+                logger.error(
+                    f"Error queueing activity {activity.id}: {str(e)}"
+                )
+                # Update status if queueing failed
+                activity = self.repository.update(
+                    activity.id,
+                    {
+                        "processing_status": ProcessingStatus.FAILED
+                    },
+                )
 
-            # Convert back to response model
-            return ActivityResponse.from_orm(activity)
-        except ValueError as e:
+            # Return activity regardless of queue status
+            return ActivityData.from_orm(activity)
+
+        except Exception as e:
             logger.error(
-                f"Validation error creating activity: {str(e)}",
-                exc_info=True,
+                f"Error creating activity: {str(e)}"
             )
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=str(e),
+            raise ActivityServiceError(
+                message=f"Failed to create activity: {str(e)}",
+                code=ErrorCode.TASK_INVALID_STATUS,
+            )
+
+    def list_activities(
+        self, user_id: str, page: int = 1, size: int = 10
+    ) -> ActivityList:
+        """List activities for a user with pagination.
+
+        Args:
+            user_id: ID of user to list activities for
+            page: Page number (1-based)
+            size: Number of items per page
+
+        Returns:
+            Paginated list of activities
+        """
+        try:
+            result = self.repository.list_by_user(
+                user_id=user_id,
+                page=page,
+                size=size,
+            )
+
+            # Calculate total pages
+            pages = (result["total"] + size - 1) // size
+
+            return ActivityList(
+                items=result["items"],
+                total=result["total"],
+                page=page,
+                size=size,
+                pages=pages,
             )
         except Exception as e:
             logger.error(
-                f"Error creating activity: {str(e)}",
-                exc_info=True,
+                f"Error listing activities: {str(e)}"
             )
-            raise
+            raise ActivityServiceError(
+                message=f"Failed to list activities: {str(e)}",
+                code=ErrorCode.TASK_INVALID_STATUS,
+            )
 
     def get_activity(
         self, activity_id: int, user_id: str
-    ) -> Optional[ActivityResponse]:
-        """Get an activity by ID
+    ) -> ActivityData:
+        """Get activity by ID.
 
         Args:
             activity_id: ID of activity to get
-            user_id: ID of user requesting the activity
+            user_id: ID of user requesting activity
 
         Returns:
-            Activity response if found, None otherwise
-        """
-        activity = self.activity_repository.get_by_user(
-            activity_id,
-            str(user_id),  # Ensure user_id is string
-        )
-        if not activity:
-            return None
-        return ActivityResponse.from_orm(activity)
-
-    def list_activities(
-        self, user_id: str, page: int = 1, size: int = 100
-    ) -> ActivityList:
-        """List all activities with pagination
-
-        Args:
-            user_id: ID of user requesting activities
-            page: Page number (1-based)
-            size: Maximum number of items per page
-
-        Returns:
-            List of activities with pagination metadata
-        """
-        # Validate pagination parameters
-        self._validate_pagination(page, size)
-
-        # Convert page/size to skip/limit for repository
-        skip = (page - 1) * size
-        limit = size
-
-        activities = (
-            self.activity_repository.list_activities(
-                user_id=str(
-                    user_id
-                ),  # Ensure user_id is string
-                skip=skip,
-                limit=limit,
-            )
-        )
-
-        # Convert to list of ActivityResponse objects
-        activity_responses = [
-            ActivityResponse.from_orm(activity)
-            for activity in activities
-        ]
-
-        total = len(activity_responses)
-        pages = (total + size - 1) // size
-
-        # Create and return ActivityList
-        return ActivityList(
-            items=activity_responses,
-            total=total,
-            page=page,
-            size=size,
-            pages=pages,
-        )
-
-    def update_activity(
-        self,
-        activity_id: int,
-        activity_data: ActivityUpdate,
-        user_id: str,
-    ) -> Optional[ActivityResponse]:
-        """Update an activity
-
-        Args:
-            activity_id: ID of activity to update
-            activity_data: New activity data
-            user_id: ID of user updating the activity
-
-        Returns:
-            Updated activity response if found, None otherwise
-        """
-        # Get existing activity
-        activity = self.activity_repository.get_by_id(
-            activity_id,
-            str(user_id),  # Ensure user_id is string
-        )
-        if not activity:
-            return None
-
-        # Validate color if provided
-        if activity_data.color:
-            self._validate_color(activity_data.color)
-
-        # Validate schema if provided
-        if activity_data.activity_schema:
-            self._validate_activity_schema(
-                activity_data.activity_schema
-            )
-
-        # Update activity
-        updated = self.activity_repository.update(
-            activity_id,
-            str(user_id),  # Ensure user_id is string
-            activity_data.model_dump(exclude_unset=True),
-        )
-        if not updated:
-            return None
-
-        return ActivityResponse.from_orm(updated)
-
-    def delete_activity(
-        self, activity_id: int, user_id: str
-    ) -> bool:
-        """Delete an activity
-
-        Args:
-            activity_id: ID of activity to delete
-            user_id: ID of user requesting deletion
-
-        Returns:
-            True if activity was deleted, False otherwise
-        """
-        return self.activity_repository.delete(
-            activity_id, str(user_id)
-        )
-
-    def validate(self, data: Dict[str, Any]) -> None:
-        """Validate activity data.
-
-        Args:
-            data: Activity data to validate
+            Activity data
 
         Raises:
-            HTTPException: If validation fails
+            ActivityServiceError: If activity not found or access denied
         """
-        if "color" in data:
-            self._validate_color(data["color"])
-        if "activity_schema" in data:
-            self._validate_activity_schema(
-                data["activity_schema"]
+        activity = self.repository.get_by_id(
+            activity_id, user_id
+        )
+        if not activity:
+            raise ActivityServiceError(
+                message=f"Activity {activity_id} not found",
+                code=ErrorCode.TASK_INVALID_REFERENCE,
             )
+        return ActivityData.from_orm(activity)
+
+    def get_processing_status(
+        self, activity_id: int, user_id: str
+    ) -> dict:
+        """Get activity processing status.
+
+        Args:
+            activity_id: ID of activity to check
+            user_id: ID of user requesting status
+
+        Returns:
+            Dict containing:
+                - status: Current processing status
+                - processed_at: When processing completed (if done)
+                - schema_render: Rendering suggestions (if done)
+        """
+        activity = self.repository.get_by_id(
+            activity_id, user_id
+        )
+        if not activity:
+            raise ActivityServiceError(
+                message=f"Activity {activity_id} not found",
+                code=ErrorCode.TASK_INVALID_REFERENCE,
+            )
+
+        return {
+            "status": activity.processing_status,
+            "processed_at": activity.processed_at,
+            "schema_render": activity.schema_render,
+        }
+
+    def retry_processing(
+        self, activity_id: int, user_id: str
+    ) -> Optional[str]:
+        """Retry processing for failed activities.
+
+        Args:
+            activity_id: ID of activity to retry
+            user_id: ID of user requesting retry
+
+        Returns:
+            Optional[str]: New job ID if queued successfully
+
+        Raises:
+            ActivityServiceError: If activity not found or retry fails
+        """
+        activity = self.repository.get_by_id(
+            activity_id, user_id
+        )
+        if not activity:
+            raise ActivityServiceError(
+                message=f"Activity {activity_id} not found",
+                code=ErrorCode.TASK_INVALID_REFERENCE,
+            )
+
+        if activity.processing_status not in [
+            "FAILED",
+            "SKIPPED",
+        ]:
+            raise ActivityServiceError(
+                message=f"Activity {activity_id} is not in a failed state",
+                code=ErrorCode.TASK_INVALID_STATUS,
+            )
+
+        # Update status and queue
+        self.repository.update(
+            activity_id,
+            {
+                "processing_status": "PENDING",
+                "processed_at": None,
+                "schema_render": None,
+            },
+        )
+
+        job_id = self.queue_service.enqueue_activity(
+            activity_id
+        )
+
+        if not job_id:
+            raise ActivityServiceError(
+                message=f"Failed to queue activity {activity_id} for retry",
+                code=ErrorCode.TASK_INVALID_STATUS,
+            )
+
+        return job_id

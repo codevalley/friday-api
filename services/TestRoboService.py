@@ -22,6 +22,45 @@ class TestRoboService(RoboService):
         """
         self.config = config
 
+    def analyze_activity_schema(
+        self, schema: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        """Analyze activity schema and return form layout suggestions.
+
+        Args:
+            schema: JSON Schema to analyze
+
+        Returns:
+            Dict with form layout suggestions
+        """
+        # For testing, return a simple form layout based on schema
+        properties = schema.get("properties", {})
+        required = schema.get("required", [])
+
+        # Create a form section for each property
+        form_layout = {
+            "type": "form",
+            "sections": [
+                {
+                    "title": "Activity Information",
+                    "fields": [
+                        {
+                            "name": prop_name,
+                            "type": prop_info.get(
+                                "type", "string"
+                            ),
+                            "required": prop_name
+                            in required,
+                            "label": prop_name.title(),
+                        }
+                        for prop_name, prop_info in properties.items()
+                    ],
+                }
+            ],
+        }
+
+        return form_layout
+
     def process_text(
         self,
         text: str,

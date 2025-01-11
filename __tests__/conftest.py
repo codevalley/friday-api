@@ -263,3 +263,21 @@ def robo_service():
         )
     )
     return mock_robo
+
+
+@pytest.fixture(scope="function")
+def mock_activity_service():
+    """Mock activity service for testing."""
+    return Mock()
+
+
+@pytest.fixture(scope="function")
+def mock_auth_middleware():
+    """Mock authentication middleware for testing."""
+    return Mock()
+
+
+@pytest.fixture(scope="function")
+def fastapi_app():
+    """Get the FastAPI app instance."""
+    return app

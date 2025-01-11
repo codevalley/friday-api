@@ -140,16 +140,30 @@ class ErrorResponse(BaseSchema):
     detail: str
 
 
+class ErrorDetail(BaseSchema):
+    """Error detail response.
+
+    Attributes:
+        code: The error code
+        message: Optional error message
+    """
+
+    code: str
+    message: Optional[str] = None
+
+
 class GenericResponse(BaseModel, Generic[T]):
     """Generic response wrapper for any data type.
 
     Attributes:
         data: The response data of type T
         message: Optional response message
+        error: Optional error details
     """
 
-    data: T
+    data: Optional[T] = None
     message: Optional[str] = None
+    error: Optional[ErrorDetail] = None
 
     model_config = ConfigDict(
         from_attributes=True,
