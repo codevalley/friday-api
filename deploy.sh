@@ -142,22 +142,33 @@ if [ "$NO_CACHE" = true ]; then
   log "Forcing rebuild without cache..."
 fi
 
+# Create a directory for persistent SSL certificates if it doesn't exist
+CERT_DIR="/opt/friday-api/certs"
+if [ ! -d "$CERT_DIR" ]; then
+  mkdir -p "$CERT_DIR"
+  log "Created persistent certificate directory: $CERT_DIR"
+fi
+
 if [ "$RESTART_ONLY" = true ]; then
   log "Restarting containers without rebuilding..."
   if [ "$EXTERNAL_DB" = true ]; then
-    docker compose -f docker-compose.no-db.yml down
+    # Stop containers but preserve volumes
+    docker compose -f docker-compose.no-db.yml down --remove-orphans
     docker compose -f docker-compose.no-db.yml up -d
   else
-    docker compose -f docker-compose.yml down
+    docker compose -f docker-compose.yml down --remove-orphans
     docker compose -f docker-compose.yml up -d
   fi
 else
   if [ "$EXTERNAL_DB" = true ]; then
     log "Using the 'no-db' Docker Compose file..."
+    # Stop containers but preserve volumes
+    docker compose -f docker-compose.no-db.yml down --remove-orphans
     docker compose -f docker-compose.no-db.yml build $BUILD_ARGS
     docker compose -f docker-compose.no-db.yml up -d
   else
     log "Using the default Docker Compose file (with local MySQL)..."
+    docker compose -f docker-compose.yml down --remove-orphans
     docker compose -f docker-compose.yml build $BUILD_ARGS
     docker compose -f docker-compose.yml up -d
   fi
@@ -166,4 +177,4 @@ fi
 log "Verifying containers..."
 docker compose ps
 
-log "Deployment finished. Wait a minute or so for Let's Encrypt SSL (via jwilder/nginx-proxy) if you are using that."
+log "Deployment finished. SSL certificates are preserved in $CERT_DIR"
