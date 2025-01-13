@@ -1,13 +1,14 @@
 #!/usr/bin/env bash
 set -e  # exit on error
 
-DOMAIN=${1:-"api.acme.me"}
-EMAIL=${2:-"admin@acme.me"}
+DOMAIN=""
+EMAIL=""
 FETCH_CODE=false
 INSTALL_DOCKER=false
 EXTERNAL_DB=true
 RESTART_ONLY=true
 NO_CACHE=false
+USE_STAGING=false
 
 # Colors
 RED='\033[0;31m'
@@ -23,22 +24,33 @@ log()   { echo -e "${GREEN}[LOG]${NC} $1"; }
 
 show_help() {
 cat <<EOF
-Usage: $0 [domain] [email] [--docker] [--fetch-code] [--external-db] [--restart] [--no-cache]
-  domain    : Domain name to serve (default: api.acme.me)
-  email     : Email for Let's Encrypt (default: admin@acme.me)
-  --docker  : Install Docker + Docker Compose if not present
-  --fetch-code : Pull latest changes from Git
-  --external-db : Use docker-compose.no-db.yml (skip local MySQL container)
-  --restart : Only restart containers without rebuilding or fetching code
-  --no-cache : Force Docker rebuild without using cache
+Usage: $0 --domain DOMAIN --email EMAIL [OPTIONS]
+Required:
+  --domain DOMAIN : Domain name to serve
+  --email EMAIL   : Email for Let's Encrypt
+Options:
+  --docker        : Install Docker + Docker Compose if not present
+  --fetch-code    : Pull latest changes from Git
+  --external-db   : Use docker-compose.no-db.yml (skip local MySQL container)
+  --restart       : Only restart containers without rebuilding or fetching code
+  --no-cache      : Force Docker rebuild without using cache
+  --staging       : Use Let's Encrypt staging environment for testing
 Example:
-  $0 api.acme.me admin@acme.me --fetch-code
+  $0 --domain api.acme.me --email admin@acme.me --fetch-code
 EOF
 }
 
 # Parse arguments
 while [[ $# -gt 0 ]]; do
   case "$1" in
+    --domain)
+      DOMAIN="$2"
+      shift 2
+      ;;
+    --email)
+      EMAIL="$2"
+      shift 2
+      ;;
     --docker)
       INSTALL_DOCKER=true
       shift
@@ -59,20 +71,28 @@ while [[ $# -gt 0 ]]; do
       NO_CACHE=true
       shift
       ;;
+    --staging)
+      USE_STAGING=true
+      shift
+      ;;
     -h|--help)
       show_help
       exit 0
       ;;
     *)
-      if [[ -z "$DOMAIN" ]]; then
-        DOMAIN="$1"
-      elif [[ -z "$EMAIL" ]]; then
-        EMAIL="$1"
-      fi
-      shift
+      error "Unknown argument: $1"
       ;;
   esac
 done
+
+# Validate required arguments
+if [ -z "$DOMAIN" ]; then
+  error "Domain is required. Use --domain DOMAIN"
+fi
+
+if [ -z "$EMAIL" ]; then
+  error "Email is required. Use --email EMAIL"
+fi
 
 # Check if run as root or deploy user
 if [[ $EUID -eq 0 ]] || [[ $(whoami) == "deploy" ]]; then
