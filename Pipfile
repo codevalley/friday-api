@@ -24,7 +24,7 @@ httpx = "*"
 python-json-logger = "*"
 openai = "*"
 redis = "*"
-rq = "*"
+rq = "==2.1.0"
 exceptiongroup = "*"
 
 [dev-packages]
