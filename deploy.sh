@@ -7,6 +7,7 @@ FETCH_CODE=false
 INSTALL_DOCKER=false
 EXTERNAL_DB=true
 RESTART_ONLY=true
+NO_CACHE=false
 
 # Colors
 RED='\033[0;31m'
@@ -22,13 +23,14 @@ log()   { echo -e "${GREEN}[LOG]${NC} $1"; }
 
 show_help() {
 cat <<EOF
-Usage: $0 [domain] [email] [--docker] [--fetch-code] [--external-db] [--restart]
+Usage: $0 [domain] [email] [--docker] [--fetch-code] [--external-db] [--restart] [--no-cache]
   domain    : Domain name to serve (default: api.acme.me)
   email     : Email for Let's Encrypt (default: admin@acme.me)
   --docker  : Install Docker + Docker Compose if not present
   --fetch-code : Pull latest changes from Git
   --external-db : Use docker-compose.no-db.yml (skip local MySQL container)
   --restart : Only restart containers without rebuilding or fetching code
+  --no-cache : Force Docker rebuild without using cache
 Example:
   $0 api.acme.me admin@acme.me --fetch-code
 EOF
@@ -51,6 +53,10 @@ while [[ $# -gt 0 ]]; do
       ;;
     --restart)
       RESTART_ONLY=true
+      shift
+      ;;
+    --no-cache)
+      NO_CACHE=true
       shift
       ;;
     -h|--help)
@@ -113,7 +119,6 @@ export LETSENCRYPT_HOST="$DOMAIN"
 export VIRTUAL_HOST="$DOMAIN"
 export LETSENCRYPT_EMAIL="$EMAIL"
 
-
 JWT_KEY_LINE=$(grep -E '^JWT_SECRET_KEY=' .env || true)
 if [ -z "$JWT_KEY_LINE" ]; then
   # There's no JWT_SECRET_KEY line in .env at all
@@ -131,6 +136,12 @@ else
   fi
 fi
 
+BUILD_ARGS=""
+if [ "$NO_CACHE" = true ]; then
+  BUILD_ARGS="--no-cache"
+  log "Forcing rebuild without cache..."
+fi
+
 if [ "$RESTART_ONLY" = true ]; then
   log "Restarting containers without rebuilding..."
   if [ "$EXTERNAL_DB" = true ]; then
@@ -143,11 +154,11 @@ if [ "$RESTART_ONLY" = true ]; then
 else
   if [ "$EXTERNAL_DB" = true ]; then
     log "Using the 'no-db' Docker Compose file..."
-    docker compose -f docker-compose.no-db.yml build
+    docker compose -f docker-compose.no-db.yml build $BUILD_ARGS
     docker compose -f docker-compose.no-db.yml up -d
   else
     log "Using the default Docker Compose file (with local MySQL)..."
-    docker compose -f docker-compose.yml build
+    docker compose -f docker-compose.yml build $BUILD_ARGS
     docker compose -f docker-compose.yml up -d
   fi
 fi
