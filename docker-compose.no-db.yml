@@ -61,7 +61,7 @@ services:
       - redis
     env_file:
       - .env
-    command: python -m infrastructure.queue.run_worker
+    command: bash -c "PYTHONPATH=/app python -m infrastructure.queue.run_worker"
     environment:
       - REDIS_HOST=redis
     volumes:
