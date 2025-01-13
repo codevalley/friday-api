@@ -61,8 +61,7 @@ services:
       - redis
     env_file:
       - .env
-    command: >
-      rq worker note_enrichment activity_schema --url redis://redis:6379
+    command: python -m infrastructure.queue.run_worker
     environment:
       - REDIS_HOST=redis
     volumes:
