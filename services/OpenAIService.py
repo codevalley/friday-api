@@ -46,6 +46,34 @@ ENRICH_NOTE_FUNCTION = {
     },
 }
 
+PROCESS_ACTIVITY_FUNCTION = {
+    "name": "process_activity",
+    "description": (
+        "Generate a template for displaying activity content "
+        "based on its schema"
+    ),
+    "parameters": {
+        "type": "object",
+        "properties": {
+            "title": {
+                "type": "string",
+                "description": (
+                    "A template for the activity title that can reference "
+                    "schema variables using $variable_name syntax"
+                ),
+            },
+            "formatted": {
+                "type": "string",
+                "description": (
+                    "A markdown template for the activity content that can "
+                    "reference schema variables using $variable_name syntax"
+                ),
+            },
+        },
+        "required": ["title", "formatted"],
+    },
+}
+
 ANALYZE_SCHEMA_FUNCTION = {
     "name": "analyze_schema",
     "description": "Analyze JSON schema and suggest rendering strategy",
@@ -447,12 +475,12 @@ class OpenAIService(RoboService):
                 messages=[
                     {
                         "role": "system",
-                        "content": self.config.schema_analysis_prompt,
+                        "content": self.config.activity_schema_prompt,
                     },
                     {
                         "role": "user",
                         "content": (
-                            f"Analyze this schema, suggest how to render it: "
+                            f"Create templates for this activity schema: "
                             f"{json.dumps(schema)}"
                         ),
                     },
@@ -460,12 +488,14 @@ class OpenAIService(RoboService):
                 tools=[
                     {
                         "type": "function",
-                        "function": ANALYZE_SCHEMA_FUNCTION,
+                        "function": PROCESS_ACTIVITY_FUNCTION,
                     }
                 ],
                 tool_choice={
                     "type": "function",
-                    "function": {"name": "analyze_schema"},
+                    "function": {
+                        "name": "process_activity"
+                    },
                 },
                 temperature=self.config.temperature,
                 max_tokens=self.config.max_tokens,
@@ -487,14 +517,23 @@ class OpenAIService(RoboService):
                 tool_call.function.arguments
             )
 
+            # Validate required fields
+            if (
+                "title" not in result
+                or "formatted" not in result
+            ):
+                raise RoboAPIError(
+                    f"Missing required fields in response: {result}"
+                )
+
             return result
 
         except Exception as e:
             logger.error(
-                f"Error analyzing schema: {str(e)}"
+                f"Error processing activity schema: {str(e)}"
             )
             if isinstance(e, RoboRateLimitError):
                 raise
             raise RoboAPIError(
-                f"Failed to analyze schema: {str(e)}"
+                f"Failed to process activity schema: {str(e)}"
             )

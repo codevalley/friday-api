@@ -356,30 +356,11 @@ def test_analyze_activity_schema(mock_openai, test_config):
     """Test activity schema analysis."""
     # Setup mock response
     mock_response = {
-        "render_type": "form",
-        "layout": {
-            "sections": [
-                {
-                    "title": "Basic Info",
-                    "fields": ["name", "description"],
-                }
-            ],
-            "suggestions": {
-                "column_count": 2,
-                "responsive_breakpoints": [
-                    "sm",
-                    "md",
-                    "lg",
-                ],
-            },
-        },
-        "field_groups": [
-            {
-                "name": "basic",
-                "fields": ["name", "description"],
-                "description": "Basic information fields",
-            }
-        ],
+        "title": "$name - $description",
+        "formatted": (
+            "**Name**: $name\n\n"
+            "**Description**: $description"
+        ),
     }
 
     mock_openai.setup_mock_response(mock_response)
@@ -402,9 +383,10 @@ def test_analyze_activity_schema(mock_openai, test_config):
             test_schema
         )
 
-        assert result["render_type"] == "form"
-        assert "layout" in result
-        assert "field_groups" in result
+        assert "title" in result
+        assert "formatted" in result
+        assert result["title"] == "$name - $description"
+        assert "**Name**: $name" in result["formatted"]
 
 
 def test_analyze_activity_schema_rate_limit(

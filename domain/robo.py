@@ -24,6 +24,17 @@ class RoboConfig:
         "3. Use appropriate formatting (bold, italic, lists)\n"
         "4. Keep the content concise but complete"
     )
+    activity_schema_prompt: str = (
+        "You are a helpful assistant that creates templates for "
+        "displaying activity content. Your task is to analyze a JSON "
+        "schema that defines the structure of an activity and create "
+        "templates for displaying the activity's title and content. "
+        "Use $variable_name syntax to reference schema variables that "
+        "will be populated dynamically. For the title, create a short "
+        "template (< 50 chars) that captures the key information. For "
+        "the formatted content, use Markdown for emphasis (bold, "
+        "italics, bullet points) to create a well-structured template."
+    )
     schema_analysis_prompt: str = (
         "You are a UI/UX expert analyzing JSON schemas. "
         "Your task is to:\n"
@@ -73,19 +84,20 @@ class RoboService(ABC):
     def analyze_activity_schema(
         self, schema: Dict[str, Any]
     ) -> Dict[str, Any]:
-        """Analyze activity schema and suggest rendering strategy.
+        """Generate display templates for an activity based on its schema.
 
         This method analyzes a JSON Schema that defines an activity's
-        data structure and suggests optimal ways to render it in the UI.
+        data structure and generates templates for displaying the activity's
+        title and content. The templates can use $variable_name syntax to
+        reference schema variables that will be populated dynamically.
 
         Args:
             schema: JSON Schema defining activity data structure
 
         Returns:
             Dict containing:
-                - render_type: rendering type (form/table/timeline/cards)
-                - layout: Layout suggestions for the UI
-                - field_groups: Suggested groupings of related fields
+                - title: A template for the activity title (< 50 chars)
+                - formatted: A markdown template for the activity content
 
         Raises:
             RoboAPIError: If API call fails

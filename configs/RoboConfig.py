@@ -25,6 +25,17 @@ class RoboConfig(BaseModel):
         "3. Use appropriate formatting (bold, italic, lists)\n"
         "4. Keep the content concise but complete"
     )
+    activity_schema_prompt: str = (
+        "You are a helpful assistant that creates templates for "
+        "displaying activity content. Your task is to analyze a JSON "
+        "schema that defines the structure of an activity and create "
+        "templates for displaying the activity's title and content. "
+        "Use $variable_name syntax to reference schema variables that "
+        "will be populated dynamically. For the title, create a short "
+        "template (< 50 chars) that captures the key information. For "
+        "the formatted content, use Markdown for emphasis (bold, "
+        "italics, bullet points) to create a well-structured template."
+    )
 
     def to_domain_config(self) -> DomainRoboConfig:
         """Convert settings to domain config.
@@ -48,6 +59,7 @@ class RoboConfig(BaseModel):
             temperature=self.temperature,
             max_tokens=self.max_tokens,
             note_enrichment_prompt=self.note_enrichment_prompt,
+            activity_schema_prompt=self.activity_schema_prompt,
         )
 
     @classmethod
@@ -72,6 +84,23 @@ class RoboConfig(BaseModel):
                     "2. Format the content in clean markdown\n"
                     "3. Use appropriate formatting (bold, italic, lists)\n"
                     "4. Keep the content concise but complete"
+                ),
+            ),
+            activity_schema_prompt=getattr(
+                env,
+                "ROBO_ACTIVITY_SCHEMA_PROMPT",
+                (
+                    "You are a helpful assistant that creates templates "
+                    "for displaying activity content. Your task is to "
+                    "analyze a JSON schema that defines the structure of "
+                    "an activity and create templates for displaying the "
+                    "activity's title and content. Use $variable_name "
+                    "syntax to reference schema variables that will be "
+                    "populated dynamically. For the title, create a short "
+                    "template (< 50 chars) that captures the key "
+                    "information. For the formatted content, use Markdown "
+                    "for emphasis (bold, italics, bullet points) to "
+                    "create a well-structured template."
                 ),
             ),
         )
