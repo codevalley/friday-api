@@ -62,13 +62,9 @@ services:
     env_file:
       - .env
     command: >
-      rq worker note_enrichment --url redis://redis:6379
+      rq worker note_enrichment activity_schema --url redis://redis:6379
     environment:
-      # If your worker needs the same environment as api, you can replicate them here:
       - REDIS_HOST=redis
-      # - FRIDAY_DOMAIN=${FRIDAY_DOMAIN}
-      # - LETSENCRYPT_HOST=${FRIDAY_DOMAIN}
-      # - LETSENCRYPT_EMAIL=${LETSENCRYPT_EMAIL}
     volumes:
       - ./logs:/app/logs
     networks:
