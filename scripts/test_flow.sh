@@ -114,18 +114,18 @@ wait_for_activity_processing() {
         echo "Extracted status: '$status'"  # Debug line with quotes
 
         case "$status" in
-            "COMPLETED")
+            "completed")
                 echo -e "${GREEN}Activity processing completed successfully${NC}"
                 return 0
                 ;;
-            "FAILED")
+            "failed")
                 echo -e "${RED}Activity processing failed${NC}"
                 return 1
                 ;;
-            "PROCESSING")
+            "processing")
                 echo "Processing status: $status (attempt $attempt/$max_attempts)"
                 ;;
-            "PENDING"|"NOT_PROCESSED")
+            "pending"|"not_processed")
                 echo "Waiting for processing to start... (attempt $attempt/$max_attempts)"
                 ;;
             *)

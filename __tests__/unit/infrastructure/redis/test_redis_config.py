@@ -14,7 +14,7 @@ def test_redis_config_defaults():
     assert config.password is None
     assert config.ssl is False
     assert config.timeout == 10
-    assert config.decode_responses is True
+    assert config.decode_responses is False
     assert config.job_timeout == 600
     assert config.job_ttl == 3600
     assert config.queue_names == [
@@ -42,7 +42,7 @@ def test_redis_config_defaults():
                 "password": "secret",
                 "ssl": True,
                 "socket_timeout": 20,
-                "decode_responses": True,
+                "decode_responses": False,
             },
         ),
     ],

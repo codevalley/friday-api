@@ -14,7 +14,7 @@ class RedisConfig(BaseSettings):
     password: Optional[str] = None
     ssl: bool = False
     timeout: int = 10
-    decode_responses: bool = True
+    decode_responses: bool = False
 
     # Queue specific settings
     job_timeout: int = 600  # 10 minutes
