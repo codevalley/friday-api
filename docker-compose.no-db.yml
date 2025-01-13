@@ -87,6 +87,5 @@ networks:
 
 volumes:
   redis_data:
-  nginx_certs:
   nginx_vhost:
   nginx_html:

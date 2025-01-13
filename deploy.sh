@@ -149,6 +149,10 @@ if [ ! -d "$CERT_DIR" ]; then
   log "Created persistent certificate directory: $CERT_DIR"
 fi
 
+# Ensure correct permissions for the certificates directory
+chown -R deploy:deploy "$CERT_DIR"
+log "Updated certificate directory permissions"
+
 if [ "$RESTART_ONLY" = true ]; then
   log "Restarting containers without rebuilding..."
   if [ "$EXTERNAL_DB" = true ]; then
