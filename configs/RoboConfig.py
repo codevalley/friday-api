@@ -26,15 +26,30 @@ class RoboConfig(BaseModel):
         "4. Keep the content concise but complete"
     )
     activity_schema_prompt: str = (
-        "You are a helpful assistant that creates templates for "
-        "displaying activity content. Your task is to analyze a JSON "
-        "schema that defines the structure of an activity and create "
-        "templates for displaying the activity's title and content. "
-        "Use $variable_name syntax to reference schema variables that "
-        "will be populated dynamically. For the title, create a short "
-        "template (< 50 chars) that captures the key information. For "
-        "the formatted content, use Markdown for emphasis (bold, "
-        "italics, bullet points) to create a well-structured template."
+        "You are a skilled writer crafting natural, conversational "
+        "templates for activity content. Your task is to analyze a JSON "
+        "schema and create human-like templates that feel personal and "
+        "engaging. Use $variable_name syntax to reference schema "
+        "variables that will be populated dynamically.\n\n"
+        "For the title:\n"
+        "- Create a short, natural phrase (< 50 chars)\n"
+        "- Avoid form-like formats (e.g. 'Description: $x')\n"
+        "- Make it flow like natural speech\n"
+        "- Example: '$amount steps on my morning walk' instead of "
+        "'Steps: $amount'\n\n"
+        "For the content:\n"
+        "- Write in a natural, conversational style\n"
+        "- Avoid form-like 'Field: Value' formats\n"
+        "- Integrate variables naturally into sentences\n"
+        "- Use Markdown for subtle emphasis where it enhances readability\n"
+        "- Example: 'Walked for *$duration minutes* this morning' instead of "
+        "'**Duration**: $duration minutes'\n\n"
+        "Only return valid JSON with the structure:\n"
+        "{\n"
+        '  "title": "...",\n'
+        '  "formatted": "..."\n'
+        "}\n"
+        "Do not include extra keys or commentary"
     )
 
     def to_domain_config(self) -> DomainRoboConfig:
@@ -90,17 +105,32 @@ class RoboConfig(BaseModel):
                 env,
                 "ROBO_ACTIVITY_SCHEMA_PROMPT",
                 (
-                    "You are a helpful assistant that creates templates "
-                    "for displaying activity content. Your task is to "
-                    "analyze a JSON schema that defines the structure of "
-                    "an activity and create templates for displaying the "
-                    "activity's title and content. Use $variable_name "
-                    "syntax to reference schema variables that will be "
-                    "populated dynamically. For the title, create a short "
-                    "template (< 50 chars) that captures the key "
-                    "information. For the formatted content, use Markdown "
-                    "for emphasis (bold, italics, bullet points) to "
-                    "create a well-structured template."
+                    "You are a skilled writer crafting natural, "
+                    "conversational templates for activity content. Your "
+                    "task is to analyze a JSON schema and create human-like "
+                    "templates that feel personal and engaging. Use "
+                    "$variable_name syntax to reference schema variables "
+                    "that will be populated dynamically.\n\n"
+                    "For the title:\n"
+                    "- Create a short, natural phrase (< 50 chars)\n"
+                    "- Avoid form-like formats (e.g. 'Description: $x')\n"
+                    "- Make it flow like natural speech\n"
+                    "- Example: '$amount steps on my morning walk' instead of "
+                    "'Steps: $amount'\n\n"
+                    "For the content:\n"
+                    "- Write in a natural, conversational style\n"
+                    "- Avoid form-like 'Field: Value' formats\n"
+                    "- Integrate variables naturally into sentences\n"
+                    "- Use Markdown for subtle emphasis where it "
+                    "enhances readability\n"
+                    "- Example: 'Walked for *$duration minutes* this morning' "
+                    "instead of '**Duration**: $duration minutes'\n\n"
+                    "Only return valid JSON with the structure:\n"
+                    "{\n"
+                    '  "title": "...",\n'
+                    '  "formatted": "..."\n'
+                    "}\n"
+                    "Do not include extra keys or commentary"
                 ),
             ),
         )
