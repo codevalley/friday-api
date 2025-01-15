@@ -165,13 +165,22 @@ fi
 # Create a directory for persistent SSL certificates if it doesn't exist
 CERT_DIR="/opt/friday-api/certs"
 if [ ! -d "$CERT_DIR" ]; then
-  mkdir -p "$CERT_DIR"
-  log "Created persistent certificate directory: $CERT_DIR"
+    if ! sudo mkdir -p "$CERT_DIR"; then
+        warn "Failed to create certificate directory. Continuing anyway..."
+    else
+        log "Created persistent certificate directory: $CERT_DIR"
+    fi
 fi
 
 # Ensure correct permissions for the certificates directory
-chown -R deploy:deploy "$CERT_DIR"
-log "Updated certificate directory permissions"
+if [ "$EUID" -eq 0 ]; then
+    # If running as root, directly change ownership
+    chown -R deploy:deploy "$CERT_DIR" || warn "Failed to update certificate permissions. Continuing anyway..."
+else
+    # If running as deploy user, use sudo
+    sudo chown -R deploy:deploy "$CERT_DIR" || warn "Failed to update certificate permissions. Continuing anyway..."
+fi
+log "Certificate directory setup completed"
 
 if [ "$RESTART_ONLY" = true ]; then
   log "Restarting containers without rebuilding..."
