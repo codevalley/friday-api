@@ -162,25 +162,32 @@ if [ "$NO_CACHE" = true ]; then
   log "Forcing rebuild without cache..."
 fi
 
-# Create a directory for persistent SSL certificates if it doesn't exist
+# Create and setup the certificates directory
 CERT_DIR="/opt/friday-api/certs"
 if [ ! -d "$CERT_DIR" ]; then
-    if ! sudo mkdir -p "$CERT_DIR"; then
-        warn "Failed to create certificate directory. Continuing anyway..."
-    else
-        log "Created persistent certificate directory: $CERT_DIR"
+    log "Setting up certificate directory..."
+    # Create parent directory first if it doesn't exist
+    if [ ! -d "/opt/friday-api" ]; then
+        sudo mkdir -p /opt/friday-api
     fi
+
+    # Create certs directory with correct permissions from the start
+    sudo mkdir -p "$CERT_DIR"
+    # Set directory permissions to 755 (rwxr-xr-x)
+    sudo chmod 755 "$CERT_DIR"
+    # Add deploy user to the docker group if not already added
+    if ! groups deploy | grep &>/dev/null '\bdocker\b'; then
+        sudo usermod -aG docker deploy
+    fi
+    log "Created certificate directory with correct permissions"
+else
+    # If directory exists, just ensure basic permissions are correct
+    sudo chmod 755 "$CERT_DIR"
+    log "Updated certificate directory permissions"
 fi
 
-# Ensure correct permissions for the certificates directory
-if [ "$EUID" -eq 0 ]; then
-    # If running as root, directly change ownership
-    chown -R deploy:deploy "$CERT_DIR" || warn "Failed to update certificate permissions. Continuing anyway..."
-else
-    # If running as deploy user, use sudo
-    sudo chown -R deploy:deploy "$CERT_DIR" || warn "Failed to update certificate permissions. Continuing anyway..."
-fi
-log "Certificate directory setup completed"
+# Export variables for nginx-proxy
+export CERT_PATH="$CERT_DIR"
 
 if [ "$RESTART_ONLY" = true ]; then
   log "Restarting containers without rebuilding..."
