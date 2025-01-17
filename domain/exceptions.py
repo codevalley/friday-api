@@ -356,3 +356,21 @@ class TaskReferenceError(TaskValidationError):
         super().__init__(
             message, code=ErrorCode.TASK_INVALID_REFERENCE
         )
+
+
+class TopicValidationError(DomainException):
+    """Base exception for topic validation errors."""
+
+    pass
+
+
+class TopicNameError(TopicValidationError):
+    """Exception for topic name validation errors."""
+
+    pass
+
+
+class TopicIconError(TopicValidationError):
+    """Exception for topic icon validation errors."""
+
+    pass

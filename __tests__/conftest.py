@@ -27,6 +27,8 @@ from orm.BaseModel import Base
 from orm.MomentModel import Moment
 from orm.NoteModel import Note
 from orm.UserModel import User
+from orm.TopicModel import Topic
+from orm.TaskModel import Task
 from repositories.NoteRepository import NoteRepository
 from services.NoteService import NoteService
 from utils.security import hash_user_secret
@@ -47,13 +49,24 @@ sys.path.insert(0, project_root)
 # Get environment variables
 env = get_environment_variables()
 
-# Construct test database URL from environment variables
+# Debug prints for test database configuration
+print("\n=== Test Database Configuration ===")
+print(f"ENV variable: {os.getenv('ENV')}")
+print(f"DATABASE_DIALECT: {env.DATABASE_DIALECT}")
+print(f"DATABASE_DRIVER: {env.DATABASE_DRIVER}")
+
+# Construct test database URL - being explicit about the format
+dialect = env.DATABASE_DIALECT.split('+')[0]  # Get just 'mysql' if it includes driver
+driver = env.DATABASE_DRIVER.lstrip('+')  # Remove leading + if present
 TEST_SQLALCHEMY_DATABASE_URL = (
-    f"{env.DATABASE_DIALECT}{env.DATABASE_DRIVER}"
+    f"{dialect}+{driver}"
     f"://{env.DATABASE_USERNAME}:{env.DATABASE_PASSWORD}"
     f"@{env.DATABASE_HOSTNAME}:{env.DATABASE_PORT}"
     f"/{env.DATABASE_NAME}"
 )
+
+print(f"Test Database URL: {TEST_SQLALCHEMY_DATABASE_URL}")
+print("================================\n")
 
 
 @pytest.fixture(scope="session")
@@ -66,9 +79,24 @@ def redis_connection():
 def test_db_engine():
     """Create a test database engine."""
     engine = create_engine(TEST_SQLALCHEMY_DATABASE_URL)
+    
+    # Drop tables in correct order (reverse dependency order)
+    for table in reversed(Base.metadata.sorted_tables):
+        try:
+            table.drop(engine, checkfirst=True)
+        except Exception as e:
+            print(f"Warning: Could not drop table {table}: {e}")
+    
+    # Create all tables
     Base.metadata.create_all(bind=engine)
     yield engine
-    Base.metadata.drop_all(bind=engine)
+    
+    # Drop tables in correct order again during cleanup
+    for table in reversed(Base.metadata.sorted_tables):
+        try:
+            table.drop(engine, checkfirst=True)
+        except Exception as e:
+            print(f"Warning: Could not drop table {table}: {e}")
 
 
 @pytest.fixture(scope="function")
@@ -96,9 +124,9 @@ def test_client(test_db_session):
         finally:
             test_db_session.close()
 
-    app.dependency_overrides[
-        get_db_connection
-    ] = override_get_db
+    app.dependency_overrides[get_db_connection] = (
+        override_get_db
+    )
     return TestClient(app)
 
 

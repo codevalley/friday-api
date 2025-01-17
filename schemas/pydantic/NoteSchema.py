@@ -5,6 +5,7 @@ from datetime import datetime
 from typing import Optional, List, Dict, Any
 from domain.note import NoteData
 from domain.values import ProcessingStatus
+from schemas.pydantic.PaginationSchema import PaginationResponse
 
 
 class NoteBase(BaseModel):
@@ -111,11 +112,89 @@ class NoteResponse(BaseModel):
         )
 
 
-class NoteList(BaseModel):
-    """Schema for list of notes."""
+class NoteList(PaginationResponse):
+    """Response schema for list of Notes.
 
-    items: List[NoteResponse]
-    total: int
-    page: Optional[int] = 1
-    size: Optional[int] = 10
-    pages: Optional[int] = 1
+    This schema is used for paginated responses when listing notes.
+    It includes pagination metadata along with the list of notes.
+
+    Attributes:
+        items: List of notes
+        total: Total number of items
+        page: Current page number
+        size: Items per page
+        pages: Total number of pages
+    """
+
+    items: List[NoteResponse] = Field(
+        description="List of notes on this page"
+    )
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "items": [
+                    {
+                        "id": 1,
+                        "user_id": "123e4567-e89b-12d3-a456-426614174000",
+                        "content": "Meeting notes for Q1 planning",
+                        "attachments": [],
+                        "processing_status": "NOT_PROCESSED",
+                        "enrichment_data": None,
+                        "processed_at": None,
+                        "created_at": "2024-01-11T12:00:00Z",
+                        "updated_at": "2024-01-12T15:30:00Z",
+                    },
+                    {
+                        "id": 2,
+                        "user_id": "123e4567-e89b-12d3-a456-426614174000",
+                        "content": "Ideas for new features",
+                        "attachments": [
+                            {
+                                "type": "image",
+                                "url": "https://example.com/sketch.png"
+                            }
+                        ],
+                        "processing_status": "PROCESSED",
+                        "enrichment_data": {
+                            "topics": ["features", "planning"],
+                            "sentiment": "positive"
+                        },
+                        "processed_at": "2024-01-11T12:05:00Z",
+                        "created_at": "2024-01-11T12:00:00Z",
+                        "updated_at": None,
+                    }
+                ],
+                "total": 10,
+                "page": 1,
+                "size": 2,
+                "pages": 5
+            }
+        }
+    )
+
+    @classmethod
+    def from_domain(
+        cls, items: List[NoteData], page: int, size: int, total: int
+    ) -> "NoteList":
+        """Create paginated response from domain models.
+
+        Args:
+            items: List of note domain models
+            page: Current page number
+            size: Items per page
+            total: Total number of items
+
+        Returns:
+            NoteList: Paginated response with notes and metadata
+        """
+        return cls(
+            items=[
+                NoteResponse.from_domain(item)
+                for item in items
+            ],
+            total=total,
+            page=page,
+            size=size,
+            pages=(total + size - 1) // size,
+        )

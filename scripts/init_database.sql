@@ -105,6 +105,20 @@ CREATE TABLE IF NOT EXISTS tasks (
     CHECK (description != '')
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- Create topics table
+CREATE TABLE IF NOT EXISTS topics (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    user_id VARCHAR(36) NOT NULL,
+    name VARCHAR(255) NOT NULL,
+    icon VARCHAR(255) NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    CHECK (name != ''),
+    CHECK (icon != ''),
+    UNIQUE KEY uq_topic_name_per_user (user_id, name)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 -- Add indexes for better query performance
 CREATE INDEX idx_users_key_id ON users(key_id);
 CREATE INDEX idx_activities_user_id ON activities(user_id);
@@ -128,3 +142,7 @@ CREATE INDEX idx_notes_processing_status ON notes(processing_status);
 
 -- Add index for processing_status (after the existing indexes)
 CREATE INDEX idx_activities_processing_status ON activities(processing_status);
+
+-- Add index for topics table
+CREATE INDEX idx_topics_user_id ON topics(user_id);
+CREATE INDEX idx_topics_name ON topics(name);

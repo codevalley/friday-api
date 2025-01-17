@@ -153,9 +153,9 @@ class Activity(Base):
         default=ProcessingStatus.NOT_PROCESSED,
         index=True,
     )
-    schema_render: Mapped[
-        Optional[Dict[str, Any]]
-    ] = Column(JSON, nullable=True)
+    schema_render: Mapped[Optional[Dict[str, Any]]] = (
+        Column(JSON, nullable=True)
+    )
     processed_at: Mapped[Optional[datetime]] = Column(
         DateTime(timezone=True),
         nullable=True,

@@ -16,6 +16,7 @@ if TYPE_CHECKING:
     from orm.MomentModel import Moment
     from orm.NoteModel import Note
     from orm.TaskModel import Task
+    from orm.TopicModel import Topic
 
 
 class User(EntityMeta):
@@ -36,6 +37,7 @@ class User(EntityMeta):
         moments: List of user's moments
         notes: List of user's notes
         tasks: List of user's tasks
+        topics: List of user's topics
     """
 
     __tablename__ = "users"
@@ -104,6 +106,11 @@ class User(EntityMeta):
     tasks: Mapped[List["Task"]] = relationship(
         "Task",
         back_populates="owner",
+        cascade="all, delete-orphan",
+    )
+    topics: Mapped[List["Topic"]] = relationship(
+        "Topic",
+        back_populates="user",
         cascade="all, delete-orphan",
     )
 

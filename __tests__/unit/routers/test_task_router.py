@@ -27,12 +27,12 @@ def app(mock_user, mock_service):
     async def mock_get_current_user():
         return mock_user
 
-    app.dependency_overrides[
-        get_current_user
-    ] = mock_get_current_user
-    app.dependency_overrides[
-        TaskService
-    ] = lambda: mock_service
+    app.dependency_overrides[get_current_user] = (
+        mock_get_current_user
+    )
+    app.dependency_overrides[TaskService] = (
+        lambda: mock_service
+    )
     app.include_router(router, prefix="/api")
     return app
 

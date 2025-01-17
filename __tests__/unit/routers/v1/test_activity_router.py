@@ -31,12 +31,12 @@ def setup_dependencies(
     fastapi_app.dependency_overrides[
         get_activity_service
     ] = lambda: mock_activity_service
-    fastapi_app.dependency_overrides[
-        get_current_user
-    ] = lambda: sample_user
-    fastapi_app.dependency_overrides[
-        CustomHTTPBearer
-    ] = lambda: mock_auth_middleware
+    fastapi_app.dependency_overrides[get_current_user] = (
+        lambda: sample_user
+    )
+    fastapi_app.dependency_overrides[CustomHTTPBearer] = (
+        lambda: mock_auth_middleware
+    )
     yield
     fastapi_app.dependency_overrides = {}
 

@@ -85,9 +85,9 @@ class Note(Base):
     def __init__(self, **kwargs):
         """Initialize note with default processing status if not provided."""
         if "processing_status" not in kwargs:
-            kwargs[
-                "processing_status"
-            ] = ProcessingStatus.PENDING
+            kwargs["processing_status"] = (
+                ProcessingStatus.PENDING
+            )
         super().__init__(**kwargs)
 
     def to_dict(self) -> Dict[str, Any]:
