@@ -10,7 +10,10 @@ from unittest.mock import Mock
 from dependencies import get_current_user
 from orm.UserModel import User
 from routers.v1.TopicRouter import router as topic_router
-from schemas.pydantic.TopicSchema import TopicResponse
+from schemas.pydantic.TopicSchema import (
+    TopicResponse,
+    TopicCreate,
+)
 from services.TopicService import TopicService
 
 
@@ -19,22 +22,8 @@ def mock_topic_service():
     """Create mock TopicService."""
     service = Mock(spec=TopicService)
 
-    # Mock the create_topic method to return a proper response
-    def mock_create_topic(topic_data, user_id):
-        current_time = datetime.now(timezone.utc)
-        return TopicResponse(
-            id=1,
-            name=topic_data.name,
-            icon=topic_data.icon,
-            user_id=user_id,
-            created_at=current_time,
-            updated_at=current_time,
-        )
-
     # Set up the mock methods
-    service.create_topic = Mock(
-        side_effect=mock_create_topic
-    )
+    service.create_topic = Mock()
     service.get_topic = Mock()
     service.update_topic = Mock()
     service.delete_topic = Mock()
@@ -149,7 +138,10 @@ class TestTopicRouter:
             response.json()["data"]["icon"]
             == valid_topic_data["icon"]
         )
-        mock_topic_service.create_topic.assert_called_once()
+        mock_topic_service.create_topic.assert_called_once_with(
+            user_id="test_user",
+            data=TopicCreate(**valid_topic_data),
+        )
 
     def test_create_topic_unauthorized(
         self, client, valid_topic_data

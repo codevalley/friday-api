@@ -125,13 +125,13 @@ class TopicService:
             )
 
     def get_topic(
-        self, user_id: str, topic_id: int
+        self, topic_id: str, user_id: str
     ) -> TopicResponse:
         """Get a topic by ID.
 
         Args:
-            user_id: Owner's user ID
             topic_id: Topic ID
+            user_id: Owner's user ID
 
         Returns:
             TopicResponse: Found topic
@@ -163,15 +163,15 @@ class TopicService:
 
     def update_topic(
         self,
+        topic_id: str,
         user_id: str,
-        topic_id: int,
         data: TopicUpdate,
     ) -> TopicResponse:
         """Update a topic.
 
         Args:
-            user_id: Owner's user ID
             topic_id: Topic ID to update
+            user_id: Owner's user ID
             data: Update data
 
         Returns:
@@ -219,13 +219,13 @@ class TopicService:
             )
 
     def delete_topic(
-        self, user_id: str, topic_id: int
+        self, topic_id: str, user_id: str
     ) -> bool:
         """Delete a topic.
 
         Args:
-            user_id: Owner's user ID
             topic_id: Topic ID to delete
+            user_id: Owner's user ID
 
         Returns:
             bool: True if deleted
@@ -263,9 +263,9 @@ class TopicService:
         self,
         user_id: str,
         page: int = 1,
-        size: int = 50,
+        size: int = 10,
     ) -> dict:
-        """List topics for a user with pagination.
+        """List topics for a user.
 
         Args:
             user_id: Owner's user ID
@@ -279,18 +279,20 @@ class TopicService:
                 - page: Current page number
                 - size: Page size
                 - pages: Total number of pages
-
-        Raises:
-            HTTPException: If listing fails
         """
         try:
+            # Calculate offset
             skip = (page - 1) * size
+
+            # Get topics via repository
             topics = self.topic_repo.list_topics(
                 user_id=user_id,
                 skip=skip,
                 limit=size,
             )
             total = self.topic_repo.count_by_user(user_id)
+
+            # Calculate total pages
             pages = (total + size - 1) // size
 
             return {

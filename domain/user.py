@@ -39,7 +39,7 @@ class UserData:
         username: Unique username for the user
         key_id: Public key identifier for API access
         user_secret: Hashed secret for API authentication
-        id: Unique identifier for the user (optional)
+        id: Unique identifier for the user (UUID string, optional)
         created_at: When this record was created (optional)
         updated_at: When this record was last updated (optional)
     """
@@ -47,7 +47,7 @@ class UserData:
     username: str
     user_secret: str
     key_id: Optional[str] = None
-    id: Optional[int] = None
+    id: Optional[str] = None
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
 
@@ -145,12 +145,15 @@ class UserData:
                 "user_secret must be empty or a valid bcrypt hash"
             )
 
-        if self.id is not None and (
-            not isinstance(self.id, int) or self.id <= 0
-        ):
-            raise UserValidationError(
-                "id must be a positive integer"
-            )
+        if self.id is not None:
+            if not isinstance(self.id, str):
+                raise UserValidationError(
+                    "id must be a string"
+                )
+            if not re.match(r"^[a-zA-Z0-9-]{36}$", self.id):
+                raise UserValidationError(
+                    "id must be a valid UUID format"
+                )
 
         if self.created_at is not None and not isinstance(
             self.created_at, datetime

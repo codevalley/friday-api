@@ -33,7 +33,9 @@ def valid_user_data():
 def valid_user_orm():
     """Create a mock ORM model with valid user data."""
     mock = Mock()
-    mock.id = 1
+    mock.id = (
+        "123e4567-e89b-12d3-a456-426614174000"  # Valid UUID
+    )
     mock.username = "testuser"
     mock.key_id = "12345678-1234-5678-1234-567812345678"
     mock.user_secret = (
@@ -160,12 +162,14 @@ class TestUserData:
 
     def test_invalid_id(self, valid_user_data):
         """Test validation with invalid id."""
-        valid_user_data["id"] = -1
+        valid_user_data[
+            "id"
+        ] = "invalid-uuid"  # Not a valid UUID format
         with pytest.raises(UserValidationError) as exc:
             UserData(**valid_user_data)
         assert (
             str(exc.value)
-            == "id must be a positive integer"
+            == "id must be a valid UUID format"
         )
 
     def test_invalid_datetime(self, valid_user_data):

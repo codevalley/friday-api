@@ -42,7 +42,10 @@ async def create_topic(
     current_user: User = Depends(get_current_user),
 ) -> GenericResponse[TopicResponse]:
     """Create a new topic."""
-    result = service.create_topic(topic, current_user.id)
+    result = service.create_topic(
+        user_id=current_user.id,
+        data=topic,
+    )
     return GenericResponse(
         data=result,
         message="Topic created successfully",
@@ -96,9 +99,9 @@ async def update_topic(
 ) -> GenericResponse[TopicResponse]:
     """Update a specific topic by ID."""
     result = service.update_topic(
-        topic_id,
-        current_user.id,
-        topic,
+        topic_id=topic_id,
+        user_id=current_user.id,
+        data=topic,
     )
     return GenericResponse(
         data=result,

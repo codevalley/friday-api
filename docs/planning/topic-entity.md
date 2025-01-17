@@ -547,50 +547,60 @@ By following these tasks and subtasks, we ensure the new `Topic` entity is intro
   - [x] Domain model methods
   - [x] Error handling with specific exceptions
   - [x] Transaction management
-- [ ] Schemas (`schemas/pydantic/TopicSchema.py`)
+- [x] Schemas (`schemas/pydantic/TopicSchema.py`)
   - [x] Basic structure
   - [x] Domain conversion methods
-  - [ ] Example values
-  - [ ] Field descriptions
-  - [ ] Response wrappers
+  - [x] Example values
+  - [x] Field descriptions
+  - [x] Response wrappers (using GenericResponse and PaginationResponse)
 - [x] Router (`routers/v1/TopicRouter.py`)
+  - [x] Basic CRUD endpoints
+  - [x] Authentication integration
+  - [x] Error handling
+  - [x] Pagination support
 - [x] Database Schema (`scripts/init_database.sql`)
 
 #### Integration
 
 - [x] User Model Relationship
-- [ ] Database Migration
 - [x] Unit Tests
   - [x] Domain Tests (validate, update methods, exceptions)
   - [x] Repository Tests (CRUD, error cases)
   - [x] Service Tests (business logic, transactions)
-  - [x] Router Tests (endpoints, auth)
+  - [x] Router Tests (endpoints, auth, pagination)
 - [ ] Integration Tests
+  - [ ] End-to-end flow tests
+  - [ ] Database interaction tests
+  - [ ] API response format tests
 - [ ] API Documentation
+  - [ ] OpenAPI descriptions
+  - [ ] Usage examples
+  - [ ] Integration guides
 
 ### Next Steps
 
-1. ~~Fix domain model to match Note/Task patterns~~ (Done)
-2. ~~Update ORM model to use from_dict pattern~~ (Done)
-3. ~~Update repository to use to_dict/from_dict pattern~~ (Done)
-4. ~~Update service with better error handling~~ (Done)
-5. ~~Create test suite~~ (Done)
-6. Update schemas with examples and descriptions
-7. Create database migration
-8. Update API documentation
+1. Add integration tests (High Priority)
+   - End-to-end flow tests
+   - Database interaction tests
+   - API response format tests
+2. Update API documentation (Medium Priority)
+   - OpenAPI descriptions
+   - Usage examples
+   - Integration guides
 
 ### Current Focus
 
-1. Update schemas with:
-   - Example values for each field
-   - Field descriptions
-   - Response wrapper improvements
-2. ~~Create test suite starting with domain tests~~ (Done)
-3. Prepare database migration script
+1. Create integration test suite (High Priority)
+   - Set up test database fixtures
+   - Implement end-to-end flow tests
+   - Add database interaction tests
+   - Verify API response formats
+2. Update API documentation (Medium Priority)
 
 ### Known Issues
 
 1. ~~Linter error in `domain/topic.py` regarding type hints~~ (Fixed)
-2. Need to create database migration for the topics table
-3. ~~Need to implement comprehensive test suite~~ (Done)
-4. ~~Need to update other layers to use new domain model patterns~~ (Done)
+2. ~~Need to implement comprehensive test suite~~ (Done)
+3. ~~Need to update other layers to use new domain model patterns~~ (Done)
+4. ~~Schema layer needs example values and field descriptions~~ (Done)
+5. Missing integration tests for end-to-end validation
