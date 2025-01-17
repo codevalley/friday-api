@@ -56,6 +56,6 @@ def get_queue_service_override():
     return get_queue_service()
 
 
-app.dependency_overrides[get_queue_service] = (
-    get_queue_service_override
-)
+app.dependency_overrides[
+    get_queue_service
+] = get_queue_service_override

@@ -14,9 +14,7 @@ from schemas.pydantic.TopicSchema import (
     TopicCreate,
     TopicUpdate,
     TopicResponse,
-    TopicList,
 )
-from utils.validation import validate_pagination
 
 import logging
 
@@ -89,17 +87,28 @@ class TopicService:
             HTTPException: If topic creation fails
         """
         try:
-            # Convert schema to domain and validate
-            domain_data = data.to_domain(user_id)
+            # Check for duplicate name
+            existing = self.topic_repo.get_by_name(
+                user_id, data.name
+            )
+            if existing:
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail="Topic with this name already exists",
+                )
 
             # Create via repository
-            topic_orm = self.topic_repo.create_from_domain(
-                domain_data
+            topic_orm = self.topic_repo.create(
+                name=data.name,
+                icon=data.icon,
+                user_id=user_id,
             )
             self.db.commit()
             self.db.refresh(topic_orm)
 
             return TopicResponse.model_validate(topic_orm)
+        except HTTPException:
+            raise
         except (
             TopicValidationError,
             TopicNameError,
@@ -140,17 +149,9 @@ class TopicService:
                     detail="Topic not found",
                 )
 
-            # Ensure topic has required fields
-            if topic.id is None:
-                raise ValueError("Topic missing ID")
-
             return TopicResponse.model_validate(topic)
-        except ValueError as e:
-            logger.error(f"Invalid topic data: {str(e)}")
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Invalid topic data",
-            )
+        except HTTPException:
+            raise
         except Exception as e:
             logger.error(
                 f"Unexpected error getting topic: {str(e)}"
@@ -199,23 +200,15 @@ class TopicService:
             )
             self.db.commit()
 
-            # Ensure topic has required fields
-            if updated.id is None:
-                raise ValueError("Updated topic missing ID")
-
             return TopicResponse.model_validate(updated)
+        except HTTPException:
+            raise
         except (
             TopicValidationError,
             TopicNameError,
             TopicIconError,
         ) as e:
             self._handle_topic_error(e)
-        except ValueError as e:
-            logger.error(f"Invalid topic data: {str(e)}")
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Invalid topic data",
-            )
         except Exception as e:
             logger.error(
                 f"Unexpected error updating topic: {str(e)}"
@@ -255,6 +248,8 @@ class TopicService:
             deleted = self.topic_repo.delete(topic_id)
             self.db.commit()
             return deleted
+        except HTTPException:
+            raise
         except Exception as e:
             logger.error(
                 f"Unexpected error deleting topic: {str(e)}"
@@ -269,47 +264,45 @@ class TopicService:
         user_id: str,
         page: int = 1,
         size: int = 50,
-    ) -> TopicList:
-        """List all topics for a user with pagination.
+    ) -> dict:
+        """List topics for a user with pagination.
 
         Args:
             user_id: Owner's user ID
-            page: Page number (default: 1)
-            size: Page size (default: 50)
+            page: Page number (1-based)
+            size: Page size
 
         Returns:
-            TopicList: Paginated list of topics
+            dict: Dictionary containing:
+                - items: List of topics
+                - total: Total number of topics
+                - page: Current page number
+                - size: Page size
+                - pages: Total number of pages
 
         Raises:
-            HTTPException: If pagination parameters are invalid
+            HTTPException: If listing fails
         """
         try:
-            validate_pagination(page, size)
             skip = (page - 1) * size
-
-            topics = self.topic_repo.list_by_user(
-                user_id, skip=skip, limit=size
+            topics = self.topic_repo.list_topics(
+                user_id=user_id,
+                skip=skip,
+                limit=size,
             )
-            total = self.topic_repo.count_user_topics(user_id)
+            total = self.topic_repo.count_by_user(user_id)
+            pages = (total + size - 1) // size
 
-            return TopicList(
-                items=[
+            return {
+                "items": [
                     TopicResponse.model_validate(t)
                     for t in topics
                 ],
-                total=total,
-                page=page,
-                size=size,
-                pages=(total + size - 1) // size,
-            )
-        except ValueError as e:
-            logger.error(
-                f"Invalid pagination parameters: {str(e)}"
-            )
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=str(e),
-            )
+                "total": total,
+                "page": page,
+                "size": size,
+                "pages": pages,
+            }
         except Exception as e:
             logger.error(
                 f"Unexpected error listing topics: {str(e)}"

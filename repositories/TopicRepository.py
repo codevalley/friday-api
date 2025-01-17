@@ -162,3 +162,18 @@ class TopicRepository(BaseRepository[Topic, int]):
                     f"Topic name '{name}' already exists for user"
                 )
             raise TopicValidationError(str(e))
+
+    def count_by_user(self, user_id: str) -> int:
+        """Count topics for a user.
+
+        Args:
+            user_id: Owner's user ID
+
+        Returns:
+            int: Number of topics
+        """
+        return (
+            self.db.query(Topic)
+            .filter(Topic.user_id == user_id)
+            .count()
+        )

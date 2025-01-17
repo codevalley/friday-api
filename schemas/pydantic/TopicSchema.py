@@ -5,7 +5,9 @@ from typing import Optional, List
 from pydantic import BaseModel, Field, ConfigDict
 
 from domain.topic import TopicData
-from schemas.pydantic.PaginationSchema import PaginationResponse
+from schemas.pydantic.PaginationSchema import (
+    PaginationResponse,
+)
 
 # Common model configuration
 model_config = ConfigDict(
@@ -204,7 +206,11 @@ class TopicList(PaginationResponse):
 
     @classmethod
     def from_domain(
-        cls, items: List[TopicData], page: int, size: int, total: int
+        cls,
+        items: List[TopicData],
+        page: int,
+        size: int,
+        total: int,
     ) -> "TopicList":
         """Create paginated response from domain models.
 

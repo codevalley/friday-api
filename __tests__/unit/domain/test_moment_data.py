@@ -165,9 +165,9 @@ class TestMomentDataValidation:
 
         # Test with invalid nested structure
         valid_moment_dict["data"] = {"circular": None}
-        valid_moment_dict["data"]["circular"] = (
-            valid_moment_dict["data"]
-        )
+        valid_moment_dict["data"][
+            "circular"
+        ] = valid_moment_dict["data"]
         with pytest.raises(MomentDataError) as exc:
             MomentData(**valid_moment_dict)
         assert (

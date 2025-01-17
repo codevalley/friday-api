@@ -184,7 +184,7 @@ class TaskRepository(BaseRepository[Task, int]):
 
 _(We’re subclassing your `BaseRepository` to reuse `create`, `get`, `delete`, etc. We add specialized queries like `list_tasks_for_user` if needed.)_
 
-**Handling Partial Updates**  
+**Handling Partial Updates**
 For partial updates (e.g., only updating `title` or `is_done`), typically your `update` method in `BaseRepository` or `TaskRepository` merges only provided fields. Make sure to do something like:
 
 ```python
@@ -508,17 +508,17 @@ def test_create_task_router(client):
 
 ## 8. Summarized Steps
 
-1. **Domain**  
+1. **Domain**
    Add a new domain model (e.g., `TaskData`) in `domain/`, ensure validations are present.
-2. **ORM & Repository**  
+2. **ORM & Repository**
    In `orm/`, define the SQLAlchemy model. In `repositories/`, create a repository (optionally subclassing `BaseRepository`).
-3. **Service**  
+3. **Service**
    In `services/`, create a `TaskService` that orchestrates domain validations, calls repository methods, and raises `HTTPException` if needed.
-4. **Router**  
+4. **Router**
    In `routers/v1/`, add a router for the entity (CRUD endpoints).
-5. **Schemas**  
+5. **Schemas**
    In `schemas/pydantic/`, add create/update/response schemas.
-6. **Tests**  
+6. **Tests**
    Write domain, repository, service, and router tests, each focusing on its own layer.
 
 ---
@@ -532,13 +532,13 @@ def test_create_task_router(client):
    - **Service**: Orchestrates domain & repository, transforms domain exceptions to HTTP exceptions.
    - **Router**: Minimal HTTP logic, delegates to `Service`.
 
-2. **Domain Models as Single Source of Truth**  
+2. **Domain Models as Single Source of Truth**
    The domain classes (`TaskData`, etc.) define the business rules. Pydantic schemas handle only I/O transformations (requests/responses).
 
-3. **Use Domain Exceptions**  
+3. **Use Domain Exceptions**
    Domain code raises `TaskValidationError` (or similar). The service layer catches and re-raises as `HTTPException` if needed.
 
-4. **Migration Awareness**  
+4. **Migration Awareness**
    Any changes to the ORM layer likely need a migration if your database is in production. Tools like **Alembic** or **flask-migrate** let you generate and apply migrations consistently.
 
 5. **Tests at Each Layer**
@@ -557,13 +557,13 @@ def test_create_task_router(client):
 
 ## Common Pitfalls to Avoid
 
-1. **Leaking Domain Logic into the Router or Repository**  
+1. **Leaking Domain Logic into the Router or Repository**
    Keep domain logic (validations, special rules) in the domain class. The router should be minimal, delegating to the service.
-2. **Skipping Tests in One Layer**  
+2. **Skipping Tests in One Layer**
    Because each layer has distinct responsibilities, skipping tests can lead to hidden bugs.
-3. **Forgetting Migrations**  
+3. **Forgetting Migrations**
    When the schema changes, ensure you generate and apply the appropriate migration in your dev/staging/production environments.
-4. **Inconsistent Error Handling**  
+4. **Inconsistent Error Handling**
    Domain raises domain exceptions, service catches them, router deals with `HTTPException`. Keep it consistent.
 
 ---

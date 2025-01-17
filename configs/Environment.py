@@ -73,25 +73,36 @@ class EnvironmentSettings(BaseSettings):
     def __init__(self, **kwargs):
         # Print environment variables for debugging
         import os
+
         print("\n=== Environment Variables Debug ===")
         for key, value in os.environ.items():
             if "DATABASE" in key:
                 print(f"{key}: {value}")
-        
-        print("\n=== Pydantic Environment Loading Process ===")
-        print(f"1. Environment file being used: {get_env_filename()}")
-        print(f"   File exists: {os.path.exists(get_env_filename())}")
-        
+
+        print(
+            "\n=== Pydantic Environment Loading Process ==="
+        )
+        print(
+            f"1. Environment file being used: {get_env_filename()}"
+        )
+        print(
+            f"   File exists: {os.path.exists(get_env_filename())}"
+        )
+
         print("\n2. Raw values from env file/environment:")
         for key, value in kwargs.items():
             if "DATABASE" in key:
                 print(f"   {key}: {value}")
-        
+
         # Call parent class initialization which sets the actual values
         super().__init__(**kwargs)
-        
-        print("\n3. Final values after Pydantic processing:")
-        print(f"   DATABASE_DIALECT: {self.DATABASE_DIALECT}")
+
+        print(
+            "\n3. Final values after Pydantic processing:"
+        )
+        print(
+            f"   DATABASE_DIALECT: {self.DATABASE_DIALECT}"
+        )
         print(f"   DATABASE_DRIVER: {self.DATABASE_DRIVER}")
         print("=========================================\n")
 
@@ -101,11 +112,13 @@ def get_environment_variables() -> EnvironmentSettings:
     """Get environment variables."""
     # Clear any existing DATABASE environment variables
     import os
+
     env_vars_to_clear = [
-        key for key in os.environ.keys()
-        if key.startswith('DATABASE_')
+        key
+        for key in os.environ.keys()
+        if key.startswith("DATABASE_")
     ]
     for key in env_vars_to_clear:
         del os.environ[key]
-    
+
     return EnvironmentSettings()

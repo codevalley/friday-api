@@ -5,7 +5,9 @@ from datetime import datetime
 from typing import Optional, List, Dict, Any
 from domain.note import NoteData
 from domain.values import ProcessingStatus
-from schemas.pydantic.PaginationSchema import PaginationResponse
+from schemas.pydantic.PaginationSchema import (
+    PaginationResponse,
+)
 
 
 class NoteBase(BaseModel):
@@ -152,30 +154,37 @@ class NoteList(PaginationResponse):
                         "attachments": [
                             {
                                 "type": "image",
-                                "url": "https://example.com/sketch.png"
+                                "url": "https://example.com/sketch.png",
                             }
                         ],
                         "processing_status": "PROCESSED",
                         "enrichment_data": {
-                            "topics": ["features", "planning"],
-                            "sentiment": "positive"
+                            "topics": [
+                                "features",
+                                "planning",
+                            ],
+                            "sentiment": "positive",
                         },
                         "processed_at": "2024-01-11T12:05:00Z",
                         "created_at": "2024-01-11T12:00:00Z",
                         "updated_at": None,
-                    }
+                    },
                 ],
                 "total": 10,
                 "page": 1,
                 "size": 2,
-                "pages": 5
+                "pages": 5,
             }
         }
     )
 
     @classmethod
     def from_domain(
-        cls, items: List[NoteData], page: int, size: int, total: int
+        cls,
+        items: List[NoteData],
+        page: int,
+        size: int,
+        total: int,
     ) -> "NoteList":
         """Create paginated response from domain models.
 

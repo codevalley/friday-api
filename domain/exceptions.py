@@ -24,6 +24,11 @@ class ErrorCode(str, Enum):
     TASK_INVALID_REFERENCE = "TASK_INVALID_REFERENCE"
     TASK_INVALID_DATA = "TASK_INVALID_DATA"
 
+    # Topic-related error codes
+    TOPIC_VALIDATION_ERROR = "TOPIC_VALIDATION_ERROR"
+    TOPIC_NAME_ERROR = "TOPIC_NAME_ERROR"
+    TOPIC_ICON_ERROR = "TOPIC_ICON_ERROR"
+
 
 class DomainException(Exception):
     """Base exception for all domain exceptions."""
@@ -361,16 +366,42 @@ class TaskReferenceError(TaskValidationError):
 class TopicValidationError(DomainException):
     """Base exception for topic validation errors."""
 
-    pass
+    def __init__(
+        self,
+        message: str,
+        code: str = ErrorCode.TOPIC_VALIDATION_ERROR,
+        details: Optional[Any] = None,
+    ):
+        super().__init__(
+            message=message, code=code, details=details
+        )
 
 
 class TopicNameError(TopicValidationError):
     """Exception for topic name validation errors."""
 
-    pass
+    def __init__(
+        self,
+        message: str,
+        details: Optional[Any] = None,
+    ):
+        super().__init__(
+            message=message,
+            code=ErrorCode.TOPIC_NAME_ERROR,
+            details=details,
+        )
 
 
 class TopicIconError(TopicValidationError):
     """Exception for topic icon validation errors."""
 
-    pass
+    def __init__(
+        self,
+        message: str,
+        details: Optional[Any] = None,
+    ):
+        super().__init__(
+            message=message,
+            code=ErrorCode.TOPIC_ICON_ERROR,
+            details=details,
+        )

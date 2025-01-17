@@ -560,11 +560,11 @@ By following these tasks and subtasks, we ensure the new `Topic` entity is intro
 
 - [x] User Model Relationship
 - [ ] Database Migration
-- [ ] Unit Tests
-  - [ ] Domain Tests (validate, update methods, exceptions)
-  - [ ] Repository Tests (CRUD, error cases)
-  - [ ] Service Tests (business logic, transactions)
-  - [ ] Router Tests (endpoints, auth)
+- [x] Unit Tests
+  - [x] Domain Tests (validate, update methods, exceptions)
+  - [x] Repository Tests (CRUD, error cases)
+  - [x] Service Tests (business logic, transactions)
+  - [x] Router Tests (endpoints, auth)
 - [ ] Integration Tests
 - [ ] API Documentation
 
@@ -574,8 +574,8 @@ By following these tasks and subtasks, we ensure the new `Topic` entity is intro
 2. ~~Update ORM model to use from_dict pattern~~ (Done)
 3. ~~Update repository to use to_dict/from_dict pattern~~ (Done)
 4. ~~Update service with better error handling~~ (Done)
-5. Update schemas with examples and descriptions
-6. Create test suite
+5. ~~Create test suite~~ (Done)
+6. Update schemas with examples and descriptions
 7. Create database migration
 8. Update API documentation
 
@@ -585,12 +585,12 @@ By following these tasks and subtasks, we ensure the new `Topic` entity is intro
    - Example values for each field
    - Field descriptions
    - Response wrapper improvements
-2. Create test suite starting with domain tests
+2. ~~Create test suite starting with domain tests~~ (Done)
 3. Prepare database migration script
 
 ### Known Issues
 
 1. ~~Linter error in `domain/topic.py` regarding type hints~~ (Fixed)
 2. Need to create database migration for the topics table
-3. Need to implement comprehensive test suite
-4. Need to update other layers to use new domain model patterns
+3. ~~Need to implement comprehensive test suite~~ (Done)
+4. ~~Need to update other layers to use new domain model patterns~~ (Done)
