@@ -60,6 +60,7 @@ async def list_tasks(
     due_before: Optional[datetime] = None,
     due_after: Optional[datetime] = None,
     parent_id: Optional[int] = Query(None),
+    topic_id: Optional[int] = Query(None),
     service: TaskService = Depends(),
     current_user: User = Depends(get_current_user),
 ) -> GenericResponse[dict]:
@@ -70,6 +71,7 @@ async def list_tasks(
     - due_before: Filter tasks due before this time (UTC)
     - due_after: Filter tasks due after this time (UTC)
     - parent_id: Filter subtasks of a specific parent task
+    - topic_id: Filter tasks by topic
     """
     result = service.list_tasks(
         user_id=current_user.id,
@@ -78,6 +80,7 @@ async def list_tasks(
         due_before=due_before,
         due_after=due_after,
         parent_id=parent_id,
+        topic_id=topic_id,
         page=pagination.page,
         size=pagination.size,
     )
@@ -231,4 +234,60 @@ async def detach_note(
     return GenericResponse(
         data=result,
         message="Note detached from task successfully",
+    )
+
+
+@router.put(
+    "/{task_id}/topic",
+    response_model=GenericResponse[TaskResponse],
+)
+@handle_exceptions
+async def update_task_topic(
+    task_id: int,
+    topic_id: Optional[int] = None,
+    service: TaskService = Depends(),
+    current_user: User = Depends(get_current_user),
+) -> GenericResponse[TaskResponse]:
+    """Update a task's topic.
+
+    Args:
+        task_id: ID of the task to update
+        topic_id: ID of the topic to assign, or None to remove topic
+    """
+    result = service.update_task_topic(
+        task_id,
+        current_user.id,
+        topic_id,
+    )
+    return GenericResponse(
+        data=result,
+        message="Task topic updated successfully",
+    )
+
+
+@router.get(
+    "/by-topic/{topic_id}",
+    response_model=GenericResponse[dict],
+)
+@handle_exceptions
+async def list_tasks_by_topic(
+    topic_id: int,
+    pagination: PaginationParams = Depends(),
+    service: TaskService = Depends(),
+    current_user: User = Depends(get_current_user),
+) -> GenericResponse[dict]:
+    """Get all tasks for a specific topic.
+
+    Args:
+        topic_id: ID of the topic to get tasks for
+    """
+    result = service.get_tasks_by_topic(
+        topic_id,
+        current_user.id,
+        page=pagination.page,
+        size=pagination.size,
+    )
+    return GenericResponse(
+        data=result,
+        message=f"Retrieved {result['total']} tasks for topic",
     )

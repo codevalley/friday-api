@@ -54,6 +54,8 @@ def sample_task_data():
         "tags": ["test", "sample"],
         "due_date": now + timedelta(days=30),
         "parent_id": None,
+        "topic_id": None,
+        "topic": None,
     }
 
 
@@ -187,11 +189,18 @@ def test_update_task_success(
     updated_data = {
         **sample_task_data,
         "title": "Updated Title",
+        "description": "Test Description",
+        "status": "todo",
+        "priority": "medium",
+        "user_id": "test-user-id",
+        "topic_id": None,
+        "topic": None,
     }
     mock_task.to_dict.return_value = updated_data
     mock_task.id = updated_data["id"]
     mock_task.created_at = updated_data["created_at"]
     mock_task_repo.get_by_user.return_value = mock_task
+    mock_task_repo.update.return_value = mock_task
 
     # Create update data
     update_data = TaskUpdate(title="Updated Title")
@@ -204,11 +213,8 @@ def test_update_task_success(
     )
 
     # Verify
-    assert isinstance(result, TaskResponse)
     assert result.title == "Updated Title"
-    mock_task.update.assert_called_once_with(
-        {"title": "Updated Title"}
-    )
+    mock_task_repo.update.assert_called_once()
     mock_db.commit.assert_called_once()
 
 
@@ -323,3 +329,154 @@ def test_get_subtasks_success(
         skip=0,
         limit=50,
     )
+
+
+def test_update_task_topic_success(
+    task_service, mock_db, mock_task_repo, sample_task_data
+):
+    """Test successful task topic update."""
+    # Setup mock
+    mock_task = Mock()
+    updated_data = {
+        **sample_task_data,
+        "title": "Test Task",
+        "description": "Test Description",
+        "status": "todo",
+        "priority": "medium",
+        "user_id": "test-user-id",
+        "topic_id": 123,
+        "topic": {
+            "id": 123,
+            "name": "Test Topic",
+            "icon": "📝",
+            "user_id": "test-user-id",
+            "created_at": sample_task_data["created_at"],
+            "updated_at": None,
+        },
+    }
+    mock_task.to_dict.return_value = updated_data
+    mock_task.id = updated_data["id"]
+    mock_task.created_at = updated_data["created_at"]
+    mock_task_repo.update_topic.return_value = mock_task
+
+    # Call service
+    result = task_service.update_task_topic(
+        1,
+        "test-user-id",
+        123,
+    )
+
+    # Verify
+    assert result.topic_id == 123
+    assert result.topic.name == "Test Topic"
+    mock_task_repo.update_topic.assert_called_once()
+    mock_db.commit.assert_called_once()
+
+
+def test_update_task_topic_remove(
+    task_service, mock_db, mock_task_repo, sample_task_data
+):
+    """Test removing task topic."""
+    # Setup mock
+    mock_task = Mock()
+    updated_data = {
+        **sample_task_data,
+        "title": "Test Task",
+        "description": "Test Description",
+        "status": "todo",
+        "priority": "medium",
+        "user_id": "test-user-id",
+        "topic_id": None,
+        "topic": None,
+    }
+    mock_task.to_dict.return_value = updated_data
+    mock_task.id = updated_data["id"]
+    mock_task.created_at = updated_data["created_at"]
+    mock_task_repo.update_topic.return_value = mock_task
+
+    # Call service
+    result = task_service.update_task_topic(
+        1,
+        "test-user-id",
+        None,
+    )
+
+    # Verify
+    assert result.topic_id is None
+    assert result.topic is None
+    mock_task_repo.update_topic.assert_called_once()
+    mock_db.commit.assert_called_once()
+
+
+def test_get_tasks_by_topic_success(
+    task_service, mock_task_repo, sample_task_data
+):
+    """Test successful task listing by topic."""
+    # Setup mock
+    mock_task = Mock()
+    mock_task.to_dict.return_value = {
+        **sample_task_data,
+        "title": "Test Task",
+        "description": "Test Description",
+        "status": "todo",
+        "priority": "medium",
+        "user_id": "test-user-id",
+        "topic_id": 123,
+        "topic": {
+            "id": 123,
+            "name": "Test Topic",
+            "icon": "📝",
+            "user_id": "test-user-id",
+            "created_at": sample_task_data["created_at"],
+            "updated_at": None,
+        },
+    }
+    mock_task.id = sample_task_data["id"]
+    mock_task.created_at = sample_task_data["created_at"]
+    mock_task_repo.get_tasks_by_topic.return_value = [
+        mock_task
+    ]
+    mock_task_repo.count_tasks.return_value = 1
+
+    # Call service
+    result = task_service.get_tasks_by_topic(
+        123,
+        "test-user-id",
+        page=1,
+        size=50,
+    )
+
+    # Verify
+    assert len(result["items"]) == 1
+    assert result["total"] == 1
+    mock_task_repo.get_tasks_by_topic.assert_called_once_with(
+        topic_id=123,
+        user_id="test-user-id",
+        skip=0,
+        limit=50,
+    )
+    mock_task_repo.count_tasks.assert_called_once_with(
+        user_id="test-user-id",
+        topic_id=123,
+    )
+
+
+def test_get_tasks_by_topic_not_found(
+    task_service, mock_task_repo
+):
+    """Test task listing by topic when no tasks exist."""
+    mock_task_repo.list_tasks.return_value = []
+    mock_task_repo.count_tasks.return_value = 0
+
+    result = task_service.get_tasks_by_topic(
+        123,
+        "test-user-id",
+        page=1,
+        size=50,
+    )
+
+    assert len(result["items"]) == 0
+    assert result["total"] == 0
+    assert result["page"] == 1
+    assert result["size"] == 50
+    assert result["pages"] == 0

@@ -92,6 +92,7 @@ CREATE TABLE IF NOT EXISTS tasks (
     user_id VARCHAR(36) NOT NULL,
     parent_id INT NULL,
     note_id INT NULL,
+    topic_id INT NULL,
     status ENUM('TODO', 'IN_PROGRESS', 'DONE') NOT NULL DEFAULT 'TODO',
     priority ENUM('LOW', 'MEDIUM', 'HIGH', 'URGENT') NOT NULL DEFAULT 'MEDIUM',
     due_date TIMESTAMP NULL,
@@ -101,6 +102,7 @@ CREATE TABLE IF NOT EXISTS tasks (
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
     FOREIGN KEY (parent_id) REFERENCES tasks(id) ON DELETE SET NULL,
     FOREIGN KEY (note_id) REFERENCES notes(id) ON DELETE SET NULL,
+    FOREIGN KEY (topic_id) REFERENCES topics(id) ON DELETE SET NULL,
     CHECK (title != ''),
     CHECK (description != '')
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
@@ -134,6 +136,7 @@ CREATE INDEX idx_tasks_priority ON tasks(priority);
 CREATE INDEX idx_tasks_due_date ON tasks(due_date);
 CREATE INDEX idx_tasks_parent_id ON tasks(parent_id);
 CREATE INDEX idx_tasks_note_id ON tasks(note_id);
+CREATE INDEX idx_tasks_topic_id ON tasks(topic_id);
 
 -- Indexes for notes table
 CREATE INDEX idx_notes_user_id ON notes(user_id);

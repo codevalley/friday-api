@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 
 from configs.Database import get_db_connection
 from repositories.TaskRepository import TaskRepository
+from repositories.TopicRepository import TopicRepository
 from domain.values import TaskStatus, TaskPriority
 from domain.exceptions import (
     TaskValidationError,
@@ -34,6 +35,7 @@ class TaskService:
     Attributes:
         db: Database session
         task_repo: Repository for task operations
+        topic_repo: Repository for topic operations
     """
 
     def __init__(
@@ -47,6 +49,29 @@ class TaskService:
         """
         self.db = db
         self.task_repo = TaskRepository(db)
+        self.topic_repo = TopicRepository(db)
+
+    def _validate_topic(
+        self, topic_id: Optional[int], user_id: str
+    ) -> None:
+        """Validate that a topic exists and belongs to the user.
+
+        Args:
+            topic_id: ID of the topic to validate
+            user_id: ID of the user who should own the topic
+
+        Raises:
+            TaskReferenceError: If topic doesn't exist or wrong user
+        """
+        if topic_id is not None:
+            topic = self.topic_repo.get_by_user(
+                topic_id, user_id
+            )
+            if topic is None:
+                raise TaskReferenceError(
+                    "Topic not found or belongs to "
+                    "another user"
+                )
 
     def _handle_task_error(self, error: Exception) -> None:
         """Map domain exceptions to HTTP exceptions."""
@@ -97,6 +122,11 @@ class TaskService:
             # Convert to domain model
             domain_data = task_data.to_domain(user_id)
 
+            # Validate topic if provided
+            self._validate_topic(
+                domain_data.topic_id, user_id
+            )
+
             # Validate before saving
             domain_data.validate_for_save()
 
@@ -110,6 +140,7 @@ class TaskService:
                 due_date=domain_data.due_date,
                 tags=domain_data.tags,
                 parent_id=domain_data.parent_id,
+                topic_id=domain_data.topic_id,
             )
             self.db.commit()
 
@@ -129,7 +160,7 @@ class TaskService:
             TaskReferenceError,
         ) as e:
             self._handle_task_error(e)
-            raise  # This line is needed to satisfy the test
+            raise
         except Exception as e:
             logger.error(
                 f"Unexpected error creating task: {str(e)}"
@@ -174,6 +205,7 @@ class TaskService:
         due_before: Optional[datetime] = None,
         due_after: Optional[datetime] = None,
         parent_id: Optional[int] = None,
+        topic_id: Optional[int] = None,
         page: int = 1,
         size: int = 50,
     ) -> Dict[str, Any]:
@@ -186,6 +218,7 @@ class TaskService:
             due_before: Optional due date upper bound
             due_after: Optional due date lower bound
             parent_id: Optional parent task ID filter
+            topic_id: Optional topic ID filter
             page: Page number (default: 1)
             size: Page size (default: 50)
 
@@ -198,6 +231,9 @@ class TaskService:
         validate_pagination(page, size)
         skip = (page - 1) * size
 
+        # Validate topic if provided
+        self._validate_topic(topic_id, user_id)
+
         tasks = self.task_repo.list_tasks(
             user_id=user_id,
             status=status,
@@ -205,6 +241,7 @@ class TaskService:
             due_before=due_before,
             due_after=due_after,
             parent_id=parent_id,
+            topic_id=topic_id,
             skip=skip,
             limit=size,
         )
@@ -212,6 +249,7 @@ class TaskService:
         total = self.task_repo.count_tasks(
             user_id=user_id,
             status=status,
+            topic_id=topic_id,
         )
 
         return {
@@ -251,26 +289,33 @@ class TaskService:
             )
 
         try:
-            data_to_update = update_data.model_dump(
+            # Validate topic if being updated
+            if update_data.topic_id is not None:
+                self._validate_topic(
+                    update_data.topic_id, user_id
+                )
+
+            # Update task
+            update_dict = update_data.model_dump(
                 exclude_unset=True
             )
-            task.update(data_to_update)
+            updated_task = self.task_repo.update(
+                task_id, update_dict
+            )
+            if not updated_task:
+                raise HTTPException(
+                    status_code=404,
+                    detail="Failed to update task",
+                )
+
             self.db.commit()
-
-            # Ensure task has an ID
-            if task.id is None:
-                raise ValueError("Updated task missing ID")
-
             return TaskResponse.model_validate(
-                task.to_dict()
+                updated_task.to_dict()
             )
 
-        except (
-            TaskValidationError,
-            TaskStatusError,
-            TaskReferenceError,
-        ) as e:
+        except TaskReferenceError as e:
             self._handle_task_error(e)
+            raise
         except Exception as e:
             logger.error(
                 f"Unexpected error updating task: {str(e)}"
@@ -279,6 +324,106 @@ class TaskService:
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail="Failed to update task",
             )
+
+    def update_task_topic(
+        self,
+        task_id: int,
+        user_id: str,
+        topic_id: Optional[int],
+    ) -> TaskResponse:
+        """Update a task's topic.
+
+        Args:
+            task_id: ID of the task to update
+            user_id: ID of the user requesting the update
+            topic_id: New topic ID, or None to remove topic
+
+        Returns:
+            TaskResponse: Updated task data
+
+        Raises:
+            HTTPException: If task not found or update fails
+        """
+        try:
+            # Validate topic if being set
+            self._validate_topic(topic_id, user_id)
+
+            # Update task's topic
+            updated_task = self.task_repo.update_topic(
+                task_id, user_id, topic_id
+            )
+            if not updated_task:
+                raise HTTPException(
+                    status_code=404,
+                    detail="Task not found",
+                )
+
+            self.db.commit()
+            return TaskResponse.model_validate(
+                updated_task.to_dict()
+            )
+
+        except TaskReferenceError as e:
+            self._handle_task_error(e)
+            raise
+        except Exception as e:
+            logger.error(
+                f"Unexpected error updating task topic: {str(e)}"
+            )
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Failed to update task topic",
+            )
+
+    def get_tasks_by_topic(
+        self,
+        topic_id: int,
+        user_id: str,
+        page: int = 1,
+        size: int = 50,
+    ) -> Dict[str, Any]:
+        """Get all tasks for a specific topic.
+
+        Args:
+            topic_id: ID of the topic
+            user_id: ID of the user requesting the tasks
+            page: Page number (default: 1)
+            size: Page size (default: 50)
+
+        Returns:
+            Dict[str, Any]: Paginated list of tasks
+
+        Raises:
+            HTTPException: If topic not found or pagination parameters invalid
+        """
+        validate_pagination(page, size)
+        skip = (page - 1) * size
+
+        # Validate topic exists and belongs to user
+        self._validate_topic(topic_id, user_id)
+
+        tasks = self.task_repo.get_tasks_by_topic(
+            topic_id=topic_id,
+            user_id=user_id,
+            skip=skip,
+            limit=size,
+        )
+
+        total = self.task_repo.count_tasks(
+            user_id=user_id,
+            topic_id=topic_id,
+        )
+
+        return {
+            "items": [
+                TaskResponse.model_validate(task.to_dict())
+                for task in tasks
+            ],
+            "total": total,
+            "page": page,
+            "size": size,
+            "pages": (total + size - 1) // size,
+        }
 
     def delete_task(
         self, task_id: int, user_id: str

@@ -23,7 +23,8 @@ class TaskData:
 
     This class represents a user task in the system and contains
     all business logic and validation rules for tasks.
-    A task can optionally reference a note for additional context.
+    A task can optionally reference a note for additional context
+    and can be organized under a topic.
 
     Data Flow and Conversions:
     1. API Layer: Incoming data is validated by Pydantic schemas
@@ -43,9 +44,10 @@ class TaskData:
         status: Current status of the task (todo/in_progress/done)
         priority: Priority level of the task
         due_date: When this task is due
-        tags: List of tags/topics associated with this task
+        tags: List of tags associated with this task
         parent_id: ID of the parent task if this is a subtask
         note_id: Optional ID of an associated note
+        topic_id: Optional ID of the associated topic
         id: Unique identifier for this task (optional)
         created_at: When this task was created
         updated_at: When this task was last updated
@@ -64,6 +66,7 @@ class TaskData:
     tags: Optional[List[str]] = None
     parent_id: Optional[int] = None
     note_id: Optional[int] = None
+    topic_id: Optional[int] = None
     id: Optional[int] = None
     created_at: datetime = field(
         default_factory=lambda: datetime.now(UTC)
@@ -158,6 +161,15 @@ class TaskData:
                     "note_id must be a positive integer"
                 )
 
+        if self.topic_id is not None:
+            if (
+                not isinstance(self.topic_id, int)
+                or self.topic_id <= 0
+            ):
+                raise TaskValidationError(
+                    "topic_id must be a positive integer"
+                )
+
         if self.id is not None and (
             not isinstance(self.id, int) or self.id <= 0
         ):
@@ -211,6 +223,7 @@ class TaskData:
             "tags": self.tags,
             "parent_id": self.parent_id,
             "note_id": self.note_id,
+            "topic_id": self.topic_id,
             "id": self.id,
             "created_at": self.created_at,
             "updated_at": self.updated_at,
@@ -245,6 +258,9 @@ class TaskData:
         parent_id = data.get("parent_id") or data.get(
             "parentId"
         )
+        topic_id = data.get("topic_id") or data.get(
+            "topicId"
+        )
         due_date = data.get("due_date") or data.get(
             "dueDate"
         )
@@ -270,6 +286,7 @@ class TaskData:
             tags=data.get("tags"),
             parent_id=parent_id,
             note_id=note_id,
+            topic_id=topic_id,
             created_at=created_at,
             updated_at=updated_at,
         )
@@ -312,4 +329,32 @@ class TaskData:
                     "due_date cannot be earlier than created_at"
                 )
         self.due_date = new_due_date
+        self.updated_at = datetime.now(UTC)
+
+    def validate_topic_ownership(
+        self, topic_user_id: str
+    ) -> None:
+        """Validate that the topic belongs to the same user as the task.
+
+        Args:
+            topic_user_id: User ID of the topic owner
+
+        Raises:
+            TaskValidationError: If topic belongs to a different user
+        """
+        if (
+            self.topic_id is not None
+            and topic_user_id != self.user_id
+        ):
+            raise TaskValidationError(
+                "Topic must belong to the same user as the task"
+            )
+
+    def handle_topic_deletion(self) -> None:
+        """Handle topic deletion by removing the topic reference.
+
+        This method is called when the associated topic is deleted
+        to ensure the task remains valid.
+        """
+        self.topic_id = None
         self.updated_at = datetime.now(UTC)

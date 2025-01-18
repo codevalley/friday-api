@@ -568,6 +568,146 @@ def test_create_task_router(client):
 
 ---
 
+## 9. Adding Relationships Between Entities
+
+This section covers how to add relationships between existing entities, using the Task-Topic integration as an example.
+
+### 9.1. Planning the Integration
+
+Before adding relationships between entities:
+
+1. Determine the relationship type (one-to-one, one-to-many, many-to-many)
+2. Decide which entity owns the relationship (foreign key location)
+3. Plan the cascade behavior (what happens when parent is deleted)
+4. Consider user isolation (ensuring relationships respect user ownership)
+
+### 9.2. Database Layer
+
+1. Add the foreign key column to the child table:
+```sql
+ALTER TABLE tasks
+ADD COLUMN topic_id INT NULL,
+ADD CONSTRAINT fk_task_topic
+    FOREIGN KEY (topic_id)
+    REFERENCES topics(id)
+    ON DELETE SET NULL;
+
+-- Optional: Add an index for performance
+CREATE INDEX idx_tasks_topic_id ON tasks(topic_id);
+```
+
+### 9.3. Domain Layer
+
+Update the domain model to include the new relationship:
+
+```python
+@dataclass
+class TaskData:
+    # ... existing fields ...
+    topic_id: Optional[int] = None
+
+    def validate(self):
+        # ... existing validations ...
+        if self.topic_id is not None:
+            if not isinstance(self.topic_id, int) or self.topic_id <= 0:
+                raise TaskValidationError(
+                    "topic_id must be a positive integer"
+                )
+```
+
+### 9.4. ORM Layer
+
+1. Add the foreign key and relationship to the child model:
+
+```python
+class Task(EntityMeta):
+    # ... existing fields ...
+    topic_id: Mapped[Optional[int]] = Column(
+        Integer,
+        ForeignKey("topics.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+
+    # Add the relationship
+    topic: Mapped[Optional["Topic"]] = relationship(
+        "Topic",
+        back_populates="tasks",
+    )
+```
+
+2. Add the reverse relationship to the parent model:
+
+```python
+class Topic(EntityMeta):
+    # ... existing fields ...
+    tasks: Mapped[List["Task"]] = relationship(
+        "Task",
+        back_populates="topic",
+    )
+```
+
+Key considerations:
+- Use `Optional` for nullable relationships
+- Set appropriate `ondelete` behavior (`CASCADE`, `SET NULL`, etc.)
+- Configure bidirectional relationships with `back_populates`
+- Avoid `cascade="all, delete-orphan"` if children should remain after parent deletion
+
+### Implementation Status
+
+✅ **Completed Steps**:
+1. Database Layer
+   - Added topic_id column to tasks table
+   - Added foreign key constraint with ON DELETE SET NULL
+   - Added index for topic_id
+
+2. Domain Layer
+   - Added topic_id field to TaskData
+   - Added topic validation rules
+   - Updated domain exceptions
+   - Updated documentation
+
+3. ORM Layer
+   - Added topic_id column to Task model
+   - Added relationship to Topic model
+   - Updated Topic model with tasks relationship
+   - Configured appropriate cascade behavior
+
+4. Repository Layer
+   - Added topic_id parameter to create method
+   - Added topic filtering to list_tasks method
+   - Added topic filtering to count_tasks method
+   - Added get_tasks_by_topic method
+   - Added update_topic method
+   - Updated method documentation
+
+5. Service Layer
+   - Added topic validation logic
+   - Added topic_id support to create/update operations
+   - Added topic filtering to list operations
+   - Added update_task_topic method
+   - Added get_tasks_by_topic method
+   - Updated error handling for topic operations
+
+6. Schema Layer
+   - Added topic_id to TaskBase schema with validation
+   - Added topic_id to TaskUpdate schema
+   - Added topic field to TaskResponse schema
+   - Added TopicResponse import for nested responses
+   - Updated schema documentation
+
+7. Router Layer
+   - Added topic_id filter to list_tasks endpoint
+   - Added PUT /{task_id}/topic endpoint
+   - Added GET /by-topic/{topic_id} endpoint
+   - Updated endpoint documentation
+   - Added appropriate response models
+
+🚧 **Next Steps**:
+1. Testing
+   - Add unit tests for new functionality
+   - Update existing tests
+   - Add integration tests for topic operations
+
 ### Conclusion
 
 Following these steps, you can **add any new entity** (e.g., Topics, Tasks, Labels, Projects) to your project without disturbing the existing codebase’s structure. Stick to the four-layer approach—**Domain** → **Repository** → **Service** → **Router**—plus consistent **Pydantic** schemas and thorough testing at each layer. This keeps your architecture clean, maintainable, and easy to extend.

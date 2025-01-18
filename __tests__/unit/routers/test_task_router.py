@@ -258,7 +258,7 @@ class TestTaskRouter:
             "items": [mock_task.model_dump()],
             "total": 1,
             "page": 1,
-            "size": 10,
+            "size": 50,
             "pages": 1,
         }
 
@@ -267,8 +267,6 @@ class TestTaskRouter:
             params={
                 "status": TaskStatus.TODO.value,
                 "priority": TaskPriority.HIGH.value,
-                "page": 1,
-                "size": 10,
             },
             headers={
                 "Authorization": f"Bearer {mock_auth_credentials.credentials}"
@@ -283,8 +281,9 @@ class TestTaskRouter:
             due_before=None,
             due_after=None,
             parent_id=None,
+            topic_id=None,
             page=1,
-            size=10,
+            size=50,
         )
 
     def test_get_task_not_found(
@@ -630,4 +629,91 @@ class TestTaskRouter:
         assert (
             response_data["detail"]["type"]
             == "AuthenticationError"
+        )
+
+    def test_update_task_topic_success(
+        self,
+        client,
+        mock_service,
+        mock_user,
+        mock_task,
+        mock_auth_credentials,
+    ):
+        """Test updating a task's topic successfully."""
+        mock_service.update_task_topic.return_value = (
+            mock_task
+        )
+
+        response = client.put(
+            "/api/v1/tasks/1/topic",
+            params={"topic_id": 123},
+            headers={
+                "Authorization": f"Bearer {mock_auth_credentials.credentials}"
+            },
+        )
+
+        assert response.status_code == 200
+        mock_service.update_task_topic.assert_called_once_with(
+            1,
+            mock_user.id,
+            123,
+        )
+
+    def test_update_task_topic_remove(
+        self,
+        client,
+        mock_service,
+        mock_user,
+        mock_task,
+        mock_auth_credentials,
+    ):
+        """Test removing a task's topic successfully."""
+        mock_service.update_task_topic.return_value = (
+            mock_task
+        )
+
+        response = client.put(
+            "/api/v1/tasks/1/topic",
+            headers={
+                "Authorization": f"Bearer {mock_auth_credentials.credentials}"
+            },
+        )
+
+        assert response.status_code == 200
+        mock_service.update_task_topic.assert_called_once_with(
+            1,
+            mock_user.id,
+            None,
+        )
+
+    def test_list_tasks_by_topic_success(
+        self,
+        client,
+        mock_service,
+        mock_user,
+        mock_task,
+        mock_auth_credentials,
+    ):
+        """Test listing tasks by topic successfully."""
+        mock_service.get_tasks_by_topic.return_value = {
+            "items": [mock_task.model_dump()],
+            "total": 1,
+            "page": 1,
+            "size": 50,
+            "pages": 1,
+        }
+
+        response = client.get(
+            "/api/v1/tasks/by-topic/123",
+            headers={
+                "Authorization": f"Bearer {mock_auth_credentials.credentials}"
+            },
+        )
+
+        assert response.status_code == 200
+        mock_service.get_tasks_by_topic.assert_called_once_with(
+            123,
+            mock_user.id,
+            page=1,
+            size=50,
         )

@@ -4,10 +4,16 @@ from typing import List, Optional
 from datetime import datetime
 from sqlalchemy.orm import Session
 from sqlalchemy import desc, asc
+from sqlalchemy.exc import IntegrityError
+from fastapi import HTTPException
 
 from domain.values import TaskStatus, TaskPriority
 from orm.TaskModel import Task
 from .BaseRepository import BaseRepository
+from domain.exceptions import (
+    TaskReferenceError,
+    TaskValidationError,
+)
 
 
 class TaskRepository(BaseRepository[Task, int]):
@@ -15,7 +21,7 @@ class TaskRepository(BaseRepository[Task, int]):
 
     This repository extends the BaseRepository to provide CRUD operations
     for Task entities, along with task-specific functionality like filtering
-    by status, priority, and due date.
+    by status, priority, due date, and topics.
     """
 
     def __init__(self, db: Session):
@@ -26,58 +32,27 @@ class TaskRepository(BaseRepository[Task, int]):
         """
         super().__init__(db, Task)
 
-    def create(
-        self,
-        title: str,
-        description: str,
-        user_id: str,
-        status: TaskStatus = TaskStatus.TODO,
-        priority: TaskPriority = TaskPriority.MEDIUM,
-        due_date: Optional[datetime] = None,
-        tags: Optional[List[str]] = None,
-        parent_id: Optional[int] = None,
-    ) -> Task:
+    def create(self, **kwargs) -> Task:
         """Create a new task.
 
         Args:
-            title: Task title
-            description: Task description
-            user_id: ID of the user creating the task
-            status: Task status (default: TODO)
-            priority: Task priority (default: MEDIUM)
-            due_date: Optional due date
-            tags: Optional list of tags
-            parent_id: Optional parent task ID
+            **kwargs: Task attributes
 
         Returns:
-            Task: Created task
+            Task: Created task instance
 
         Raises:
-            HTTPException: If parent task is invalid / belongs to another user
+            TaskValidationError: If task creation fails due to invalid data
         """
-        # If parent_id is provided, validate it exists and belongs to user
-        if parent_id is not None:
-            parent_task = self.get_by_user(
-                parent_id, user_id
-            )
-            if parent_task is None:
-                raise ValueError(
-                    "Parent task not found or "
-                    "doesn't belong to user"
+        task = Task(**kwargs)
+        try:
+            return super().create(task)
+        except HTTPException as e:
+            if e.status_code == 409:
+                raise TaskValidationError(
+                    f"Invalid topic: {e.detail}"
                 )
-
-        # Create task with original timezone-aware due_date
-        task = Task(
-            title=title,
-            description=description,
-            user_id=user_id,
-            status=status,
-            priority=priority,
-            due_date=due_date,
-            tags=tags or [],
-            parent_id=parent_id,
-        )
-        return super().create(task)
+            raise
 
     def list_tasks(
         self,
@@ -87,6 +62,7 @@ class TaskRepository(BaseRepository[Task, int]):
         due_before: Optional[datetime] = None,
         due_after: Optional[datetime] = None,
         parent_id: Optional[int] = None,
+        topic_id: Optional[int] = None,
         skip: int = 0,
         limit: int = 50,
     ) -> List[Task]:
@@ -99,6 +75,7 @@ class TaskRepository(BaseRepository[Task, int]):
             due_before: Optional due date upper bound
             due_after: Optional due date lower bound
             parent_id: Optional parent task ID filter
+            topic_id: Optional topic ID filter
             skip: Number of records to skip
             limit: Maximum number of records to return
 
@@ -124,6 +101,8 @@ class TaskRepository(BaseRepository[Task, int]):
             query = query.filter(
                 Task.parent_id == parent_id
             )
+        if topic_id is not None:
+            query = query.filter(Task.topic_id == topic_id)
 
         # Order by priority (high to low) then due date
         query = query.order_by(
@@ -137,12 +116,15 @@ class TaskRepository(BaseRepository[Task, int]):
         self,
         user_id: str,
         status: Optional[TaskStatus] = None,
+        topic_id: Optional[int] = None,
     ) -> int:
-        """Count total tasks for a user, optionally filtered by status.
+        """Count total tasks for a user, optionally filtered by status
+        and topic.
 
         Args:
             user_id: ID of the user whose tasks to count
             status: Optional status filter
+            topic_id: Optional topic filter
 
         Returns:
             int: Total number of tasks
@@ -152,7 +134,80 @@ class TaskRepository(BaseRepository[Task, int]):
         )
         if status is not None:
             query = query.filter(Task.status == status)
+        if topic_id is not None:
+            query = query.filter(Task.topic_id == topic_id)
         return query.count()
+
+    def get_tasks_by_topic(
+        self,
+        topic_id: int,
+        user_id: str,
+        skip: int = 0,
+        limit: int = 50,
+    ) -> List[Task]:
+        """Get all tasks for a given topic.
+
+        Args:
+            topic_id: ID of the topic
+            user_id: ID of the user who owns the tasks
+            skip: Number of records to skip
+            limit: Maximum number of records to return
+
+        Returns:
+            List[Task]: List of tasks for the topic
+        """
+        return (
+            self.db.query(Task)
+            .filter(
+                Task.topic_id == topic_id,
+                Task.user_id == user_id,
+            )
+            .order_by(
+                desc(Task.priority),
+                asc(Task.due_date),
+            )
+            .offset(skip)
+            .limit(limit)
+            .all()
+        )
+
+    def update_topic(
+        self,
+        task_id: int,
+        user_id: str,
+        topic_id: Optional[int] = None,
+    ) -> Task:
+        """Update a task's topic.
+
+        Args:
+            task_id: ID of the task to update
+            user_id: ID of the user who owns the task
+            topic_id: New topic ID to set, or None to remove topic
+
+        Returns:
+            Task: Updated task
+
+        Raises:
+            TaskReferenceError: If task not found or doesn't belong to user
+            TaskValidationError: If topic_id is invalid
+        """
+        task = self.get_by_user(task_id, user_id)
+        if task is None:
+            raise TaskReferenceError(
+                f"Task {task_id} not found or doesn't belong to user"
+            )
+
+        task.topic_id = topic_id
+        try:
+            self.db.add(task)
+            self.db.commit()
+            self.db.refresh(task)
+            return task
+        except IntegrityError as e:
+            self.db.rollback()
+            raise TaskValidationError(
+                f"Invalid topic: {str(e)}"
+            )
 
     def get_subtasks(
         self,

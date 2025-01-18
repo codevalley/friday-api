@@ -22,6 +22,7 @@ from .BaseModel import EntityMeta
 if TYPE_CHECKING:
     from .UserModel import User
     from .NoteModel import Note
+    from .TopicModel import Topic
 
 
 class Task(EntityMeta):
@@ -48,6 +49,7 @@ class Task(EntityMeta):
         parent: Parent task if this is a subtask
         subtasks: List of child tasks
         note: Optional associated note
+        topic: Optional associated topic
     """
 
     __tablename__ = "tasks"
@@ -75,6 +77,11 @@ class Task(EntityMeta):
     note_id: Mapped[Optional[int]] = Column(
         Integer,
         ForeignKey("notes.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    topic_id: Mapped[Optional[int]] = Column(
+        Integer,
+        ForeignKey("topics.id", ondelete="SET NULL"),
         nullable=True,
     )
 
@@ -130,6 +137,11 @@ class Task(EntityMeta):
         back_populates="tasks",
         doc="Optional note associated with this task",
     )
+    topic: Mapped[Optional["Topic"]] = relationship(
+        "Topic",
+        back_populates="tasks",
+        doc="Optional topic associated with this task",
+    )
 
     # Constraints
     __table_args__ = (
@@ -159,13 +171,14 @@ class Task(EntityMeta):
         Returns:
             Dict[str, Any]: Dictionary representation of task
         """
-        return {
+        result = {
             "id": self.id,
             "title": self.title,
             "description": self.description,
             "user_id": self.user_id,
             "parent_id": self.parent_id,
             "note_id": self.note_id,
+            "topic_id": self.topic_id,
             "status": self.status,
             "priority": self.priority,
             "due_date": self.due_date,
@@ -173,6 +186,11 @@ class Task(EntityMeta):
             "created_at": self.created_at,
             "updated_at": self.updated_at,
         }
+
+        if self.topic:
+            result["topic"] = self.topic.to_dict()
+
+        return result
 
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "Task":

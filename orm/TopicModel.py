@@ -1,7 +1,7 @@
 """ORM model for Topic."""
 
 from datetime import datetime, UTC
-from typing import Dict, Any, ClassVar, TYPE_CHECKING
+from typing import Dict, Any, ClassVar, List, TYPE_CHECKING
 from sqlalchemy import (
     Column,
     Integer,
@@ -17,6 +17,7 @@ from orm.BaseModel import EntityMeta
 
 if TYPE_CHECKING:
     from .UserModel import User
+    from .TaskModel import Task
 
 
 class Topic(EntityMeta):
@@ -33,6 +34,7 @@ class Topic(EntityMeta):
         created_at: Creation timestamp
         updated_at: Last update timestamp
         user: Relationship to User model
+        tasks: Relationship to Task model
     """
 
     __tablename__ = "topics"
@@ -74,6 +76,10 @@ class Topic(EntityMeta):
     # Relationships
     user: Mapped["User"] = relationship(
         "User", back_populates="topics"
+    )
+    tasks: Mapped[List["Task"]] = relationship(
+        "Task",
+        back_populates="topic",
     )
 
     # Constraints

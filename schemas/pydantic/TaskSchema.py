@@ -6,6 +6,7 @@ from pydantic import BaseModel, Field
 
 from domain.task import TaskData
 from domain.values import TaskStatus, TaskPriority
+from .TopicSchema import TopicResponse
 
 
 class TaskBase(BaseModel):
@@ -20,6 +21,7 @@ class TaskBase(BaseModel):
         tags: Optional list of tags
         parent_id: Optional parent task ID
         note_id: Optional ID of an associated note
+        topic_id: Optional ID of an associated topic
     """
 
     title: str = Field(..., min_length=1)
@@ -35,6 +37,11 @@ class TaskBase(BaseModel):
         None,
         gt=0,
         description="Optional ID of an associated note",
+    )
+    topic_id: Optional[int] = Field(
+        None,
+        gt=0,
+        description="Optional ID of an associated topic",
     )
 
 
@@ -61,6 +68,11 @@ class TaskUpdate(BaseModel):
     due_date: Optional[datetime] = None
     tags: Optional[List[str]] = None
     parent_id: Optional[int] = None
+    topic_id: Optional[int] = Field(
+        None,
+        gt=0,
+        description="Optional ID of an associated topic",
+    )
 
 
 class TaskResponse(TaskBase):
@@ -70,6 +82,7 @@ class TaskResponse(TaskBase):
     user_id: str
     created_at: datetime
     updated_at: Optional[datetime] = None
+    topic: Optional[TopicResponse] = None
 
     class Config:
         """Pydantic config."""

@@ -248,20 +248,24 @@ class TestTaskDataConversion:
             ),  # Due date is 1 day in the future
             "tags": ["test", "example"],
             "parentId": 1,
-            "noteId": 1,
+            "noteId": None,
+            "topicId": 123,
             "createdAt": now,
             "updatedAt": now,
         }
         task = TaskData.from_dict(camel_dict)
-        assert task.title == "Test Task"
-        assert task.description == "Test task description"
-        assert task.user_id == "test-user"
+        assert task.title == camel_dict["title"]
+        assert task.description == camel_dict["description"]
+        assert task.user_id == camel_dict["userId"]
         assert task.status == TaskStatus.TODO
         assert task.priority == TaskPriority.MEDIUM
-        assert task.due_date > task.created_at
-        assert task.tags == ["test", "example"]
-        assert task.parent_id == 1
-        assert task.note_id == 1
+        assert task.due_date == camel_dict["dueDate"]
+        assert task.tags == camel_dict["tags"]
+        assert task.parent_id == camel_dict["parentId"]
+        assert task.note_id == camel_dict["noteId"]
+        assert task.topic_id == camel_dict["topicId"]
+        assert task.created_at == camel_dict["createdAt"]
+        assert task.updated_at == camel_dict["updatedAt"]
 
 
 class TestTaskDataErrorHandling:
@@ -281,3 +285,140 @@ class TestTaskDataErrorHandling:
             str(exc.value)
             == "title must be a non-empty string"
         )
+
+
+class TestTaskDataTopicValidation:
+    """Test topic-related validation in TaskData."""
+
+    def test_valid_topic_id(self, valid_task_dict):
+        """Test validation with valid topic_id."""
+        valid_task_dict["topic_id"] = 1
+        task = TaskData(**valid_task_dict)
+        task.validate()  # Should not raise
+
+    def test_invalid_topic_id_type(self, valid_task_dict):
+        """Test validation with invalid topic_id type."""
+        valid_task_dict["topic_id"] = "not an int"
+        with pytest.raises(TaskValidationError) as exc:
+            TaskData(**valid_task_dict)
+        assert (
+            str(exc.value)
+            == "topic_id must be a positive integer"
+        )
+
+    def test_invalid_topic_id_value(self, valid_task_dict):
+        """Test validation with invalid topic_id value."""
+        valid_task_dict["topic_id"] = 0
+        with pytest.raises(TaskValidationError) as exc:
+            TaskData(**valid_task_dict)
+        assert (
+            str(exc.value)
+            == "topic_id must be a positive integer"
+        )
+
+    def test_topic_id_none(self, valid_task_dict):
+        """Test validation with topic_id set to None."""
+        valid_task_dict["topic_id"] = None
+        task = TaskData(**valid_task_dict)
+        task.validate()  # Should not raise
+
+    def test_topic_id_in_dict_conversion(
+        self, valid_task_dict
+    ):
+        """Test topic_id is properly included in dictionary conversion."""
+        valid_task_dict["topic_id"] = 123
+        task = TaskData(**valid_task_dict)
+        result = task.to_dict()
+        assert result["topic_id"] == 123
+
+    def test_topic_id_from_dict_snake_case(self):
+        """Test topic_id handling in from_dict with snake_case."""
+        now = datetime.now(timezone.utc)
+        data = {
+            "title": "Test Task",
+            "description": "Test Description",
+            "user_id": "test-user",
+            "status": TaskStatus.TODO,
+            "priority": TaskPriority.MEDIUM,
+            "topic_id": 123,
+            "created_at": now,
+            "updated_at": now,
+        }
+        task = TaskData.from_dict(data)
+        assert task.topic_id == 123
+
+
+class TestTaskDataTopicOwnership:
+    """Test topic ownership validation in TaskData."""
+
+    @pytest.fixture
+    def task_with_topic(self, valid_task_dict):
+        """Create a task with a topic for testing."""
+        valid_task_dict["topic_id"] = 1
+        return TaskData(**valid_task_dict)
+
+    def test_validate_topic_ownership_same_user(
+        self, task_with_topic
+    ):
+        """Test validation when topic belongs to same user."""
+        # Mock topic owner validation by passing same user_id
+        task_with_topic.validate_topic_ownership(
+            task_with_topic.user_id
+        )
+        # Should not raise any exception
+
+    def test_validate_topic_ownership_different_user(
+        self, task_with_topic
+    ):
+        """Test validation when topic belongs to different user."""
+        with pytest.raises(TaskValidationError) as exc:
+            task_with_topic.validate_topic_ownership(
+                "different-user"
+            )
+        assert (
+            str(exc.value)
+            == "Topic must belong to the same user as the task"
+        )
+
+    def test_validate_topic_ownership_no_topic(
+        self, valid_task_dict
+    ):
+        """Test validation when task has no topic."""
+        task = TaskData(
+            **valid_task_dict
+        )  # No topic_id set
+        # Should not raise any exception
+        task.validate_topic_ownership("any-user")
+
+
+class TestTaskDataTopicDeletion:
+    """Test topic deletion handling in TaskData."""
+
+    @pytest.fixture
+    def task_with_topic(self, valid_task_dict):
+        """Create a task with a topic for testing."""
+        valid_task_dict["topic_id"] = 1
+        return TaskData(**valid_task_dict)
+
+    def test_handle_topic_deletion(self, task_with_topic):
+        """Test handling topic deletion by setting topic_id to None."""
+        task_with_topic.handle_topic_deletion()
+        assert task_with_topic.topic_id is None
+
+    def test_handle_topic_deletion_no_topic(
+        self, valid_task_dict
+    ):
+        """Test handling topic deletion when no topic is set."""
+        task = TaskData(
+            **valid_task_dict
+        )  # No topic_id set
+        task.handle_topic_deletion()
+        assert task.topic_id is None  # Should remain None
+
+    def test_to_dict_after_topic_deletion(
+        self, task_with_topic
+    ):
+        """Test dictionary representation after topic deletion."""
+        task_with_topic.handle_topic_deletion()
+        result = task_with_topic.to_dict()
+        assert result["topic_id"] is None

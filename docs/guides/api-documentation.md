@@ -1,4 +1,4 @@
-Below is a comprehensive API guide extracted from the **Friday API** codebase and the test script you provided. It covers routes for **User Auth**, **Activities**, **Moments**, **Notes**, and **Tasks**, including the request and response formats. This document is intended for your frontend developer so they can integrate with each endpoint effectively.
+Below is a comprehensive API guide extracted from the **Friday API** codebase and the test script you provided. It covers routes for **User Auth**, **Activities**, **Moments**, **Notes**, **Tasks**, and **Topics**, including the request and response formats. This document is intended for your frontend developer so they can integrate with each endpoint effectively.
 
 ---
 
@@ -9,14 +9,21 @@ Below is a comprehensive API guide extracted from the **Friday API** codebase an
    - [Obtain Token](#obtain-token)
    - [Get Current User Info](#get-current-user-info)
 
-2. [Activities](#activities)
+2. [Topics](#topics)
+   - [Create Topic](#create-topic)
+   - [List Topics](#list-topics)
+   - [Get Topic by ID](#get-topic-by-id)
+   - [Update Topic](#update-topic)
+   - [Delete Topic](#delete-topic)
+
+3. [Activities](#activities)
    - [Create Activity](#create-activity)
    - [List Activities](#list-activities)
    - [Get Activity by ID](#get-activity-by-id)
    - [Update Activity](#update-activity)
    - [Delete Activity](#delete-activity)
 
-3. [Moments](#moments)
+4. [Moments](#moments)
    - [Create Moment](#create-moment)
    - [List Moments](#list-moments)
    - [Get Moment by ID](#get-moment-by-id)
@@ -25,14 +32,14 @@ Below is a comprehensive API guide extracted from the **Friday API** codebase an
    - [Attach / Detach Note from Moment](#attach--detach-note-from-moment)
      *(Optional if exposed in your code—some references exist)*
 
-4. [Notes](#notes)
+5. [Notes](#notes)
    - [Create Note](#create-note)
    - [List Notes](#list-notes)
    - [Get Note by ID](#get-note-by-id)
    - [Update Note](#update-note)
    - [Delete Note](#delete-note)
 
-5. [Tasks](#tasks)
+6. [Tasks](#tasks)
    - [Create Task](#create-task)
    - [List Tasks](#list-tasks)
    - [Get Task by ID](#get-task-by-id)
@@ -42,7 +49,7 @@ Below is a comprehensive API guide extracted from the **Friday API** codebase an
    - [Get Subtasks](#get-subtasks)
    - [Attach / Detach Note from Task](#attach--detach-note-from-task)
 
-6. [Common Response Formats](#common-response-formats)
+7. [Common Response Formats](#common-response-formats)
 
 ---
 
@@ -133,7 +140,149 @@ Authorization: Bearer <access_token>
 
 ---
 
-## 2. Activities
+## 2. Topics
+
+### Create Topic
+**Endpoint**: `POST /v1/topics`
+**Description**: Creates a new topic for the authenticated user.
+
+**Request Header**:
+```
+Authorization: Bearer <access_token>
+Content-Type: application/json
+```
+
+**Request Body**:
+```json
+{
+  "name": "string (required)",
+  "icon": "string (emoji or text)"
+}
+```
+
+**Sample**:
+```json
+{
+  "name": "Work",
+  "icon": "💼"
+}
+```
+
+**Response** (201 Created):
+```json
+{
+  "data": {
+    "id": 1,
+    "name": "Work",
+    "icon": "💼",
+    "user_id": "string (UUID)",
+    "created_at": "ISO datetime",
+    "updated_at": null
+  },
+  "message": "Topic created successfully"
+}
+```
+
+---
+
+### List Topics
+**Endpoint**: `GET /v1/topics?page={page}&size={size}`
+**Description**: Lists all topics belonging to the current user. Supports pagination.
+
+**Query Parameters**:
+- `page` (optional, default=1)
+- `size` (optional, default=50)
+
+**Response**:
+```json
+{
+  "data": {
+    "items": [
+      {
+        "id": 1,
+        "name": "Work",
+        "icon": "💼",
+        "user_id": "string (UUID)",
+        "created_at": "ISO datetime",
+        "updated_at": null
+      }
+    ],
+    "total": 1,
+    "page": 1,
+    "size": 50,
+    "pages": 1
+  },
+  "message": "Retrieved 1 topics"
+}
+```
+
+---
+
+### Get Topic by ID
+**Endpoint**: `GET /v1/topics/{topic_id}`
+**Description**: Retrieves a single topic by its numeric ID, if it belongs to the current user.
+
+**Response**:
+```json
+{
+  "data": {
+    "id": 1,
+    "name": "Work",
+    "icon": "💼",
+    "user_id": "string (UUID)",
+    "created_at": "ISO datetime",
+    "updated_at": null
+  }
+}
+```
+- If `topic_id` does not exist or is owned by another user, returns `404 {"detail":"Topic not found"}`.
+
+---
+
+### Update Topic
+**Endpoint**: `PUT /v1/topics/{topic_id}`
+**Description**: Updates an existing topic's name or icon.
+
+**Request Body** (any subset of fields):
+```json
+{
+  "name": "Updated Work",
+  "icon": "🏢"
+}
+```
+
+**Response**:
+```json
+{
+  "data": {
+    "id": 1,
+    "name": "Updated Work",
+    "icon": "🏢",
+    "user_id": "string (UUID)",
+    "created_at": "ISO datetime",
+    "updated_at": "ISO datetime"
+  },
+  "message": "Topic updated successfully"
+}
+```
+
+---
+
+### Delete Topic
+**Endpoint**: `DELETE /v1/topics/{topic_id}`
+**Description**: Deletes the specified topic if owned by the current user.
+
+**Response**:
+```json
+{
+  "message": "Topic deleted successfully"
+}
+```
+- If not found, returns `404 {"detail":"Topic not found"}`.
+
+---
+
+## 3. Activities
 
 ### Create Activity
 **Endpoint**: `POST /v1/activities`
@@ -310,7 +459,7 @@ Content-Type: application/json
 
 ---
 
-## 3. Moments
+## 4. Moments
 
 ### Create Moment
 **Endpoint**: `POST /v1/moments`
@@ -461,7 +610,7 @@ They return updated Moment data upon success.
 
 ---
 
-## 4. Notes
+## 5. Notes
 
 ### Create Note
 **Endpoint**: `POST /v1/notes`
@@ -633,7 +782,7 @@ They return updated Moment data upon success.
 
 ---
 
-## 5. Tasks
+## 6. Tasks
 
 ### Create Task
 **Endpoint**: `POST /v1/tasks`
@@ -836,7 +985,7 @@ They return updated Moment data upon success.
 
 ---
 
-## 6. Common Response Formats
+## 7. Common Response Formats
 
 You may notice three main response patterns:
 
