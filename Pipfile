@@ -23,6 +23,7 @@ openai = "*"
 redis = "*"
 rq = "==2.1.0"
 exceptiongroup = "*"
+sqlalchemy = ">=1.4.35"
 
 [dev-packages]
 pre-commit = ">=2.18.1"
