@@ -68,7 +68,6 @@ class EnvironmentSettings(BaseSettings):
         env_file=get_env_filename(),
         env_file_encoding="utf-8",
         extra="allow",  # Allow extra fields in environment
-        case_sensitive=True,  # Make environment variables case-sensitive
         env_prefix="",  # No prefix for environment variables
     )
 
@@ -76,15 +75,4 @@ class EnvironmentSettings(BaseSettings):
 @lru_cache
 def get_environment_variables() -> EnvironmentSettings:
     """Get environment variables."""
-    # Clear any existing DATABASE environment variables
-    import os
-
-    env_vars_to_clear = [
-        key
-        for key in os.environ.keys()
-        if key.startswith("DATABASE_")
-    ]
-    for key in env_vars_to_clear:
-        del os.environ[key]
-
     return EnvironmentSettings()
