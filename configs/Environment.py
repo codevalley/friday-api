@@ -1,3 +1,5 @@
+"""Environment configuration module."""
+
 from functools import lru_cache
 from typing import Any, Optional
 from pydantic_settings import BaseSettings
@@ -69,42 +71,6 @@ class EnvironmentSettings(BaseSettings):
         case_sensitive=True,  # Make environment variables case-sensitive
         env_prefix="",  # No prefix for environment variables
     )
-
-    def __init__(self, **kwargs):
-        # Print environment variables for debugging
-        import os
-
-        print("\n=== Environment Variables Debug ===")
-        for key, value in os.environ.items():
-            if "DATABASE" in key:
-                print(f"{key}: {value}")
-
-        print(
-            "\n=== Pydantic Environment Loading Process ==="
-        )
-        print(
-            f"1. Environment file being used: {get_env_filename()}"
-        )
-        print(
-            f"   File exists: {os.path.exists(get_env_filename())}"
-        )
-
-        print("\n2. Raw values from env file/environment:")
-        for key, value in kwargs.items():
-            if "DATABASE" in key:
-                print(f"   {key}: {value}")
-
-        # Call parent class initialization which sets the actual values
-        super().__init__(**kwargs)
-
-        print(
-            "\n3. Final values after Pydantic processing:"
-        )
-        print(
-            f"   DATABASE_DIALECT: {self.DATABASE_DIALECT}"
-        )
-        print(f"   DATABASE_DRIVER: {self.DATABASE_DRIVER}")
-        print("=========================================\n")
 
 
 @lru_cache
