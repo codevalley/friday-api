@@ -16,6 +16,7 @@ from schemas.pydantic.CommonSchema import (
     GenericResponse,
 )
 from services.TopicService import TopicService
+from services.TaskService import TaskService
 from dependencies import get_current_user
 from orm.UserModel import User
 from utils.error_handlers import handle_exceptions
@@ -124,4 +125,28 @@ async def delete_topic(
     service.delete_topic(topic_id, current_user.id)
     return MessageResponse(
         message="Topic deleted successfully",
+    )
+
+
+@router.get(
+    "/{topic_id}/tasks",
+    response_model=GenericResponse[dict],
+)
+@handle_exceptions
+async def get_topic_tasks(
+    topic_id: int,
+    pagination: PaginationParams = Depends(),
+    task_service: TaskService = Depends(),
+    current_user: User = Depends(get_current_user),
+) -> GenericResponse[dict]:
+    """Get tasks for a specific topic."""
+    result = task_service.get_tasks_by_topic(
+        topic_id=topic_id,
+        user_id=current_user.id,
+        page=pagination.page,
+        size=pagination.size,
+    )
+    return GenericResponse(
+        data=result,
+        message=f"Retrieved {result['total']} tasks",
     )

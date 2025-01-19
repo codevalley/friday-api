@@ -85,7 +85,7 @@ class TaskService:
             )
         elif isinstance(error, TaskReferenceError):
             raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
+                status_code=status.HTTP_404_NOT_FOUND,
                 detail={
                     "message": str(error),
                     "code": error.code,
@@ -295,10 +295,12 @@ class TaskService:
                     update_data.topic_id, user_id
                 )
 
-            # Update task
-            update_dict = update_data.model_dump(
-                exclude_unset=True
-            )
+            # Update task with only non-None fields
+            update_dict = {
+                k: v
+                for k, v in update_data.model_dump().items()
+                if v is not None
+            }
             updated_task = self.task_repo.update(
                 task_id, update_dict
             )
@@ -396,34 +398,52 @@ class TaskService:
         Raises:
             HTTPException: If topic not found or pagination parameters invalid
         """
-        validate_pagination(page, size)
-        skip = (page - 1) * size
+        try:
+            validate_pagination(page, size)
+            skip = (page - 1) * size
 
-        # Validate topic exists and belongs to user
-        self._validate_topic(topic_id, user_id)
+            # Validate topic exists and belongs to user
+            self._validate_topic(topic_id, user_id)
 
-        tasks = self.task_repo.get_tasks_by_topic(
-            topic_id=topic_id,
-            user_id=user_id,
-            skip=skip,
-            limit=size,
-        )
+            tasks = self.task_repo.get_tasks_by_topic(
+                topic_id=topic_id,
+                user_id=user_id,
+                skip=skip,
+                limit=size,
+            )
 
-        total = self.task_repo.count_tasks(
-            user_id=user_id,
-            topic_id=topic_id,
-        )
+            total = self.task_repo.count_tasks(
+                user_id=user_id,
+                topic_id=topic_id,
+            )
 
-        return {
-            "items": [
-                TaskResponse.model_validate(task.to_dict())
-                for task in tasks
-            ],
-            "total": total,
-            "page": page,
-            "size": size,
-            "pages": (total + size - 1) // size,
-        }
+            return {
+                "items": [
+                    TaskResponse.model_validate(
+                        task.to_dict()
+                    )
+                    for task in tasks
+                ],
+                "total": total,
+                "page": page,
+                "size": size,
+                "pages": (total + size - 1) // size,
+            }
+        except TaskReferenceError as e:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail={"message": str(e)},
+            )
+        except Exception as e:
+            logger.error(
+                f"Unexpected error getting tasks by topic: {str(e)}"
+            )
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail={
+                    "message": "Failed to get tasks by topic"
+                },
+            )
 
     def delete_task(
         self, task_id: int, user_id: str

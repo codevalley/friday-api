@@ -612,11 +612,11 @@ By following these tasks and subtasks, we ensure the new `Topic` entity is intro
 - [x] test_list_tasks_by_topic_unauthorized: Test listing tasks without proper authorization
 
 ### Integration Tests (New)
-- [ ] test_task_topic_lifecycle: Test complete task-topic relationship lifecycle
-- [ ] test_topic_deletion_impact: Test impact of topic deletion on associated tasks
-- [ ] test_topic_update_validation: Test topic update validation with tasks
-- [ ] test_task_topic_filtering: Test task filtering and pagination with topics
-- [ ] test_task_topic_error_handling: Test error handling in task-topic operations
+- [x] test_task_topic_lifecycle: Test complete task-topic relationship lifecycle
+- [x] test_topic_deletion_impact: Test impact of topic deletion on associated tasks
+- [x] test_topic_update_validation: Test topic update validation with tasks
+- [x] test_task_topic_filtering: Test task filtering and pagination with topics
+- [x] test_task_topic_error_handling: Test error handling in task-topic operations
 
 ### Performance Tests (New)
 - [ ] test_task_topic_query_optimization: Verify query performance with topic relationships
