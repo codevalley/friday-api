@@ -497,6 +497,68 @@ echo "Task2 Response: $TASK2_RESPONSE"
 TASK2_ID=$(extract_json_value "$TASK2_RESPONSE" "id")
 check_api_response "$TASK2_RESPONSE" "Creating complex task"
 
+# Create topics for user1
+echo -e "\n${BLUE}Creating topics for user1...${NC}"
+# Work topic
+TOPIC1_RESPONSE=$(curl -s -X POST "$BASE_URL/topics" \
+    -H "Authorization: Bearer $TOKEN1" \
+    -H "Content-Type: application/json" \
+    -d '{
+        "name": "Work",
+        "icon": "💼"
+    }')
+echo "Topic1 Response: $TOPIC1_RESPONSE"
+TOPIC1_ID=$(extract_json_value "$TOPIC1_RESPONSE" "id")
+check_api_response "$TOPIC1_RESPONSE" "Creating work topic"
+
+# Personal topic
+TOPIC2_RESPONSE=$(curl -s -X POST "$BASE_URL/topics" \
+    -H "Authorization: Bearer $TOKEN1" \
+    -H "Content-Type: application/json" \
+    -d '{
+        "name": "Personal",
+        "icon": "🏠"
+    }')
+echo "Topic2 Response: $TOPIC2_RESPONSE"
+TOPIC2_ID=$(extract_json_value "$TOPIC2_RESPONSE" "id")
+check_api_response "$TOPIC2_RESPONSE" "Creating personal topic"
+
+# Update tasks with topics
+echo -e "\n${BLUE}Updating tasks with topics...${NC}"
+# Update first task with Work topic
+UPDATE_TASK1_RESPONSE=$(curl -s -X PUT "$BASE_URL/tasks/$TASK1_ID" \
+    -H "Authorization: Bearer $TOKEN1" \
+    -H "Content-Type: application/json" \
+    -d '{
+        "topic_id": '"$TOPIC1_ID"'
+    }')
+echo "Update Task1 Response: $UPDATE_TASK1_RESPONSE"
+check_api_response "$UPDATE_TASK1_RESPONSE" "Updating task1 with topic"
+
+# Update second task with Personal topic
+UPDATE_TASK2_RESPONSE=$(curl -s -X PUT "$BASE_URL/tasks/$TASK2_ID" \
+    -H "Authorization: Bearer $TOKEN1" \
+    -H "Content-Type: application/json" \
+    -d '{
+        "topic_id": '"$TOPIC2_ID"'
+    }')
+echo "Update Task2 Response: $UPDATE_TASK2_RESPONSE"
+check_api_response "$UPDATE_TASK2_RESPONSE" "Updating task2 with topic"
+
+# List tasks by topic
+echo -e "\n${BLUE}Listing tasks by topic...${NC}"
+# Get tasks for Work topic
+WORK_TASKS_RESPONSE=$(curl -s -X GET "$BASE_URL/topics/$TOPIC1_ID/tasks" \
+    -H "Authorization: Bearer $TOKEN1")
+echo "Work Tasks Response: $WORK_TASKS_RESPONSE"
+check_api_response "$WORK_TASKS_RESPONSE" "Listing work tasks"
+
+# Get tasks for Personal topic
+PERSONAL_TASKS_RESPONSE=$(curl -s -X GET "$BASE_URL/topics/$TOPIC2_ID/tasks" \
+    -H "Authorization: Bearer $TOKEN1")
+echo "Personal Tasks Response: $PERSONAL_TASKS_RESPONSE"
+check_api_response "$PERSONAL_TASKS_RESPONSE" "Listing personal tasks"
+
 # 18. Create tasks for user2
 echo -e "\n${BLUE}18. Creating tasks for user2...${NC}"
 TASK3_RESPONSE=$(curl -s -X POST "$BASE_URL/tasks" \

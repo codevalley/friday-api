@@ -69,22 +69,21 @@ CREATE TABLE IF NOT EXISTS notes (
     CHECK (content != '')
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- Create moments table
-CREATE TABLE IF NOT EXISTS moments (
+-- Create topics table before tasks
+CREATE TABLE IF NOT EXISTS topics (
     id INT PRIMARY KEY AUTO_INCREMENT,
     user_id VARCHAR(36) NOT NULL,
-    activity_id INT NOT NULL,
-    note_id INT NULL,
-    data JSON NOT NULL,
-    timestamp TIMESTAMP NOT NULL,
+    name VARCHAR(255) NOT NULL,
+    icon VARCHAR(255) NOT NULL,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
-    FOREIGN KEY (activity_id) REFERENCES activities(id) ON DELETE CASCADE,
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-    FOREIGN KEY (note_id) REFERENCES notes(id) ON DELETE SET NULL
+    CHECK (name != ''),
+    CHECK (icon != ''),
+    UNIQUE KEY uq_topic_name_per_user (user_id, name)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- Create tasks table
+-- Create tasks table after topics
 CREATE TABLE IF NOT EXISTS tasks (
     id INT PRIMARY KEY AUTO_INCREMENT,
     title VARCHAR(255) NOT NULL,
@@ -107,18 +106,19 @@ CREATE TABLE IF NOT EXISTS tasks (
     CHECK (description != '')
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- Create topics table
-CREATE TABLE IF NOT EXISTS topics (
+-- Create moments table
+CREATE TABLE IF NOT EXISTS moments (
     id INT PRIMARY KEY AUTO_INCREMENT,
     user_id VARCHAR(36) NOT NULL,
-    name VARCHAR(255) NOT NULL,
-    icon VARCHAR(255) NOT NULL,
+    activity_id INT NOT NULL,
+    note_id INT NULL,
+    data JSON NOT NULL,
+    timestamp TIMESTAMP NOT NULL,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (activity_id) REFERENCES activities(id) ON DELETE CASCADE,
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-    CHECK (name != ''),
-    CHECK (icon != ''),
-    UNIQUE KEY uq_topic_name_per_user (user_id, name)
+    FOREIGN KEY (note_id) REFERENCES notes(id) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- Add indexes for better query performance

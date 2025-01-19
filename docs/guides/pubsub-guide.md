@@ -43,6 +43,11 @@ QUEUE_JOB_TTL=3600  # How long jobs can stay in queue (1 hour)
 # Start a single worker for both queues
 PYTHONPATH=$PYTHONPATH:. rq worker note_enrichment activity_schema --url redis://localhost:6379
 
+# for mac include this
+export OBJC_DISABLE_INITIALIZE_FORK_SAFETY=YES
+# here is the command to run the worker
+OBJC_DISABLE_INITIALIZE_FORK_SAFETY=YES PYTHONPATH=$PYTHONPATH:. rq worker note_enrichment activity_schema --url redis://localhost:6379
+
 # Start dedicated workers for each queue
 rq worker note_enrichment --url redis://localhost:6379  # Note processing only
 rq worker activity_schema --url redis://localhost:6379  # Activity schema only

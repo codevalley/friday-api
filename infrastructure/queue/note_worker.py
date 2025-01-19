@@ -13,8 +13,9 @@ from repositories.NoteRepository import NoteRepository
 from services.robo import get_robo_service
 from utils.retry import calculate_backoff
 from configs.Database import SessionLocal
-import orm.NoteModel  # noqa: F401 Required for SQLAlchemy model registry
 import orm.UserModel  # noqa: F401 Required for SQLAlchemy model registry
+import orm.TopicModel  # noqa: F401 Required for SQLAlchemy model registry
+import orm.NoteModel  # noqa: F401 Required for SQLAlchemy model registry
 import orm.MomentModel  # noqa: F401 Required for SQLAlchemy model registry
 import orm.TaskModel  # noqa: F401 Required for SQLAlchemy model registry
 import orm.ActivityModel  # noqa: F401 Required for SQLAlchemy model registry

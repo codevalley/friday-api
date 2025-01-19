@@ -11,10 +11,11 @@ from domain.exceptions import RoboAPIError
 from domain.values import ProcessingStatus
 from domain.robo import RoboService
 import orm.UserModel  # noqa: F401 Required for SQLAlchemy model registry
+import orm.TopicModel  # noqa: F401 Required for SQLAlchemy model registry
 import orm.NoteModel  # noqa: F401 Required for SQLAlchemy model registry
-import orm.ActivityModel  # noqa: F401 Required for SQLAlchemy model registry
 import orm.MomentModel  # noqa: F401 Required for SQLAlchemy model registry
 import orm.TaskModel  # noqa: F401 Required for SQLAlchemy model registry
+import orm.ActivityModel  # noqa: F401 Required for SQLAlchemy model registry
 from orm.ActivityModel import Activity
 
 logger = logging.getLogger(__name__)
