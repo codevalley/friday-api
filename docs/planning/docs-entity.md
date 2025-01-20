@@ -93,7 +93,7 @@ class StorageBackend(Protocol):
 
 ### EPIC 1: Document Entity Implementation
 
-#### 1. Domain Layer 
+#### 1. Domain Layer
 - [x] Create `DocumentData` class with:
   - Basic metadata (name, storage_url, mime_type, size_bytes)
   - User ownership
@@ -111,7 +111,7 @@ class StorageBackend(Protocol):
   - DocumentStatusError
   - DocumentStorageError
 
-#### 2. Database Layer 
+#### 2. Database Layer
 - [x] Create Document ORM model
   - SQLAlchemy model with proper columns
   - Relationship with User model
@@ -123,20 +123,20 @@ class StorageBackend(Protocol):
   - Public access index
 - [x] Set up cascade deletes for cleanup
 
-#### 3. Repository Layer 
+#### 3. Repository Layer
 - [x] Implement CRUD operations
 - [x] Add user-specific queries
 - [x] Add status management
 - [x] Add public access queries
 
-#### 4. Service Layer 
+#### 4. Service Layer
 - [x] Create DocumentService
 - [x] Implement business logic
 - [x] Add authorization checks
 - [x] Handle error cases
 - [x] Implement public access logic
 
-#### 5. API Layer 
+#### 5. API Layer
 - [x] Create Pydantic schemas
 - [x] Implement API endpoints
   - [x] Document upload
@@ -146,199 +146,96 @@ class StorageBackend(Protocol):
   - [x] Public access endpoints
 - [x] Add file upload handling
 - [x] Add filtering and pagination
-- [ ] Add response compression
-- [ ] Handle concurrent access
 
-#### 6. Storage Layer 
-- [x] Create storage domain model
-  - IStorageService interface
-  - StoredFile domain model
-  - Storage-specific exceptions
-- [x] Implement storage infrastructure
-  - LocalStorageService for file system
-  - MockStorageService for testing
-  - S3StorageService for cloud storage
-  - StorageFactory for DI
-- [x] Integrate with DocumentService
-  - Async file operations
-  - Error handling
-  - File cleanup on deletion
-- [x] Add storage configuration
-  - Environment variables
-  - File size limits
-  - Allowed MIME types
-
-### EPIC 2: Storage System Implementation 
+### EPIC 2: Storage System Implementation
 - [x] Design storage abstraction layer
 - [x] Implement local filesystem backend
 - [x] Add S3-compatible backend
-- [ ] Add Azure Blob Storage backend
-- [ ] Add Google Cloud Storage backend
 
-### EPIC 3: Testing Suite
-- [ ] Unit Tests
+### EPIC 3: Testing Suite (Current Priority)
+- [x] Unit Tests
   - [x] Domain model tests
     - [x] Document creation and validation
     - [x] Status transitions
     - [x] Public access rules
     - [x] Metadata validation
     - [x] Access control
-  - [ ] Repository tests
-  - [ ] Service tests
+  - [x] Repository tests
+    - [x] CRUD operations
+    - [x] User-specific queries
+    - [x] Status management
+    - [x] Public access queries
+  - [x] Service tests
+    - [x] Business logic validation
+    - [x] Authorization checks
+    - [x] Error handling
+    - [x] Public access logic
+    - [x] Storage integration
   - [x] Storage tests
     - [x] Local storage implementation
     - [x] Mock storage for testing
     - [x] S3 storage implementation
 - [ ] Integration Tests
   - [ ] API endpoint tests
+    - [ ] Document upload/download flow
+    - [ ] Document management operations
+    - [ ] Error scenarios
   - [ ] Storage integration tests
+    - [ ] File operations
+    - [ ] Cleanup procedures
   - [ ] Public access tests
+    - [ ] Access control
+    - [ ] URL generation and validation
 
-### EPIC 4: Documentation 
-- [x] API Documentation
-  - [x] Endpoint descriptions
-  - [x] Request/response schemas
-  - [x] Authentication requirements
-- [x] Storage Configuration
-  - [x] Environment variables
-  - [x] S3 setup guide
-  - [x] Local storage setup
-- [x] Development Guide
-  - [x] Project structure
-  - [x] Database setup
-  - [x] Testing guide
+### Next Actions (Integration Testing Focus)
+1. Implement API Integration Tests (Current Priority)
+   - Set up test client and database fixtures
+   - Test document upload/download flow
+   - Test document management operations
+   - Test error scenarios
+   - Test public access endpoints
 
-### EPIC 5: Testing Implementation
+2. Implement Storage Integration Tests
+   - Test file operations with actual storage backends
+   - Test cleanup procedures
+   - Test concurrent access scenarios
 
-#### 1. Test Infrastructure Setup
-##### Environment Configuration
-- [x] Update `__tests__/conftest.py`
-  - [x] Add storage fixtures:
-    ```python
-    @pytest.fixture
-    def storage_service():
-        """Create a mock storage service for testing."""
-        return Mock(spec=IStorageService)
+3. Documentation & Review
+   - Update API documentation
+   - Document testing patterns
+   - Review test coverage
+   - Add integration test guide
 
-    @pytest.fixture
-    def local_storage_service(tmp_path):
-        """Create a real local storage service for integration tests."""
-        return LocalStorageService(base_path=tmp_path)
+### Integration Test Implementation Steps
+1. API Integration Tests (2-3 days)
+   - Set up FastAPI TestClient
+   - Create database fixtures
+   - Implement upload/download tests
+   - Test document management
+   - Test error handling
+   - Test public access
 
-    @pytest.fixture
-    def s3_storage_service():
-        """Create a mocked S3 storage service using moto."""
-        with mock_s3():
-            # Set up mock S3
-            s3 = boto3.client('s3')
-            s3.create_bucket(Bucket='test-bucket')
-            yield S3StorageService(
-                bucket_name='test-bucket',
-                endpoint_url='http://localhost:4566'
-            )
-    ```
-  - [x] Add document fixtures:
-    ```python
-    @pytest.fixture
-    def sample_document(test_db_session, sample_user):
-        """Create a sample document for testing."""
-        doc = Document(
-            name="Test Document",
-            storage_url="/test/path",
-            mime_type="text/plain",
-            size_bytes=100,
-            user_id=sample_user.id,
-            status="ACTIVE"
-        )
-        test_db_session.add(doc)
-        test_db_session.commit()
-        return doc
+2. Storage Integration Tests (2-3 days)
+   - Test local storage operations
+   - Test S3 storage operations
+   - Test cleanup procedures
+   - Test concurrent access
 
-    @pytest.fixture
-    def sample_public_document(test_db_session, sample_user):
-        """Create a sample public document."""
-        doc = Document(
-            name="Public Document",
-            storage_url="/public/path",
-            mime_type="text/plain",
-            size_bytes=100,
-            user_id=sample_user.id,
-            status="ACTIVE",
-            is_public=True,
-            unique_name="test-doc"
-        )
-        test_db_session.add(doc)
-        test_db_session.commit()
-        return doc
-    ```
+3. Documentation & Review (1 day)
+   - Update test documentation
+   - Document integration patterns
+   - Review coverage reports
+   - Add troubleshooting guide
 
-##### Test Dependencies
-- [x] Add to `setup.py`:
-  ```python
-  install_requires=[
-      # ... existing dependencies ...
-      "moto[s3]>=4.0.0",  # For S3 mocking
-      "pytest-asyncio>=0.14.0",  # Already included
-      "pytest-env>=1.0.0",  # For environment variables
-  ]
-  ```
-
-##### Test Files Setup
-- [x] Create test file structure:
-  ```
-  __tests__/
-  ├── fixtures/
-  │   └── test_files/
-  │       ├── test.txt
-  │       └── test.pdf
-  ├── integration/
-  │   ├── test_storage_integration.py
-  │   └── test_document_integration.py
-  └── unit/
-      ├── domain/
-      │   └── test_document.py
-      ├── infrastructure/
-      │   └── test_storage.py
-      ├── repositories/
-      │   └── test_document_repository.py
-      ├── routers/
-      │   └── test_document_router.py
-      └── services/
-          └── test_document_service.py
-  ```
-
-### Next Actions
-1. Start with domain model tests in `__tests__/unit/domain/test_document.py`
-2. Create test file structure
-3. Add storage and document fixtures to `__tests__/conftest.py`
-
-### Dependencies
-From `setup.py`:
-- pytest-asyncio (already included)
-- httpx (already included)
-New additions needed:
-- moto[s3] for S3 mocking
-- localstack for S3 integration
-- pytest-env for environment variables
-
-### Test Implementation Steps
-1. Infrastructure Setup (1-2 days)
-   - Update configuration
-   - Create fixtures
-   - Set up mocks
-
-2. Unit Tests (2-3 days)
-   - Start with domain tests
-   - Add repository tests
-   - Implement service tests
-   - Create router tests
-
-3. Integration Tests (2-3 days)
-   - Storage integration
-   - Document flow tests
-   - Error scenario tests
-
-4. E2E Tests (1-2 days)
-   - Update test_flow.sh
-   - Test all scenarios
-   - Document test cases
+### Future Enhancements
+1. Performance Testing
+   - Load testing for concurrent uploads
+   - Storage backend benchmarks
+   - API endpoint performance
+2. Security Testing
+   - Access control testing
+   - File validation
+   - Rate limiting
+3. Additional Storage Backends
+   - Azure Blob Storage
+   - Google Cloud Storage

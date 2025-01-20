@@ -1,6 +1,5 @@
 """Document ORM model."""
 
-from typing import Dict, Any, Optional
 from datetime import datetime, UTC
 from sqlalchemy import (
     Column,
@@ -13,7 +12,6 @@ from sqlalchemy import (
     Enum,
     BigInteger,
     Boolean,
-    UniqueConstraint,
 )
 from sqlalchemy.orm import relationship, Mapped
 from typing import TYPE_CHECKING
@@ -28,9 +26,9 @@ if TYPE_CHECKING:
 class Document(EntityMeta):
     """Document Model represents a stored document or file.
 
-    Each document belongs to a user and contains metadata about the stored file,
-    including its location, size, and type. Documents maintain their state
-    through a status flag.
+    Each document belongs to a user and contains metadata about the stored
+    file, including its location, size, and type. Documents maintain their
+    state through a status flag.
 
     Attributes:
         id: Unique identifier
@@ -65,15 +63,19 @@ class Document(EntityMeta):
     )
 
     # Optional metadata as JSON
-    doc_metadata = Column(JSON, nullable=True)  # Renamed from metadata to avoid conflict
+    doc_metadata = Column(
+        JSON, nullable=True
+    )  # Renamed from metadata to avoid conflict
 
     # Foreign keys and relationships
     user_id = Column(
-        Integer,
-        ForeignKey("user.id", ondelete="CASCADE"),
+        String(36),
+        ForeignKey("users.id", ondelete="CASCADE"),
         nullable=False,
     )
-    owner: Mapped["User"] = relationship("User", back_populates="documents")
+    owner: Mapped["User"] = relationship(
+        "User", back_populates="documents"
+    )
 
     # Timestamps
     created_at = Column(
@@ -89,8 +91,12 @@ class Document(EntityMeta):
     )
 
     # Public access fields
-    unique_name = Column(String(128), nullable=True, unique=True)
-    is_public = Column(Boolean, nullable=False, default=False)
+    unique_name = Column(
+        String(128), nullable=True, unique=True
+    )
+    is_public = Column(
+        Boolean, nullable=False, default=False
+    )
 
     def to_domain(self) -> DocumentData:
         """Convert ORM model to domain model.
@@ -114,7 +120,9 @@ class Document(EntityMeta):
         )
 
     @classmethod
-    def from_domain(cls, domain: DocumentData) -> "Document":
+    def from_domain(
+        cls, domain: DocumentData
+    ) -> "Document":
         """Create ORM model from domain model.
 
         Args:
@@ -129,7 +137,7 @@ class Document(EntityMeta):
             storage_url=domain.storage_url,
             mime_type=domain.mime_type,
             size_bytes=domain.size_bytes,
-            user_id=int(domain.user_id),
+            user_id=domain.user_id,
             status=domain.status,
             doc_metadata=domain.metadata,
             created_at=domain.created_at,

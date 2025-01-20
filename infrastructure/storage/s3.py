@@ -2,12 +2,15 @@
 
 import os
 from typing import Optional, Dict, Any
-from datetime import datetime, timedelta
 
 import aioboto3
 from botocore.config import Config
 
-from domain.storage import IStorageService, StoredFile, StorageError
+from domain.storage import (
+    IStorageService,
+    StoredFile,
+    StorageError,
+)
 
 
 class S3StorageService(IStorageService):
@@ -40,8 +43,12 @@ class S3StorageService(IStorageService):
         """
         self.bucket_name = bucket_name
         self.endpoint_url = endpoint_url
-        self.access_key = access_key or os.getenv("AWS_ACCESS_KEY_ID")
-        self.secret_key = secret_key or os.getenv("AWS_SECRET_ACCESS_KEY")
+        self.access_key = access_key or os.getenv(
+            "AWS_ACCESS_KEY_ID"
+        )
+        self.secret_key = secret_key or os.getenv(
+            "AWS_SECRET_ACCESS_KEY"
+        )
         self.region = region
 
         if not self.access_key or not self.secret_key:
@@ -60,7 +67,10 @@ class S3StorageService(IStorageService):
         self.session = aioboto3.Session()
 
     async def store_file(
-        self, file_path: str, content: bytes, metadata: Optional[Dict[str, Any]] = None
+        self,
+        file_path: str,
+        content: bytes,
+        metadata: Optional[Dict[str, Any]] = None,
     ) -> StoredFile:
         """Store a file in S3.
 
@@ -105,7 +115,9 @@ class S3StorageService(IStorageService):
                 )
 
         except Exception as e:
-            raise StorageError(f"Failed to store file: {str(e)}") from e
+            raise StorageError(
+                f"Failed to store file: {str(e)}"
+            ) from e
 
     async def retrieve_file(self, file_path: str) -> bytes:
         """Retrieve a file from S3.
@@ -134,7 +146,9 @@ class S3StorageService(IStorageService):
                 return await response["Body"].read()
 
         except Exception as e:
-            raise StorageError(f"Failed to retrieve file: {str(e)}") from e
+            raise StorageError(
+                f"Failed to retrieve file: {str(e)}"
+            ) from e
 
     async def delete_file(self, file_path: str) -> None:
         """Delete a file from S3.
@@ -159,9 +173,13 @@ class S3StorageService(IStorageService):
                 )
 
         except Exception as e:
-            raise StorageError(f"Failed to delete file: {str(e)}") from e
+            raise StorageError(
+                f"Failed to delete file: {str(e)}"
+            ) from e
 
-    async def get_metadata(self, file_path: str) -> StoredFile:
+    async def get_metadata(
+        self, file_path: str
+    ) -> StoredFile:
         """Get metadata for a file in S3.
 
         Args:
@@ -194,9 +212,13 @@ class S3StorageService(IStorageService):
                 )
 
         except Exception as e:
-            raise StorageError(f"Failed to get metadata: {str(e)}") from e
+            raise StorageError(
+                f"Failed to get metadata: {str(e)}"
+            ) from e
 
-    async def get_public_url(self, file_path: str, expires_in: int = 3600) -> str:
+    async def get_public_url(
+        self, file_path: str, expires_in: int = 3600
+    ) -> str:
         """Get a pre-signed URL for public access.
 
         Args:
@@ -228,4 +250,6 @@ class S3StorageService(IStorageService):
                 return url
 
         except Exception as e:
-            raise StorageError(f"Failed to generate public URL: {str(e)}") from e
+            raise StorageError(
+                f"Failed to generate public URL: {str(e)}"
+            ) from e

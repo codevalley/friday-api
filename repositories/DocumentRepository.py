@@ -1,9 +1,9 @@
 """Repository for managing documents in the database."""
 
 from typing import List, Optional
-from datetime import datetime
+from datetime import datetime, UTC
 from sqlalchemy.orm import Session
-from sqlalchemy import desc, asc
+from sqlalchemy import desc, asc, func
 from sqlalchemy.exc import IntegrityError
 from fastapi import HTTPException
 
@@ -42,7 +42,7 @@ class DocumentRepository(BaseRepository[Document, int]):
             Document: Created document instance
 
         Raises:
-            DocumentValidationError: If document creation fails due to invalid data
+            DocumentValidationError: If doc creation fails due to invalid data
         """
         document = Document(**kwargs)
         try:
@@ -58,7 +58,7 @@ class DocumentRepository(BaseRepository[Document, int]):
                 f"Document creation failed: {str(e)}"
             )
 
-    def get_by_user_id(
+    def list_documents(
         self,
         user_id: str,
         skip: int = 0,
@@ -82,16 +82,22 @@ class DocumentRepository(BaseRepository[Document, int]):
         Returns:
             List[Document]: List of documents matching the criteria
         """
-        query = self.db.query(Document).filter(Document.user_id == user_id)
+        query = self.db.query(Document).filter(
+            Document.user_id == user_id
+        )
 
         # Apply filters
         if status:
             query = query.filter(Document.status == status)
         if mime_type:
-            query = query.filter(Document.mime_type == mime_type)
+            query = query.filter(
+                Document.mime_type == mime_type
+            )
 
         # Apply ordering
-        order_column = getattr(Document, order_by, Document.created_at)
+        order_column = getattr(
+            Document, order_by, Document.created_at
+        )
         if order == "desc":
             query = query.order_by(desc(order_column))
         else:
@@ -100,29 +106,31 @@ class DocumentRepository(BaseRepository[Document, int]):
         return query.offset(skip).limit(limit).all()
 
     def update_status(
-        self, document_id: int, new_status: DocumentStatus
-    ) -> Document:
+        self,
+        document_id: int,
+        user_id: str,
+        new_status: DocumentStatus,
+    ) -> Optional[Document]:
         """Update document status.
 
         Args:
             document_id: ID of the document to update
+            user_id: ID of the document owner
             new_status: New status to set
 
         Returns:
-            Document: Updated document
+            Document: Updated doc if found and owned by user, None otherwise
 
         Raises:
             DocumentStatusError: If status transition is invalid
         """
-        document = self.get_by_id(document_id)
+        document = self.get_by_owner(document_id, user_id)
         if not document:
-            raise DocumentValidationError(
-                f"Document not found: {document_id}"
-            )
+            return None
 
         try:
             document.status = new_status
-            document.updated_at = datetime.utcnow()
+            document.updated_at = datetime.now(UTC)
             self.db.commit()
             return document
         except IntegrityError as e:
@@ -131,7 +139,9 @@ class DocumentRepository(BaseRepository[Document, int]):
                 f"Failed to update document status: {str(e)}"
             )
 
-    def get_by_storage_url(self, storage_url: str) -> Optional[Document]:
+    def get_by_storage_url(
+        self, storage_url: str
+    ) -> Optional[Document]:
         """Get document by its storage URL.
 
         Args:
@@ -145,6 +155,44 @@ class DocumentRepository(BaseRepository[Document, int]):
             .filter(Document.storage_url == storage_url)
             .first()
         )
+
+    def get_by_unique_name(
+        self, unique_name: str
+    ) -> Optional[Document]:
+        """Get public document by its unique name.
+
+        Args:
+            unique_name: Unique identifier for public access
+
+        Returns:
+            Optional[Document]: Document if found and public, None otherwise
+        """
+        return (
+            self.db.query(Document)
+            .filter(
+                Document.unique_name == unique_name,
+                Document.is_public == True,  # noqa: E712
+            )
+            .first()
+        )
+
+    def delete(self, id: int, user_id: str) -> bool:
+        """Delete a document by ID and verify ownership.
+
+        Args:
+            id: Document ID
+            user_id: Owner's user ID
+
+        Returns:
+            bool: True if doc was deleted, False if not found or owned by user
+        """
+        document = self.get_by_owner(id, user_id)
+        if not document:
+            return False
+
+        self.db.delete(document)
+        self.db.commit()
+        return True
 
     def get_total_size_by_user(self, user_id: str) -> int:
         """Get total size of all active documents for a user.
@@ -162,7 +210,9 @@ class DocumentRepository(BaseRepository[Document, int]):
                 Document.status == DocumentStatus.ACTIVE,
             )
             .with_entities(
-                func.sum(Document.size_bytes).label("total_size")
+                func.sum(Document.size_bytes).label(
+                    "total_size"
+                )
             )
             .first()
         )

@@ -1,6 +1,6 @@
-0. Refer to @docs/guides for general design guidance on how design our code structure. 
+0. Refer to @docs/guides for general design guidance on how design our code structure.
 1. Refer to similar feature implementations before implementing a function to keep the style and approch consistent.
-2. If we are reffering to a current plan document while implementing a feature, check if it has to be updated for progress. 
+2. If we are reffering to a current plan document while implementing a feature, check if it has to be updated for progress.
 3. Always follow clean code and best practices
 4. Use comments to explain your code
 5. Use consistent naming conventions for variables and functions

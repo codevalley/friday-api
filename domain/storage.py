@@ -1,6 +1,6 @@
 """Domain models and interfaces for storage functionality."""
 
-from abc import ABC, abstractmethod
+from abc import abstractmethod
 from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum

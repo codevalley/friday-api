@@ -32,6 +32,6 @@ ALTER TABLE users
     ADD COLUMN IF NOT EXISTS used_storage_bytes BIGINT NOT NULL DEFAULT 0;
 
 -- For existing databases, update the users table
-UPDATE users 
+UPDATE users
 SET max_storage_bytes = 1073741824  -- 1GB default
 WHERE max_storage_bytes IS NULL;

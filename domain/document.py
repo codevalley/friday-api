@@ -15,10 +15,13 @@ from domain.exceptions import DocumentValidationError
 
 class DocumentStatus(str, Enum):
     """Document status enum."""
-    PENDING = "pending"      # Document is being uploaded
-    ACTIVE = "active"        # Document is available
-    ARCHIVED = "archived"    # Document is archived (soft-deleted)
-    ERROR = "error"          # Error in document processing
+
+    PENDING = "pending"  # Document is being uploaded
+    ACTIVE = "active"  # Document is available
+    ARCHIVED = (
+        "archived"  # Document is archived (soft-deleted)
+    )
+    ERROR = "error"  # Error in document processing
 
 
 @dataclass
@@ -59,7 +62,9 @@ class DocumentData:
     mime_type: str
     size_bytes: int
     user_id: str
-    status: DocumentStatus = field(default=DocumentStatus.PENDING)
+    status: DocumentStatus = field(
+        default=DocumentStatus.PENDING
+    )
     metadata: Dict[str, Any] = field(default_factory=dict)
     is_public: bool = field(default=False)
     unique_name: Optional[str] = field(default=None)
@@ -77,7 +82,9 @@ class DocumentData:
 
         self.validate()
 
-    def validate(self, require_user_id: bool = True) -> None:
+    def validate(
+        self, require_user_id: bool = True
+    ) -> None:
         """Validate document data.
 
         Args:
@@ -87,26 +94,38 @@ class DocumentData:
             DocumentValidationError: If validation fails
         """
         if not self.name:
-            raise DocumentValidationError("name cannot be empty")
+            raise DocumentValidationError(
+                "name cannot be empty"
+            )
 
         if not self.storage_url:
-            raise DocumentValidationError("storage_url cannot be empty")
+            raise DocumentValidationError(
+                "storage_url cannot be empty"
+            )
 
         if not self.mime_type:
-            raise DocumentValidationError("mime_type is required")
+            raise DocumentValidationError(
+                "mime_type is required"
+            )
 
         if self.size_bytes < 0:
-            raise DocumentValidationError("size_bytes must be positive")
+            raise DocumentValidationError(
+                "size_bytes must be positive"
+            )
 
         if require_user_id and not self.user_id:
-            raise DocumentValidationError("user_id is required")
+            raise DocumentValidationError(
+                "user_id is required"
+            )
 
         if not isinstance(self.status, DocumentStatus):
             raise DocumentValidationError(
                 f"invalid status: {self.status}"
             )
 
-        if self.metadata is not None and not isinstance(self.metadata, dict):
+        if self.metadata is not None and not isinstance(
+            self.metadata, dict
+        ):
             raise DocumentValidationError(
                 "metadata must be a dictionary"
             )
@@ -130,12 +149,14 @@ class DocumentData:
         """Check if a user can access this document.
 
         Args:
-            user_id: ID of the user requesting access, or None for public access
+            user_id: ID of the user requesting access, or None for public
 
         Returns:
             bool: True if the user can access the document
         """
-        return self.is_public or (user_id and user_id == self.user_id)
+        return self.is_public or (
+            user_id and user_id == self.user_id
+        )
 
     def can_modify(self, user_id: str) -> bool:
         """Check if a user can modify this document.
@@ -170,7 +191,9 @@ class DocumentData:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> 'DocumentData':
+    def from_dict(
+        cls, data: Dict[str, Any]
+    ) -> "DocumentData":
         """Create DocumentData from dictionary data.
 
         Args:
@@ -205,11 +228,11 @@ class DocumentData:
         )
 
     @classmethod
-    def from_orm(cls, orm_model: Any) -> 'DocumentData':
+    def from_orm(cls, orm_model: Any) -> "DocumentData":
         """Create a DocumentData instance from an ORM model.
 
         This method is the bridge between the database layer and domain layer.
-        It ensures that data from the database is properly validated before use.
+        It ensures that data from the database is properly validated.
 
         Args:
             orm_model: SQLAlchemy model instance
@@ -232,7 +255,9 @@ class DocumentData:
             is_public=orm_model.is_public,
         )
 
-    def update_status(self, new_status: DocumentStatus) -> None:
+    def update_status(
+        self, new_status: DocumentStatus
+    ) -> None:
         """Update document status.
 
         Args:
@@ -247,14 +272,22 @@ class DocumentData:
             )
 
         # Validate status transitions
-        if self.status == DocumentStatus.ARCHIVED and new_status != DocumentStatus.ACTIVE:
+        if (
+            self.status == DocumentStatus.ARCHIVED
+            and new_status != DocumentStatus.ACTIVE
+        ):
             raise DocumentValidationError(
-                "Invalid status transition: archived documents can only be restored to active"
+                "Invalid status transition: archived documents can only be "
+                "restored to active"
             )
 
-        if self.status == DocumentStatus.ACTIVE and new_status == DocumentStatus.PENDING:
+        if (
+            self.status == DocumentStatus.ACTIVE
+            and new_status == DocumentStatus.PENDING
+        ):
             raise DocumentValidationError(
-                "Invalid status transition: active documents cannot be set to pending"
+                "Invalid status transition: active documents cannot be set "
+                "to pending"
             )
 
         self.status = new_status

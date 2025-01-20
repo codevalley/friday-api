@@ -34,7 +34,10 @@ from services.NoteService import NoteService
 from utils.security import hash_user_secret
 from domain.robo import RoboProcessingResult
 from domain.storage import IStorageService, StoredFile
-from infrastructure.storage import LocalStorageService, S3StorageService
+from infrastructure.storage import (
+    LocalStorageService,
+    S3StorageService,
+)
 from orm.DocumentModel import Document
 from services.DocumentService import DocumentService
 
@@ -351,29 +354,36 @@ def activity_service(test_db_session, queue_service):
 def storage_service():
     """Create a mock storage service for testing."""
     mock_service = Mock(spec=IStorageService)
-    
-    async def mock_store(file_data: bytes, file_id: str, user_id: str, mime_type: str):
+
+    async def mock_store(
+        file_data: bytes,
+        file_id: str,
+        user_id: str,
+        mime_type: str,
+    ):
         return StoredFile(
             path=f"/test/{file_id}",
             mime_type=mime_type,
-            size_bytes=len(file_data)
+            size_bytes=len(file_data),
         )
-    
+
     async def mock_retrieve(file_path: str):
         return b"test file content"
-    
+
     async def mock_delete(file_path: str):
         return True
-    
+
     mock_service.store = mock_store
     mock_service.retrieve = mock_retrieve
     mock_service.delete = mock_delete
     return mock_service
 
+
 @pytest.fixture
 def local_storage_service(tmp_path):
     """Create a real local storage service for integration tests."""
     return LocalStorageService(base_path=tmp_path)
+
 
 @pytest.fixture
 def s3_storage_service():
@@ -383,8 +393,9 @@ def s3_storage_service():
         s3.create_bucket(Bucket="test-bucket")
         yield S3StorageService(
             bucket_name="test-bucket",
-            endpoint_url="http://localhost:4566"
+            endpoint_url="http://localhost:4566",
         )
+
 
 # Document fixtures
 @pytest.fixture
@@ -396,11 +407,12 @@ def sample_document(test_db_session, sample_user):
         mime_type="text/plain",
         size_bytes=100,
         user_id=sample_user.id,
-        status="ACTIVE"
+        status="ACTIVE",
     )
     test_db_session.add(doc)
     test_db_session.commit()
     return doc
+
 
 @pytest.fixture
 def sample_public_document(test_db_session, sample_user):
@@ -413,13 +425,16 @@ def sample_public_document(test_db_session, sample_user):
         user_id=sample_user.id,
         status="ACTIVE",
         is_public=True,
-        unique_name="test-doc"
+        unique_name="test-doc",
     )
     test_db_session.add(doc)
     test_db_session.commit()
     return doc
 
+
 @pytest.fixture
 def document_service(test_db_session, storage_service):
     """Create a document service instance for testing."""
-    return DocumentService(db=test_db_session, storage=storage_service)
+    return DocumentService(
+        db=test_db_session, storage=storage_service
+    )

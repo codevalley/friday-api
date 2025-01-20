@@ -1,14 +1,25 @@
 """Service for managing documents."""
 
 from typing import List, Optional
-from fastapi import Depends, UploadFile, HTTPException, status
+from fastapi import (
+    Depends,
+    UploadFile,
+    HTTPException,
+    status,
+)
 from sqlalchemy.orm import Session
 import uuid
 
 from configs.Database import get_db_connection
 from domain.document import DocumentStatus
-from domain.storage import IStorageService, StorageError, FileNotFoundError
-from repositories.DocumentRepository import DocumentRepository
+from domain.storage import (
+    IStorageService,
+    StorageError,
+    FileNotFoundError,
+)
+from repositories.DocumentRepository import (
+    DocumentRepository,
+)
 from infrastructure.storage.factory import StorageFactory
 from schemas.pydantic.DocumentSchema import (
     DocumentCreate,
@@ -27,7 +38,9 @@ class DocumentService:
     def __init__(
         self,
         db: Session = Depends(get_db_connection),
-        storage: IStorageService = Depends(StorageFactory.create_storage_service),
+        storage: IStorageService = Depends(
+            StorageFactory.create_storage_service
+        ),
     ):
         """Initialize service with database session and storage.
 
@@ -114,7 +127,10 @@ class DocumentService:
             status=status,
             mime_type=mime_type,
         )
-        return [DocumentResponse.from_orm(doc) for doc in documents]
+        return [
+            DocumentResponse.from_orm(doc)
+            for doc in documents
+        ]
 
     async def get_document(
         self,
@@ -269,7 +285,9 @@ class DocumentService:
         )
         return DocumentResponse.from_orm(updated)
 
-    async def delete_document(self, document_id: int, user_id: str) -> None:
+    async def delete_document(
+        self, document_id: int, user_id: str
+    ) -> None:
         """Delete a document.
 
         Args:
@@ -314,4 +332,6 @@ class DocumentService:
         Returns:
             int: Total size in bytes of all active documents
         """
-        return self.repository.get_total_size_by_user(user_id)
+        return self.repository.get_total_size_by_user(
+            user_id
+        )

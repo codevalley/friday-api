@@ -31,7 +31,9 @@ class LocalStorageService(IStorageService):
         """
         self.base_path = os.path.abspath(base_path)
 
-    def _get_file_path(self, user_id: str, file_id: str) -> str:
+    def _get_file_path(
+        self, user_id: str, file_id: str
+    ) -> str:
         """Get the filesystem path for a file.
 
         Args:
@@ -42,7 +44,9 @@ class LocalStorageService(IStorageService):
             str: Absolute path where the file should be stored
         """
         # Store files in user-specific directories to prevent conflicts
-        return os.path.join(self.base_path, user_id, file_id)
+        return os.path.join(
+            self.base_path, user_id, file_id
+        )
 
     async def store(
         self,
@@ -82,7 +86,9 @@ class LocalStorageService(IStorageService):
                 created_at=datetime.utcnow(),
             )
         except Exception as e:
-            raise StorageError(f"Failed to store file: {str(e)}") from e
+            raise StorageError(
+                f"Failed to store file: {str(e)}"
+            ) from e
 
     async def retrieve(
         self,
@@ -106,10 +112,14 @@ class LocalStorageService(IStorageService):
         path = self._get_file_path(user_id, file_id)
 
         if not os.path.exists(path):
-            raise FileNotFoundError(f"File not found: {file_id}")
+            raise FileNotFoundError(
+                f"File not found: {file_id}"
+            )
 
         # Ensure user can only access their own files
-        if not path.startswith(os.path.join(self.base_path, user_id)):
+        if not path.startswith(
+            os.path.join(self.base_path, user_id)
+        ):
             raise StoragePermissionError(
                 "Not authorized to access this file"
             )
@@ -119,7 +129,9 @@ class LocalStorageService(IStorageService):
                 while chunk := await f.read(8192):
                     yield chunk
         except Exception as e:
-            raise StorageError(f"Failed to retrieve file: {str(e)}") from e
+            raise StorageError(
+                f"Failed to retrieve file: {str(e)}"
+            ) from e
 
     async def delete(
         self,
@@ -140,10 +152,14 @@ class LocalStorageService(IStorageService):
         path = self._get_file_path(user_id, file_id)
 
         if not os.path.exists(path):
-            raise FileNotFoundError(f"File not found: {file_id}")
+            raise FileNotFoundError(
+                f"File not found: {file_id}"
+            )
 
         # Ensure user can only delete their own files
-        if not path.startswith(os.path.join(self.base_path, user_id)):
+        if not path.startswith(
+            os.path.join(self.base_path, user_id)
+        ):
             raise StoragePermissionError(
                 "Not authorized to delete this file"
             )
@@ -156,7 +172,9 @@ class LocalStorageService(IStorageService):
             try:
                 while (
                     parent_dir.startswith(
-                        os.path.join(self.base_path, user_id)
+                        os.path.join(
+                            self.base_path, user_id
+                        )
                     )
                     and len(os.listdir(parent_dir)) == 0
                 ):
@@ -166,7 +184,9 @@ class LocalStorageService(IStorageService):
                 # Ignore errors while cleaning up empty directories
                 pass
         except Exception as e:
-            raise StorageError(f"Failed to delete file: {str(e)}") from e
+            raise StorageError(
+                f"Failed to delete file: {str(e)}"
+            ) from e
 
     async def get_metadata(
         self,
@@ -190,10 +210,14 @@ class LocalStorageService(IStorageService):
         path = self._get_file_path(user_id, file_id)
 
         if not os.path.exists(path):
-            raise FileNotFoundError(f"File not found: {file_id}")
+            raise FileNotFoundError(
+                f"File not found: {file_id}"
+            )
 
         # Ensure user can only access their own files
-        if not path.startswith(os.path.join(self.base_path, user_id)):
+        if not path.startswith(
+            os.path.join(self.base_path, user_id)
+        ):
             raise StoragePermissionError(
                 "Not authorized to access this file"
             )
@@ -207,8 +231,12 @@ class LocalStorageService(IStorageService):
                 size_bytes=stats.st_size,
                 mime_type="application/octet-stream",  # Default MIME type
                 status=StorageStatus.ACTIVE,
-                created_at=datetime.fromtimestamp(stats.st_ctime),
-                updated_at=datetime.fromtimestamp(stats.st_mtime),
+                created_at=datetime.fromtimestamp(
+                    stats.st_ctime
+                ),
+                updated_at=datetime.fromtimestamp(
+                    stats.st_mtime
+                ),
             )
         except Exception as e:
             raise StorageError(

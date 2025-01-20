@@ -35,7 +35,9 @@ class MockStorageService(IStorageService):
         """
         self._should_fail = should_fail
 
-    def set_fail_for_user(self, user_id: Optional[str]) -> None:
+    def set_fail_for_user(
+        self, user_id: Optional[str]
+    ) -> None:
         """Set a specific user to fail for.
 
         Args:
@@ -52,8 +54,13 @@ class MockStorageService(IStorageService):
         Raises:
             StorageError: If operation should fail
         """
-        if self._should_fail or user_id == self._fail_for_user:
-            raise StoragePermissionError("Simulated failure")
+        if (
+            self._should_fail
+            or user_id == self._fail_for_user
+        ):
+            raise StoragePermissionError(
+                "Simulated failure"
+            )
 
     async def store(
         self,
@@ -87,7 +94,10 @@ class MockStorageService(IStorageService):
             status=StorageStatus.ACTIVE,
             created_at=datetime.utcnow(),
         )
-        self._files[(user_id, file_id)] = (file_data, stored_file)
+        self._files[(user_id, file_id)] = (
+            file_data,
+            stored_file,
+        )
         return stored_file
 
     async def retrieve(
@@ -112,7 +122,9 @@ class MockStorageService(IStorageService):
 
         key = (user_id, file_id)
         if key not in self._files:
-            raise FileNotFoundError(f"File not found: {file_id}")
+            raise FileNotFoundError(
+                f"File not found: {file_id}"
+            )
 
         file_data, _ = self._files[key]
         yield file_data
@@ -136,7 +148,9 @@ class MockStorageService(IStorageService):
 
         key = (user_id, file_id)
         if key not in self._files:
-            raise FileNotFoundError(f"File not found: {file_id}")
+            raise FileNotFoundError(
+                f"File not found: {file_id}"
+            )
 
         del self._files[key]
 
@@ -162,7 +176,9 @@ class MockStorageService(IStorageService):
 
         key = (user_id, file_id)
         if key not in self._files:
-            raise FileNotFoundError(f"File not found: {file_id}")
+            raise FileNotFoundError(
+                f"File not found: {file_id}"
+            )
 
         _, stored_file = self._files[key]
         return stored_file

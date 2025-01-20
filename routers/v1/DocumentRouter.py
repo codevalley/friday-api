@@ -10,7 +10,6 @@ from fastapi import (
     status,
 )
 from fastapi.responses import StreamingResponse
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from fastapi import HTTPException
 from services.DocumentService import DocumentService
 from schemas.pydantic.DocumentSchema import (
@@ -225,7 +224,9 @@ async def get_public_document(
         document_id=document_id,
     )
     if document is None:
-        raise HTTPException(status_code=404, detail="Document not found")
+        raise HTTPException(
+            status_code=404, detail="Document not found"
+        )
     return GenericResponse(
         data=document,
         message="Public document retrieved successfully",
@@ -246,10 +247,14 @@ async def download_public_document(
         document_id=document_id,
     )
     if document is None:
-        raise HTTPException(status_code=404, detail="Document not found")
+        raise HTTPException(
+            status_code=404, detail="Document not found"
+        )
     content = service.get_document_content(document_id)
     return StreamingResponse(
         content,
         media_type=document.mime_type,
-        headers={"Content-Disposition": f'attachment; filename="{document.name}"'},
+        headers={
+            "Content-Disposition": f'attachment; filename="{document.name}"'
+        },
     )
