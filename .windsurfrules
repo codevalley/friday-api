@@ -1,14 +1,17 @@
-1. Always follow clean code and best practices
-2. Use comments to explain your code
-3. Use consistent naming conventions for variables and functions
-4. Use descriptive variable names
-5. Use meaningful function names
-6. Use self-explanatory variable names
-7. Most of the time, I will have a document logging progress/plan. Keep an eye on that, and also update specified progress docs as you change code.
-8. I have absolute obsession with code quality and maintainability, this means I won't take a compromise to "get things working", but only implement something if it is the "right" way.
-9. I will (eventually) write tests for everything I write.
-10. Python linters are your best friends, I use flake8 and black.
-11. I use mypy to type check, and prefer to not have any open warnings/errors.
-12. I work across multiple machines, so I use git to track changes and pull requests.
-13. I use windows and macOS, so I use git bash and powershell. This also means, my documentation and plans have to work for both.
-14. This project uses pipenv to manage dependencies. So, we should follow pipenv best practices.
+0. Refer to @docs/guides for general design guidance on how design our code structure. 
+1. Refer to similar feature implementations before implementing a function to keep the style and approch consistent.
+2. If we are reffering to a current plan document while implementing a feature, check if it has to be updated for progress. 
+3. Always follow clean code and best practices
+4. Use comments to explain your code
+5. Use consistent naming conventions for variables and functions
+6. Use descriptive variable names
+7. Use meaningful function names
+8. Use self-explanatory variable names
+9. Most of the time, I will have a document logging progress/plan. Keep an eye on that, and also update specified progress docs as you change code.
+10. I have absolute obsession with code quality and maintainability, this means I won't take a compromise to "get things working", but only implement something if it is the "right" way.
+11. I will (eventually) write tests for everything I write.
+12. Python linters are your best friends, I use flake8 and black.
+13. I use mypy to type check, and prefer to not have any open warnings/errors.
+14. I work across multiple machines, so I use git to track changes and pull requests.
+15. I use windows and macOS, so I use git bash and powershell. This also means, my documentation and plans have to work for both.
+16. This project uses pipenv to manage dependencies. So, we should follow pipenv best practices.

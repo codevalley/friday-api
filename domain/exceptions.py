@@ -29,6 +29,11 @@ class ErrorCode(str, Enum):
     TOPIC_NAME_ERROR = "TOPIC_NAME_ERROR"
     TOPIC_ICON_ERROR = "TOPIC_ICON_ERROR"
 
+    # Document-related error codes
+    DOCUMENT_VALIDATION_ERROR = "DOCUMENT_VALIDATION_ERROR"
+    DOCUMENT_STATUS_ERROR = "DOCUMENT_STATUS_ERROR"
+    DOCUMENT_STORAGE_ERROR = "DOCUMENT_STORAGE_ERROR"
+
 
 class DomainException(Exception):
     """Base exception for all domain exceptions."""
@@ -404,4 +409,40 @@ class TopicIconError(TopicValidationError):
             message=message,
             code=ErrorCode.TOPIC_ICON_ERROR,
             details=details,
+        )
+
+
+class DocumentValidationError(ValidationException):
+    """Base exception for document domain validation failures."""
+
+    def __init__(
+        self,
+        message: str,
+        code: str = ErrorCode.DOCUMENT_VALIDATION_ERROR,
+        details: Optional[Any] = None,
+    ):
+        super().__init__(
+            message=message,
+            code=code,
+            details=details,
+        )
+
+
+class DocumentStatusError(DocumentValidationError):
+    """Raised when document status transition is invalid."""
+
+    def __init__(self, message: str):
+        super().__init__(
+            message=message,
+            code=ErrorCode.DOCUMENT_STATUS_ERROR,
+        )
+
+
+class DocumentStorageError(DomainException):
+    """Raised when document storage operations fail."""
+
+    def __init__(self, message: str):
+        super().__init__(
+            message=message,
+            code=ErrorCode.DOCUMENT_STORAGE_ERROR,
         )

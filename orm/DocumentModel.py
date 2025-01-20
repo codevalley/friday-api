@@ -1,0 +1,127 @@
+"""Document ORM model."""
+
+from typing import Dict, Any, Optional
+from datetime import datetime, UTC
+from sqlalchemy import (
+    Column,
+    Integer,
+    String,
+    Text,
+    ForeignKey,
+    DateTime,
+    JSON,
+    Enum,
+    BigInteger,
+)
+from sqlalchemy.orm import relationship, Mapped
+from typing import TYPE_CHECKING
+
+from domain.document import DocumentStatus, DocumentData
+from .BaseModel import EntityMeta
+
+if TYPE_CHECKING:
+    from .UserModel import User
+
+
+class Document(EntityMeta):
+    """Document Model represents a stored document or file.
+
+    Each document belongs to a user and contains metadata about the stored file,
+    including its location, size, and type. Documents maintain their state
+    through a status flag.
+
+    Attributes:
+        id: Unique identifier
+        name: Original name of the document
+        storage_url: URL where the document is stored
+        mime_type: MIME type of the document
+        size_bytes: Size of the document in bytes
+        user_id: ID of the document owner
+        status: Current document status (PENDING, ACTIVE, etc.)
+        metadata: Additional metadata about the document (optional)
+        created_at: Timestamp of document creation
+        updated_at: Timestamp of last update
+        owner: User who owns the document
+    """
+
+    # Primary key
+    id = Column(Integer, primary_key=True)
+
+    # Basic document metadata
+    name = Column(String(255), nullable=False)
+    storage_url = Column(Text, nullable=False)
+    mime_type = Column(String(255), nullable=False)
+    size_bytes = Column(BigInteger, nullable=False)
+
+    # Document status
+    status = Column(
+        Enum(DocumentStatus),
+        nullable=False,
+        default=DocumentStatus.PENDING,
+    )
+
+    # Optional metadata as JSON
+    metadata = Column(JSON, nullable=True)
+
+    # Foreign keys and relationships
+    user_id = Column(
+        Integer,
+        ForeignKey("user.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    owner: Mapped["User"] = relationship("User", back_populates="documents")
+
+    # Timestamps
+    created_at = Column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=lambda: datetime.now(UTC),
+    )
+    updated_at = Column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=lambda: datetime.now(UTC),
+        onupdate=lambda: datetime.now(UTC),
+    )
+
+    def to_domain(self) -> DocumentData:
+        """Convert ORM model to domain model.
+
+        Returns:
+            DocumentData: Domain model instance
+        """
+        return DocumentData(
+            id=str(self.id),
+            name=self.name,
+            storage_url=self.storage_url,
+            mime_type=self.mime_type,
+            size_bytes=self.size_bytes,
+            user_id=str(self.user_id),
+            status=self.status,
+            metadata=self.metadata,
+            created_at=self.created_at,
+            updated_at=self.updated_at,
+        )
+
+    @classmethod
+    def from_domain(cls, domain: DocumentData) -> "Document":
+        """Create ORM model from domain model.
+
+        Args:
+            domain: Domain model instance
+
+        Returns:
+            Document: New ORM model instance
+        """
+        return cls(
+            id=int(domain.id) if domain.id else None,
+            name=domain.name,
+            storage_url=domain.storage_url,
+            mime_type=domain.mime_type,
+            size_bytes=domain.size_bytes,
+            user_id=int(domain.user_id),
+            status=domain.status,
+            metadata=domain.metadata,
+            created_at=domain.created_at,
+            updated_at=domain.updated_at,
+        )

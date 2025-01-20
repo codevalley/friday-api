@@ -17,6 +17,7 @@ if TYPE_CHECKING:
     from orm.NoteModel import Note
     from orm.TaskModel import Task
     from orm.TopicModel import Topic
+    from orm.DocumentModel import Document
 
 
 class User(EntityMeta):
@@ -38,6 +39,7 @@ class User(EntityMeta):
         notes: List of user's notes
         tasks: List of user's tasks
         topics: List of user's topics
+        documents: List of user's documents
     """
 
     __tablename__ = "users"
@@ -111,6 +113,11 @@ class User(EntityMeta):
     topics: Mapped[List["Topic"]] = relationship(
         "Topic",
         back_populates="user",
+        cascade="all, delete-orphan",
+    )
+    documents: Mapped[List["Document"]] = relationship(
+        "Document",
+        back_populates="owner",
         cascade="all, delete-orphan",
     )
 
