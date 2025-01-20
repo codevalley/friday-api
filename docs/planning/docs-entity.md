@@ -177,10 +177,18 @@ class StorageBackend(Protocol):
 
 ### EPIC 3: Testing Suite
 - [ ] Unit Tests
-  - [ ] Domain model tests
+  - [x] Domain model tests
+    - [x] Document creation and validation
+    - [x] Status transitions
+    - [x] Public access rules
+    - [x] Metadata validation
+    - [x] Access control
   - [ ] Repository tests
   - [ ] Service tests
-  - [ ] Storage tests
+  - [x] Storage tests
+    - [x] Local storage implementation
+    - [x] Mock storage for testing
+    - [x] S3 storage implementation
 - [ ] Integration Tests
   - [ ] API endpoint tests
   - [ ] Storage integration tests
@@ -200,8 +208,137 @@ class StorageBackend(Protocol):
   - [x] Database setup
   - [x] Testing guide
 
-### Next Steps
-1. Implement comprehensive test suite
-2. Add response compression for large files
-3. Implement concurrent access handling
-4. Add support for more cloud storage providers
+### EPIC 5: Testing Implementation
+
+#### 1. Test Infrastructure Setup
+##### Environment Configuration
+- [x] Update `__tests__/conftest.py`
+  - [x] Add storage fixtures:
+    ```python
+    @pytest.fixture
+    def storage_service():
+        """Create a mock storage service for testing."""
+        return Mock(spec=IStorageService)
+
+    @pytest.fixture
+    def local_storage_service(tmp_path):
+        """Create a real local storage service for integration tests."""
+        return LocalStorageService(base_path=tmp_path)
+
+    @pytest.fixture
+    def s3_storage_service():
+        """Create a mocked S3 storage service using moto."""
+        with mock_s3():
+            # Set up mock S3
+            s3 = boto3.client('s3')
+            s3.create_bucket(Bucket='test-bucket')
+            yield S3StorageService(
+                bucket_name='test-bucket',
+                endpoint_url='http://localhost:4566'
+            )
+    ```
+  - [x] Add document fixtures:
+    ```python
+    @pytest.fixture
+    def sample_document(test_db_session, sample_user):
+        """Create a sample document for testing."""
+        doc = Document(
+            name="Test Document",
+            storage_url="/test/path",
+            mime_type="text/plain",
+            size_bytes=100,
+            user_id=sample_user.id,
+            status="ACTIVE"
+        )
+        test_db_session.add(doc)
+        test_db_session.commit()
+        return doc
+
+    @pytest.fixture
+    def sample_public_document(test_db_session, sample_user):
+        """Create a sample public document."""
+        doc = Document(
+            name="Public Document",
+            storage_url="/public/path",
+            mime_type="text/plain",
+            size_bytes=100,
+            user_id=sample_user.id,
+            status="ACTIVE",
+            is_public=True,
+            unique_name="test-doc"
+        )
+        test_db_session.add(doc)
+        test_db_session.commit()
+        return doc
+    ```
+
+##### Test Dependencies
+- [x] Add to `setup.py`:
+  ```python
+  install_requires=[
+      # ... existing dependencies ...
+      "moto[s3]>=4.0.0",  # For S3 mocking
+      "pytest-asyncio>=0.14.0",  # Already included
+      "pytest-env>=1.0.0",  # For environment variables
+  ]
+  ```
+
+##### Test Files Setup
+- [x] Create test file structure:
+  ```
+  __tests__/
+  ├── fixtures/
+  │   └── test_files/
+  │       ├── test.txt
+  │       └── test.pdf
+  ├── integration/
+  │   ├── test_storage_integration.py
+  │   └── test_document_integration.py
+  └── unit/
+      ├── domain/
+      │   └── test_document.py
+      ├── infrastructure/
+      │   └── test_storage.py
+      ├── repositories/
+      │   └── test_document_repository.py
+      ├── routers/
+      │   └── test_document_router.py
+      └── services/
+          └── test_document_service.py
+  ```
+
+### Next Actions
+1. Start with domain model tests in `__tests__/unit/domain/test_document.py`
+2. Create test file structure
+3. Add storage and document fixtures to `__tests__/conftest.py`
+
+### Dependencies
+From `setup.py`:
+- pytest-asyncio (already included)
+- httpx (already included)
+New additions needed:
+- moto[s3] for S3 mocking
+- localstack for S3 integration
+- pytest-env for environment variables
+
+### Test Implementation Steps
+1. Infrastructure Setup (1-2 days)
+   - Update configuration
+   - Create fixtures
+   - Set up mocks
+
+2. Unit Tests (2-3 days)
+   - Start with domain tests
+   - Add repository tests
+   - Implement service tests
+   - Create router tests
+
+3. Integration Tests (2-3 days)
+   - Storage integration
+   - Document flow tests
+   - Error scenario tests
+
+4. E2E Tests (1-2 days)
+   - Update test_flow.sh
+   - Test all scenarios
+   - Document test cases

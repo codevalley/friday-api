@@ -4,11 +4,11 @@ This module contains the domain models and business logic for document
 management in the system.
 """
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
 from typing import Optional, Dict, Any
-from zoneinfo import UTC
+from datetime import timezone
 
 from domain.exceptions import DocumentValidationError
 
@@ -59,19 +59,19 @@ class DocumentData:
     mime_type: str
     size_bytes: int
     user_id: str
-    status: DocumentStatus = DocumentStatus.PENDING
-    metadata: Optional[Dict[str, Any]] = None
-    id: Optional[str] = None
-    created_at: Optional[datetime] = None
-    updated_at: Optional[datetime] = None
-    unique_name: Optional[str] = None
-    is_public: bool = False
+    status: DocumentStatus = field(default=DocumentStatus.PENDING)
+    metadata: Dict[str, Any] = field(default_factory=dict)
+    is_public: bool = field(default=False)
+    unique_name: Optional[str] = field(default=None)
+    id: Optional[str] = field(default=None)
+    created_at: Optional[datetime] = field(default=None)
+    updated_at: Optional[datetime] = field(default=None)
 
     def __post_init__(self) -> None:
         """Validate document data after initialization."""
         # Set timestamps if not provided
         if self.created_at is None:
-            self.created_at = datetime.now(UTC)
+            self.created_at = datetime.now(timezone.utc)
         if self.updated_at is None:
             self.updated_at = self.created_at
 
@@ -87,16 +87,16 @@ class DocumentData:
             DocumentValidationError: If validation fails
         """
         if not self.name:
-            raise DocumentValidationError("name is required")
+            raise DocumentValidationError("name cannot be empty")
 
         if not self.storage_url:
-            raise DocumentValidationError("storage_url is required")
+            raise DocumentValidationError("storage_url cannot be empty")
 
         if not self.mime_type:
             raise DocumentValidationError("mime_type is required")
 
         if self.size_bytes < 0:
-            raise DocumentValidationError("size_bytes must be non-negative")
+            raise DocumentValidationError("size_bytes must be positive")
 
         if require_user_id and not self.user_id:
             raise DocumentValidationError("user_id is required")
@@ -108,7 +108,7 @@ class DocumentData:
 
         if self.metadata is not None and not isinstance(self.metadata, dict):
             raise DocumentValidationError(
-                "metadata must be a dictionary if provided"
+                "metadata must be a dictionary"
             )
 
         if self.unique_name is not None:
@@ -120,6 +120,11 @@ class DocumentData:
                 raise DocumentValidationError(
                     "unique_name must be alphanumeric"
                 )
+
+        if self.is_public and not self.unique_name:
+            raise DocumentValidationError(
+                "Public documents must have a unique name"
+            )
 
     def can_access(self, user_id: Optional[str]) -> bool:
         """Check if a user can access this document.
@@ -242,11 +247,15 @@ class DocumentData:
             )
 
         # Validate status transitions
-        if (self.status == DocumentStatus.ARCHIVED and
-                new_status != DocumentStatus.ACTIVE):
+        if self.status == DocumentStatus.ARCHIVED and new_status != DocumentStatus.ACTIVE:
             raise DocumentValidationError(
-                "archived documents can only be restored to active"
+                "Invalid status transition: archived documents can only be restored to active"
+            )
+
+        if self.status == DocumentStatus.ACTIVE and new_status == DocumentStatus.PENDING:
+            raise DocumentValidationError(
+                "Invalid status transition: active documents cannot be set to pending"
             )
 
         self.status = new_status
-        self.updated_at = datetime.now(UTC)
+        self.updated_at = datetime.now(timezone.utc)

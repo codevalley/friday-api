@@ -5,7 +5,7 @@ from fastapi import Depends, UploadFile, HTTPException, status
 from sqlalchemy.orm import Session
 import uuid
 
-from configs.Database import get_db
+from configs.Database import get_db_connection
 from domain.document import DocumentStatus
 from domain.storage import IStorageService, StorageError, FileNotFoundError
 from repositories.DocumentRepository import DocumentRepository
@@ -26,7 +26,7 @@ class DocumentService:
 
     def __init__(
         self,
-        db: Session = Depends(get_db),
+        db: Session = Depends(get_db_connection),
         storage: IStorageService = Depends(StorageFactory.create_storage_service),
     ):
         """Initialize service with database session and storage.

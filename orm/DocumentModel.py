@@ -65,7 +65,7 @@ class Document(EntityMeta):
     )
 
     # Optional metadata as JSON
-    metadata = Column(JSON, nullable=True)
+    doc_metadata = Column(JSON, nullable=True)  # Renamed from metadata to avoid conflict
 
     # Foreign keys and relationships
     user_id = Column(
@@ -106,7 +106,7 @@ class Document(EntityMeta):
             size_bytes=self.size_bytes,
             user_id=str(self.user_id),
             status=self.status,
-            metadata=self.metadata,
+            metadata=self.doc_metadata,
             created_at=self.created_at,
             updated_at=self.updated_at,
             unique_name=self.unique_name,
@@ -131,7 +131,7 @@ class Document(EntityMeta):
             size_bytes=domain.size_bytes,
             user_id=int(domain.user_id),
             status=domain.status,
-            metadata=domain.metadata,
+            doc_metadata=domain.metadata,
             created_at=domain.created_at,
             updated_at=domain.updated_at,
             unique_name=domain.unique_name,

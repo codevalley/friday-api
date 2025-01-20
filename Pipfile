@@ -31,7 +31,6 @@ pymysql = "*"
 pre-commit = ">=2.18.1"
 black = ">=22.3.0"
 pytest-mock = "*"
-pytest-asyncio = "*"
 fakeredis = "*"
 
 [requires]
