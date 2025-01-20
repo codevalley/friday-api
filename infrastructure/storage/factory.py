@@ -4,58 +4,51 @@ import os
 from typing import Optional
 
 from domain.storage import IStorageService
-from .local import LocalStorageService
-from .mock import MockStorageService
+from infrastructure.storage.local import LocalStorageService
+from infrastructure.storage.mock import MockStorageService
+from infrastructure.storage.s3 import S3StorageService
 
 
 class StorageFactory:
-    """Factory for creating storage service instances.
+    """Factory for creating storage service instances."""
 
-    This factory creates and caches storage service instances based on
-    configuration. It follows the singleton pattern to ensure only one
-    instance of each backend type exists.
-    """
-
-    _instance: Optional[IStorageService] = None
-
-    @classmethod
-    def create_storage_service(
-        cls,
-        backend: str = "local",
-        base_path: Optional[str] = None,
-    ) -> IStorageService:
-        """Create or get a storage service instance.
+    @staticmethod
+    def create_storage_service(storage_type: str = None) -> IStorageService:
+        """Create a storage service instance.
 
         Args:
-            backend: Storage backend type (local, mock)
-            base_path: Base path for file storage (for local backend)
+            storage_type: Type of storage service to create (local, mock, s3)
+                        Defaults to value from STORAGE_BACKEND env var
 
         Returns:
             IStorageService: Storage service instance
 
         Raises:
-            ValueError: If backend type is unknown
+            ValueError: If storage type is invalid or required config is missing
         """
-        if cls._instance is None:
-            if backend == "local":
-                if base_path is None:
-                    base_path = os.getenv(
-                        "STORAGE_PATH",
-                        os.path.abspath("./storage"),
-                    )
-                cls._instance = LocalStorageService(base_path)
-            elif backend == "mock":
-                cls._instance = MockStorageService()
-            else:
-                raise ValueError(f"Unknown storage backend: {backend}")
+        storage_type = storage_type or os.getenv("STORAGE_BACKEND", "local")
 
-        return cls._instance
+        if storage_type == "local":
+            storage_path = os.getenv("STORAGE_PATH")
+            if not storage_path:
+                raise ValueError("STORAGE_PATH environment variable is required")
+            return LocalStorageService(storage_path)
 
-    @classmethod
-    def reset(cls) -> None:
-        """Reset the factory, clearing any cached instances.
+        elif storage_type == "mock":
+            return MockStorageService()
 
-        This is mainly useful for testing when you want to create
-        a fresh instance with different configuration.
-        """
-        cls._instance = None
+        elif storage_type == "s3":
+            bucket_name = os.getenv("S3_BUCKET_NAME")
+            if not bucket_name:
+                raise ValueError("S3_BUCKET_NAME environment variable is required")
+
+            return S3StorageService(
+                bucket_name=bucket_name,
+                endpoint_url=os.getenv("S3_ENDPOINT_URL"),
+                access_key=os.getenv("AWS_ACCESS_KEY_ID"),
+                secret_key=os.getenv("AWS_SECRET_ACCESS_KEY"),
+                region=os.getenv("AWS_REGION", "us-east-1"),
+            )
+
+        else:
+            raise ValueError(f"Invalid storage type: {storage_type}")

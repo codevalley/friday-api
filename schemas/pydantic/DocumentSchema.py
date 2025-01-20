@@ -2,8 +2,7 @@
 
 from typing import Optional, Dict, Any
 from datetime import datetime
-from pydantic import BaseModel, Field, HttpUrl
-
+from pydantic import BaseModel, Field, HttpUrl, constr
 from domain.document import DocumentStatus, DocumentData
 
 
@@ -14,11 +13,17 @@ class DocumentBase(BaseModel):
         name: Original name of the document
         mime_type: MIME type of the document
         metadata: Additional metadata about the document (optional)
+        unique_name: Unique identifier for public access (optional)
+        is_public: Whether the document is publicly accessible (default: False)
     """
 
-    name: str = Field(..., min_length=1, max_length=255)
-    mime_type: str = Field(..., min_length=1, max_length=255)
-    metadata: Optional[Dict[str, Any]] = None
+    name: str = Field(..., min_length=1, max_length=255, description="Original name of the document")
+    mime_type: str = Field(..., min_length=1, max_length=255, description="MIME type of the document")
+    metadata: Optional[Dict[str, Any]] = Field(None, description="Additional metadata about the document")
+    unique_name: Optional[constr(max_length=128, pattern=r"^[a-zA-Z0-9]+$")] = Field(
+        None, description="Unique identifier for public access"
+    )
+    is_public: bool = Field(False, description="Whether the document is publicly accessible")
 
 
 class DocumentCreate(DocumentBase):
@@ -46,6 +51,8 @@ class DocumentCreate(DocumentBase):
             size_bytes=size_bytes,
             user_id=user_id,
             metadata=self.metadata,
+            unique_name=self.unique_name,
+            is_public=self.is_public,
         )
 
 
@@ -56,7 +63,14 @@ class DocumentUpdate(BaseModel):
     (like status) must be done through specific endpoints.
     """
 
-    metadata: Optional[Dict[str, Any]] = None
+    name: Optional[str] = Field(None, description="New name for the document")
+    metadata: Optional[Dict[str, Any]] = Field(
+        None, description="Updated metadata for the document"
+    )
+    unique_name: Optional[constr(max_length=128, pattern=r"^[a-zA-Z0-9]+$")] = Field(
+        None, description="Unique identifier for public access"
+    )
+    is_public: Optional[bool] = Field(None, description="Whether the document is publicly accessible")
 
 
 class DocumentResponse(DocumentBase):
@@ -73,3 +87,4 @@ class DocumentResponse(DocumentBase):
     class Config:
         """Pydantic configuration."""
         from_attributes = True
+        orm_mode = True

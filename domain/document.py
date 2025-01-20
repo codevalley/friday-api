@@ -50,6 +50,8 @@ class DocumentData:
         id: Unique identifier for this document (optional)
         created_at: When this document was created
         updated_at: When this document was last updated
+        unique_name: Unique identifier for public access (optional)
+        is_public: Whether the document is publicly accessible
     """
 
     name: str
@@ -60,8 +62,10 @@ class DocumentData:
     status: DocumentStatus = DocumentStatus.PENDING
     metadata: Optional[Dict[str, Any]] = None
     id: Optional[str] = None
-    created_at: datetime = None
-    updated_at: datetime = None
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+    unique_name: Optional[str] = None
+    is_public: bool = False
 
     def __post_init__(self) -> None:
         """Validate document data after initialization."""
@@ -107,6 +111,38 @@ class DocumentData:
                 "metadata must be a dictionary if provided"
             )
 
+        if self.unique_name is not None:
+            if len(self.unique_name) > 128:
+                raise DocumentValidationError(
+                    "unique_name must be 128 characters or less"
+                )
+            if not self.unique_name.isalnum():
+                raise DocumentValidationError(
+                    "unique_name must be alphanumeric"
+                )
+
+    def can_access(self, user_id: Optional[str]) -> bool:
+        """Check if a user can access this document.
+
+        Args:
+            user_id: ID of the user requesting access, or None for public access
+
+        Returns:
+            bool: True if the user can access the document
+        """
+        return self.is_public or (user_id and user_id == self.user_id)
+
+    def can_modify(self, user_id: str) -> bool:
+        """Check if a user can modify this document.
+
+        Args:
+            user_id: ID of the user requesting modification
+
+        Returns:
+            bool: True if the user can modify the document
+        """
+        return user_id == self.user_id
+
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary for repository operations.
 
@@ -124,6 +160,8 @@ class DocumentData:
             "metadata": self.metadata,
             "created_at": self.created_at,
             "updated_at": self.updated_at,
+            "unique_name": self.unique_name,
+            "is_public": self.is_public,
         }
 
     @classmethod
@@ -157,6 +195,8 @@ class DocumentData:
             metadata=data.get("metadata"),
             created_at=data.get("created_at"),
             updated_at=data.get("updated_at"),
+            unique_name=data.get("unique_name"),
+            is_public=data.get("is_public", False),
         )
 
     @classmethod
@@ -183,6 +223,8 @@ class DocumentData:
             metadata=orm_model.metadata,
             created_at=orm_model.created_at,
             updated_at=orm_model.updated_at,
+            unique_name=orm_model.unique_name,
+            is_public=orm_model.is_public,
         )
 
     def update_status(self, new_status: DocumentStatus) -> None:

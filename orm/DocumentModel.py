@@ -12,6 +12,8 @@ from sqlalchemy import (
     JSON,
     Enum,
     BigInteger,
+    Boolean,
+    UniqueConstraint,
 )
 from sqlalchemy.orm import relationship, Mapped
 from typing import TYPE_CHECKING
@@ -42,6 +44,8 @@ class Document(EntityMeta):
         created_at: Timestamp of document creation
         updated_at: Timestamp of last update
         owner: User who owns the document
+        unique_name: Unique identifier for public access (optional)
+        is_public: Whether the document is publicly accessible
     """
 
     # Primary key
@@ -84,6 +88,10 @@ class Document(EntityMeta):
         onupdate=lambda: datetime.now(UTC),
     )
 
+    # Public access fields
+    unique_name = Column(String(128), nullable=True, unique=True)
+    is_public = Column(Boolean, nullable=False, default=False)
+
     def to_domain(self) -> DocumentData:
         """Convert ORM model to domain model.
 
@@ -101,6 +109,8 @@ class Document(EntityMeta):
             metadata=self.metadata,
             created_at=self.created_at,
             updated_at=self.updated_at,
+            unique_name=self.unique_name,
+            is_public=self.is_public,
         )
 
     @classmethod
@@ -124,4 +134,6 @@ class Document(EntityMeta):
             metadata=domain.metadata,
             created_at=domain.created_at,
             updated_at=domain.updated_at,
+            unique_name=domain.unique_name,
+            is_public=domain.is_public,
         )

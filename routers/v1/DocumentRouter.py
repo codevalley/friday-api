@@ -1,4 +1,4 @@
-"""Router for Document-related endpoints."""
+"""Router for document-related operations."""
 
 from typing import Optional, List
 from fastapi import (
@@ -9,6 +9,9 @@ from fastapi import (
     Query,
     status,
 )
+from fastapi.responses import StreamingResponse
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from fastapi import HTTPException
 from services.DocumentService import DocumentService
 from schemas.pydantic.DocumentSchema import (
     DocumentCreate,
@@ -32,7 +35,7 @@ from auth.bearer import CustomHTTPBearer
 auth_scheme = CustomHTTPBearer()
 
 router = APIRouter(
-    prefix="/v1/documents",
+    prefix="/docs",
     tags=["documents"],
     dependencies=[Depends(auth_scheme)],
 )
@@ -205,4 +208,48 @@ async def get_storage_usage(
     return GenericResponse(
         data=usage,
         message="Storage usage retrieved successfully",
+    )
+
+
+@router.get(
+    "/public/{document_id}",
+    response_model=GenericResponse[DocumentResponse],
+)
+@handle_exceptions
+async def get_public_document(
+    document_id: int,
+    service: DocumentService = Depends(),
+) -> GenericResponse[DocumentResponse]:
+    """Get a public document by ID."""
+    document = service.get_public_document(
+        document_id=document_id,
+    )
+    if document is None:
+        raise HTTPException(status_code=404, detail="Document not found")
+    return GenericResponse(
+        data=document,
+        message="Public document retrieved successfully",
+    )
+
+
+@router.get(
+    "/public/{document_id}/download",
+    response_class=StreamingResponse,
+)
+@handle_exceptions
+async def download_public_document(
+    document_id: int,
+    service: DocumentService = Depends(),
+) -> StreamingResponse:
+    """Download a public document."""
+    document = service.get_public_document(
+        document_id=document_id,
+    )
+    if document is None:
+        raise HTTPException(status_code=404, detail="Document not found")
+    content = service.get_document_content(document_id)
+    return StreamingResponse(
+        content,
+        media_type=document.mime_type,
+        headers={"Content-Disposition": f'attachment; filename="{document.name}"'},
     )

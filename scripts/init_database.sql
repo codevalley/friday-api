@@ -106,6 +106,28 @@ CREATE TABLE IF NOT EXISTS tasks (
     CHECK (description != '')
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- Create documents table
+CREATE TABLE IF NOT EXISTS documents (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    name VARCHAR(255) NOT NULL,
+    storage_url VARCHAR(1024) NOT NULL,
+    mime_type VARCHAR(128) NOT NULL,
+    size_bytes BIGINT NOT NULL,
+    user_id VARCHAR(36) NOT NULL,
+    status ENUM('PENDING', 'ACTIVE', 'ARCHIVED', 'ERROR') NOT NULL DEFAULT 'PENDING',
+    metadata JSON NULL,
+    unique_name VARCHAR(128) NULL UNIQUE,
+    is_public BOOLEAN NOT NULL DEFAULT FALSE,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    CHECK (name != ''),
+    CHECK (storage_url != ''),
+    CHECK (mime_type != ''),
+    CHECK (size_bytes >= 0),
+    CHECK (unique_name REGEXP '^[a-zA-Z0-9]+$' OR unique_name IS NULL)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 -- Create moments table
 CREATE TABLE IF NOT EXISTS moments (
     id INT PRIMARY KEY AUTO_INCREMENT,
@@ -131,12 +153,17 @@ CREATE INDEX idx_moments_note_id ON moments(note_id);
 
 -- Indexes for tasks table
 CREATE INDEX idx_tasks_user_id ON tasks(user_id);
-CREATE INDEX idx_tasks_status ON tasks(status);
-CREATE INDEX idx_tasks_priority ON tasks(priority);
-CREATE INDEX idx_tasks_due_date ON tasks(due_date);
 CREATE INDEX idx_tasks_parent_id ON tasks(parent_id);
 CREATE INDEX idx_tasks_note_id ON tasks(note_id);
 CREATE INDEX idx_tasks_topic_id ON tasks(topic_id);
+CREATE INDEX idx_tasks_status ON tasks(status);
+CREATE INDEX idx_tasks_due_date ON tasks(due_date);
+
+-- Indexes for documents table
+CREATE INDEX idx_documents_user_id ON documents(user_id);
+CREATE INDEX idx_documents_status ON documents(status);
+CREATE INDEX idx_documents_unique_name ON documents(unique_name);
+CREATE INDEX idx_documents_public ON documents(is_public);
 
 -- Indexes for notes table
 CREATE INDEX idx_notes_user_id ON notes(user_id);

@@ -38,20 +38,20 @@ class StorageBackend(Protocol):
 ## Implementation Stages
 
 ### Stage 1: Core Document Entity
-1. ✅ Create document domain model with basic metadata
+1. Create document domain model with basic metadata
    - Created DocumentData class with validation and data conversion methods
    - Added DocumentStatus enum for state management
    - Added document-related exceptions
-2. ✅ Implement database schema and ORM
+2. Implement database schema and ORM
    - Created Document ORM model with SQLAlchemy
    - Added relationship to User model
    - Set up proper indexes and constraints
-3. ✅ Set up basic CRUD operations
+3. Set up basic CRUD operations
    - Created DocumentRepository with standard CRUD operations
    - Added user-specific document queries
    - Added status management and storage URL lookup
    - Added utility for tracking user storage usage
-4. ✅ Create API endpoints
+4. Create API endpoints
    - Created Pydantic schemas for requests/responses
    - Added DocumentService for business logic
    - Created DocumentRouter with endpoints for:
@@ -62,17 +62,17 @@ class StorageBackend(Protocol):
      - Getting storage usage statistics
 
 ### Stage 2: Storage System
-1. ✅ Design storage domain model
+1. Design storage domain model
    - Created IStorageService interface
    - Added StoredFile domain model
    - Added domain-specific exceptions
    - Defined storage status states
-2. ✅ Implement storage infrastructure
+2. Implement storage infrastructure
    - Created LocalStorageService implementation
    - Added MockStorageService for testing
    - Implemented StorageFactory following DI principles
    - Added async file operations
-3. ✅ Add storage configuration
+3. Add storage configuration
    - Environment variable support
    - Factory pattern for backend creation
    - Testing utilities
@@ -93,85 +93,115 @@ class StorageBackend(Protocol):
 
 ### EPIC 1: Document Entity Implementation
 
-#### 1. Domain Layer
+#### 1. Domain Layer 
 - [x] Create `DocumentData` class with:
   - Basic metadata (name, storage_url, mime_type, size_bytes)
   - User ownership
   - Status tracking
   - Optional metadata dictionary
   - Timestamps (created_at, updated_at)
+  - Public access fields (unique_name, is_public)
 - [x] Implement validation logic
   - Field presence and format validation
   - Status transition validation
   - User ownership validation
+  - Unique name format validation
 - [x] Add domain exceptions
   - DocumentValidationError
   - DocumentStatusError
   - DocumentStorageError
 
-#### 2. Database Layer
+#### 2. Database Layer 
 - [x] Create Document ORM model
   - SQLAlchemy model with proper columns
   - Relationship with User model
   - Conversion methods to/from domain model
 - [x] Add indexes for efficient queries
+  - User ID index
+  - Status index
+  - Unique name index
+  - Public access index
 - [x] Set up cascade deletes for cleanup
 
-#### 3. Repository Layer
+#### 3. Repository Layer 
 - [x] Implement CRUD operations
 - [x] Add user-specific queries
 - [x] Add status management
-- [x] Add storage usage tracking
+- [x] Add public access queries
 
-#### 4. Service Layer
+#### 4. Service Layer 
 - [x] Create DocumentService
 - [x] Implement business logic
 - [x] Add authorization checks
 - [x] Handle error cases
+- [x] Implement public access logic
 
-#### 5. API Layer
+#### 5. API Layer 
 - [x] Create Pydantic schemas
 - [x] Implement API endpoints
+  - [x] Document upload
+  - [x] Document retrieval (by ID and unique name)
+  - [x] Document update
+  - [x] Document deletion
+  - [x] Public access endpoints
 - [x] Add file upload handling
 - [x] Add filtering and pagination
 - [ ] Add response compression
 - [ ] Handle concurrent access
 
-#### 6. Storage Configuration
-- [ ] Add environment variables
-- [ ] Create configuration class
-- [ ] Implement storage interface
-- [ ] Add local filesystem backend
+#### 6. Storage Layer 
+- [x] Create storage domain model
+  - IStorageService interface
+  - StoredFile domain model
+  - Storage-specific exceptions
+- [x] Implement storage infrastructure
+  - LocalStorageService for file system
+  - MockStorageService for testing
+  - S3StorageService for cloud storage
+  - StorageFactory for DI
+- [x] Integrate with DocumentService
+  - Async file operations
+  - Error handling
+  - File cleanup on deletion
+- [x] Add storage configuration
+  - Environment variables
+  - File size limits
+  - Allowed MIME types
 
-### EPIC 2: Storage System Implementation
+### EPIC 2: Storage System Implementation 
+- [x] Design storage abstraction layer
+- [x] Implement local filesystem backend
+- [x] Add S3-compatible backend
+- [ ] Add Azure Blob Storage backend
+- [ ] Add Google Cloud Storage backend
 
-#### 1. Local Storage Backend
-- [ ] Design directory structure
-- [ ] Implement file operations
-- [ ] Add cleanup utilities
-- [ ] Handle concurrent access
+### EPIC 3: Testing Suite
+- [ ] Unit Tests
+  - [ ] Domain model tests
+  - [ ] Repository tests
+  - [ ] Service tests
+  - [ ] Storage tests
+- [ ] Integration Tests
+  - [ ] API endpoint tests
+  - [ ] Storage integration tests
+  - [ ] Public access tests
 
-#### 2. Storage Configuration
-- [ ] Add environment variables
-- [ ] Create configuration class
-- [ ] Implement storage factory
-- [ ] Add storage utilities
+### EPIC 4: Documentation 
+- [x] API Documentation
+  - [x] Endpoint descriptions
+  - [x] Request/response schemas
+  - [x] Authentication requirements
+- [x] Storage Configuration
+  - [x] Environment variables
+  - [x] S3 setup guide
+  - [x] Local storage setup
+- [x] Development Guide
+  - [x] Project structure
+  - [x] Database setup
+  - [x] Testing guide
 
-### Testing Strategy
-
-#### 1. Unit Tests
-- [ ] Domain model validation
-- [ ] Storage operations
-- [ ] Repository operations
-- [ ] Service layer logic
-
-#### 2. Integration Tests
-- [ ] File upload/download flow
-- [ ] Storage backend integration
-- [ ] Database operations
-- [ ] API endpoints
-
-#### 3. Performance Tests
-- [ ] Large file handling
-- [ ] Concurrent operations
-- [ ] Storage space management
+### Next Steps
+1. Implement comprehensive test suite
+2. Add response compression for large files
+3. Implement concurrent access handling
+4. Add support for more cloud storage providers
