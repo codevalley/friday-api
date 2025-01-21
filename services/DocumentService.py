@@ -1,55 +1,49 @@
 """Service for managing documents."""
 
-from typing import List, Optional
+from typing import List, Optional, Tuple
 from fastapi import (
     Depends,
-    UploadFile,
     HTTPException,
+    UploadFile,
     status,
 )
-from sqlalchemy.orm import Session
-import uuid
-
-from configs.Database import get_db_connection
-from domain.document import DocumentStatus
-from domain.storage import (
-    IStorageService,
-    StorageError,
-    FileNotFoundError,
+from domain.document import DocumentData, DocumentStatus
+from domain.storage import IStorageService, StorageError
+from schemas.pydantic.DocumentSchema import (
+    DocumentCreate,
+    DocumentResponse,
+    DocumentUpdate,
 )
 from repositories.DocumentRepository import (
     DocumentRepository,
 )
+from configs.Database import get_db_connection
 from infrastructure.storage.factory import StorageFactory
-from schemas.pydantic.DocumentSchema import (
-    DocumentCreate,
-    DocumentUpdate,
-    DocumentResponse,
-)
 
 
 class DocumentService:
-    """Service for managing documents.
-
-    This service handles the business logic for document operations,
-    coordinating between the API layer, repository layer, and storage layer.
-    """
+    """Service for managing documents."""
 
     def __init__(
         self,
-        db: Session = Depends(get_db_connection),
-        storage: IStorageService = Depends(
-            StorageFactory.create_storage_service
-        ),
+        db=Depends(get_db_connection),
+        storage: Optional[IStorageService] = None,
     ):
-        """Initialize service with database session and storage.
+        """Initialize service with repository and storage.
 
         Args:
-            db: Database session
+            db: Database connection or repository instance
             storage: Storage service implementation
         """
-        self.repository = DocumentRepository(db)
-        self.storage = storage
+        if isinstance(db, DocumentRepository):
+            self.repository = db
+        else:
+            self.repository = DocumentRepository(db)
+
+        self.storage = (
+            storage
+            or StorageFactory.create_storage_service()
+        )
 
     async def create_document(
         self,
@@ -72,28 +66,30 @@ class DocumentService:
         """
         try:
             # Read file content
-            file_content = await file.read()
-            file_id = str(uuid.uuid4())
+            content = await file.read()
 
-            # Store file in storage backend
+            # Store file in storage service
             stored_file = await self.storage.store(
-                file_data=file_content,
-                file_id=file_id,
                 user_id=user_id,
-                mime_type=document.mime_type,
+                file_name=document.name,
+                content=content,
             )
 
             # Create document in database
-            db_doc = self.repository.create(
-                name=document.name,
-                storage_url=stored_file.path,
-                mime_type=stored_file.mime_type,
-                size_bytes=stored_file.size_bytes,
-                user_id=user_id,
-                metadata=document.metadata,
+            db_doc = await self.repository.create(
+                DocumentData(
+                    name=document.name,
+                    mime_type=document.mime_type,
+                    metadata=document.metadata,
+                    storage_url=stored_file.path,
+                    size_bytes=stored_file.size_bytes,
+                    user_id=user_id,
+                    is_public=False,
+                )
             )
 
-            return DocumentResponse.from_orm(db_doc)
+            # Return document response
+            return DocumentResponse.model_validate(db_doc)
         except StorageError as e:
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -133,15 +129,13 @@ class DocumentService:
         ]
 
     async def get_document(
-        self,
-        document_id: int,
-        user_id: str,
+        self, document_id: int, user_id: str
     ) -> DocumentResponse:
-        """Get a specific document.
+        """Get a document by ID.
 
         Args:
             document_id: ID of the document
-            user_id: ID of the user requesting the document
+            user_id: ID of the user making the request
 
         Returns:
             DocumentResponse: Document data
@@ -149,66 +143,112 @@ class DocumentService:
         Raises:
             HTTPException: If document not found or user not authorized
         """
-        document = self.repository.get_by_id(document_id)
+        document = await self.repository.get_by_id(
+            document_id
+        )
         if not document:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Document not found",
             )
-        if str(document.user_id) != user_id:
+
+        if (
+            str(document.user_id) != user_id
+            and not document.is_public
+        ):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail="Not authorized to access this document",
+                detail="You do not have permission to access this document",
             )
+
         return DocumentResponse.from_orm(document)
 
     async def get_document_content(
-        self,
-        document_id: int,
-        user_id: str,
+        self, document_id: int, user_id: str
     ) -> bytes:
-        """Get a document's content.
-
-        Args:
-            document_id: ID of the document
-            user_id: ID of the user requesting the document
-
-        Returns:
-            bytes: Document content
-
-        Raises:
-            HTTPException: If document not found or user not authorized
-        """
-        document = self.repository.get_by_id(document_id)
+        """Get the content of a document."""
+        document = await self.repository.get_by_id(
+            document_id
+        )
         if not document:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Document not found",
             )
-        if str(document.user_id) != user_id:
+
+        if (
+            document.user_id != user_id
+            and not document.is_public
+        ):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail="Not authorized to access this document",
+                detail="You do not have permission to access this document",
             )
 
-        try:
-            content = b""
-            async for chunk in self.storage.retrieve(
-                file_id=document.storage_url.split("/")[-1],
-                user_id=user_id,
-            ):
-                content += chunk
-            return content
-        except FileNotFoundError:
+        content = b""
+        async for chunk in self.storage.retrieve(
+            document.storage_url.split("/")[-1], user_id
+        ):
+            content += chunk
+        return content
+
+    async def get_public_document(
+        self,
+        document_id: int,
+    ) -> DocumentResponse:
+        """Get a public document.
+
+        Args:
+            document_id: ID of the document
+
+        Returns:
+            DocumentResponse: Document data
+
+        Raises:
+            HTTPException: If document not found or not public
+        """
+        document = await self.repository.get_by_id(
+            document_id
+        )
+        if not document or not document.is_public:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail="Document content not found",
+                detail="Document not found or not public",
             )
-        except StorageError as e:
+
+        return DocumentResponse.from_orm(document)
+
+    async def get_public_document_content(
+        self,
+        document_id: int,
+    ) -> Tuple[DocumentResponse, bytes]:
+        """Get a public document's content.
+
+        Args:
+            document_id: ID of the document
+
+        Returns:
+            Tuple[DocumentResponse, bytes]: Document metadata and content
+
+        Raises:
+            HTTPException: If document not found or not public
+        """
+        document = await self.repository.get_by_id(
+            document_id
+        )
+        if not document or not document.is_public:
             raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=f"Failed to retrieve document: {str(e)}",
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Document not found or not public",
             )
+
+        content = b""
+        async for chunk in self.storage.retrieve(
+            document.storage_url.split("/")[-1]
+        ):
+            content += chunk
+
+        return DocumentResponse.from_orm(document), content
 
     async def update_document(
         self,
@@ -229,7 +269,9 @@ class DocumentService:
         Raises:
             HTTPException: If update fails or user not authorized
         """
-        document = self.repository.get_by_id(document_id)
+        document = await self.repository.get_by_id(
+            document_id
+        )
         if not document:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
@@ -245,7 +287,7 @@ class DocumentService:
         if update_data.metadata is not None:
             document.metadata = update_data.metadata
 
-        self.repository.db.commit()
+        await self.repository.db.commit()
         return DocumentResponse.from_orm(document)
 
     async def update_document_status(
@@ -267,7 +309,9 @@ class DocumentService:
         Raises:
             HTTPException: If update fails or user not authorized
         """
-        document = self.repository.get_by_id(document_id)
+        document = await self.repository.get_by_id(
+            document_id
+        )
         if not document:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
@@ -276,14 +320,13 @@ class DocumentService:
         if str(document.user_id) != user_id:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail="Not authorized to update this document",
+                detail="You do not have permission to update this document",
             )
 
-        updated = self.repository.update_status(
-            document_id=document_id,
-            new_status=new_status,
+        updated_doc = await self.repository.update_status(
+            document_id, new_status
         )
-        return DocumentResponse.from_orm(updated)
+        return DocumentResponse.from_orm(updated_doc)
 
     async def delete_document(
         self, document_id: int, user_id: str
@@ -297,7 +340,9 @@ class DocumentService:
         Raises:
             HTTPException: If deletion fails or user not authorized
         """
-        document = self.repository.get_by_id(document_id)
+        document = await self.repository.get_by_id(
+            document_id
+        )
         if not document:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
@@ -306,22 +351,13 @@ class DocumentService:
         if str(document.user_id) != user_id:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail="Not authorized to delete this document",
+                detail="You do not have permission to delete this document",
             )
 
-        try:
-            # Delete from storage first
-            await self.storage.delete(
-                file_id=document.storage_url.split("/")[-1],
-                user_id=user_id,
-            )
-            # Then remove from database
-            self.repository.delete(document)
-        except StorageError as e:
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=f"Failed to delete document: {str(e)}",
-            )
+        await self.repository.delete(document_id)
+        await self.storage.delete(
+            document.storage_url.split("/")[-1], user_id
+        )
 
     def get_user_storage_usage(self, user_id: str) -> int:
         """Get total storage usage for a user.

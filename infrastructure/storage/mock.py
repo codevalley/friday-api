@@ -104,12 +104,14 @@ class MockStorageService(IStorageService):
         self,
         file_id: str,
         user_id: str,
+        owner_id: Optional[str] = None,
     ) -> AsyncIterator[bytes]:
         """Retrieve a file from memory.
 
         Args:
             file_id: ID of the file to retrieve
             user_id: ID of the user requesting the file
+            owner_id: Optional ID of the file owner (for public files)
 
         Returns:
             AsyncIterator[bytes]: File content stream
@@ -120,7 +122,10 @@ class MockStorageService(IStorageService):
         """
         self._check_failure(user_id)
 
-        key = (user_id, file_id)
+        # If owner_id is provided, use that for lookup
+        lookup_user_id = owner_id if owner_id else user_id
+        key = (lookup_user_id, file_id)
+
         if key not in self._files:
             raise FileNotFoundError(
                 f"File not found: {file_id}"

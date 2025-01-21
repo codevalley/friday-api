@@ -88,12 +88,14 @@ class IStorageService(Protocol):
         self,
         file_id: str,
         user_id: str,
+        owner_id: Optional[str] = None,
     ) -> AsyncIterator[bytes]:
         """Retrieve a file's content.
 
         Args:
             file_id: ID of the file to retrieve
             user_id: ID of the user requesting the file
+            owner_id: Optional ID of the file owner (for public files)
 
         Returns:
             AsyncIterator[bytes]: File content stream

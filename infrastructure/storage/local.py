@@ -4,7 +4,7 @@ import os
 import aiofiles
 import aiofiles.os
 from datetime import datetime
-from typing import AsyncIterator
+from typing import AsyncIterator, Optional
 
 from domain.storage import (
     IStorageService,
@@ -94,12 +94,14 @@ class LocalStorageService(IStorageService):
         self,
         file_id: str,
         user_id: str,
+        owner_id: Optional[str] = None,
     ) -> AsyncIterator[bytes]:
         """Retrieve a file from the local filesystem.
 
         Args:
             file_id: ID of the file to retrieve
             user_id: ID of the user requesting the file
+            owner_id: Optional ID of the file owner (for public files)
 
         Returns:
             AsyncIterator[bytes]: File content stream
@@ -109,15 +111,18 @@ class LocalStorageService(IStorageService):
             StoragePermissionError: If user cannot access file
             StorageError: If retrieval fails
         """
-        path = self._get_file_path(user_id, file_id)
+        # If owner_id is provided, use that for the path lookup
+        lookup_user_id = owner_id if owner_id else user_id
+        path = self._get_file_path(lookup_user_id, file_id)
 
-        if not os.path.exists(path):
+        if not os.path.isfile(path):
             raise FileNotFoundError(
                 f"File not found: {file_id}"
             )
 
-        # Ensure user can only access their own files
-        if not path.startswith(
+        # If owner_id is provided, we're accessing a public file
+        # Otherwise, ensure user can only access their own files
+        if not owner_id and not path.startswith(
             os.path.join(self.base_path, user_id)
         ):
             raise StoragePermissionError(

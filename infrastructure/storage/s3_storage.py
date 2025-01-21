@@ -1,7 +1,7 @@
 """S3 storage implementation."""
 
 from datetime import datetime, timezone
-from typing import AsyncIterator
+from typing import AsyncIterator, Optional
 import boto3
 from botocore.exceptions import ClientError
 
@@ -81,9 +81,14 @@ class S3StorageService(IStorageService):
         self,
         file_id: str,
         user_id: str,
+        owner_id: Optional[str] = None,
     ) -> AsyncIterator[bytes]:
         """Retrieve a file from S3."""
-        object_key = self._get_object_key(file_id, user_id)
+        # If owner_id is provided, use that for the path lookup
+        lookup_user_id = owner_id if owner_id else user_id
+        object_key = self._get_object_key(
+            file_id, lookup_user_id
+        )
 
         try:
             response = self.s3.get_object(
