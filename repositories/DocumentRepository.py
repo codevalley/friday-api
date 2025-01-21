@@ -43,15 +43,31 @@ class DocumentRepository(BaseRepository[Document, int]):
 
         Raises:
             DocumentValidationError: If doc creation fails due to invalid data
+            HTTPException: If unique name already exists
         """
         document = Document(**kwargs)
         try:
+            # Check if unique_name already exists
+            if document.unique_name:
+                existing = (
+                    self.db.query(Document)
+                    .filter(
+                        Document.unique_name
+                        == document.unique_name
+                    )
+                    .first()
+                )
+                if existing:
+                    raise HTTPException(
+                        status_code=409,
+                        detail=f"Document with unique name "
+                        f"'{document.unique_name}' already exists",
+                    )
+
             return super().create(document)
         except HTTPException as e:
             if e.status_code == 409:
-                raise DocumentValidationError(
-                    "Document creation failed: duplicate entry"
-                )
+                raise e
             raise DocumentValidationError(str(e.detail))
         except IntegrityError as e:
             raise DocumentValidationError(

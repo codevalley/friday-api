@@ -2,20 +2,14 @@
 
 from typing import Optional, Dict, Any
 from datetime import datetime
-from pydantic import BaseModel, Field, constr
+from pydantic import BaseModel, Field, ConfigDict
 from domain.document import DocumentStatus, DocumentData
 
 
 class DocumentBase(BaseModel):
-    """Base schema for document data.
+    """Base schema for document data."""
 
-    Attributes:
-        name: Original name of the document
-        mime_type: MIME type of the document
-        metadata: Additional metadata about the document (optional)
-        unique_name: Unique identifier for public access (optional)
-        is_public: Whether the document is publicly accessible (default: False)
-    """
+    model_config = ConfigDict(from_attributes=True)
 
     name: str = Field(
         ...,
@@ -33,13 +27,10 @@ class DocumentBase(BaseModel):
         None,
         description="Additional metadata about the document",
     )
-    unique_name: Optional[
-        constr(
-            max_length=128,
-            pattern=r"^[a-zA-Z0-9]+$",  # noqa: F722
-        )
-    ] = Field(
+    unique_name: Optional[str] = Field(
         None,
+        max_length=128,
+        pattern=r"^[a-zA-Z0-9]+$",
         description="Unique identifier for public access",
     )
     is_public: bool = Field(
@@ -49,33 +40,37 @@ class DocumentBase(BaseModel):
 
 
 class DocumentCreate(DocumentBase):
-    """Schema for document creation.
+    """Schema for document creation."""
 
-    Note: storage_url and size_bytes are not included here as they
-    will be set by the storage service after file upload.
-    """
+    storage_url: str = Field(
+        ...,
+        min_length=1,
+        max_length=2048,
+        description="URL where the document is stored",
+    )
+    size_bytes: int = Field(
+        ...,
+        gt=0,
+        description="Size of the document in bytes",
+    )
 
     def to_domain(
         self,
         user_id: str,
-        storage_url: str,
-        size_bytes: int,
     ) -> DocumentData:
         """Convert to domain model.
 
         Args:
             user_id: ID of the document owner
-            storage_url: URL where the document is stored
-            size_bytes: Size of the document in bytes
 
         Returns:
             DocumentData: Domain model instance
         """
         return DocumentData(
             name=self.name,
-            storage_url=storage_url,
+            storage_url=self.storage_url,
             mime_type=self.mime_type,
-            size_bytes=size_bytes,
+            size_bytes=self.size_bytes,
             user_id=user_id,
             metadata=self.metadata,
             unique_name=self.unique_name,
@@ -84,26 +79,24 @@ class DocumentCreate(DocumentBase):
 
 
 class DocumentUpdate(BaseModel):
-    """Schema for document updates.
+    """Schema for document updates."""
 
-    Only metadata can be updated directly. Other changes
-    (like status) must be done through specific endpoints.
-    """
+    model_config = ConfigDict(from_attributes=True)
 
     name: Optional[str] = Field(
-        None, description="New name for the document"
+        None,
+        min_length=1,
+        max_length=255,
+        description="New name for the document",
     )
     metadata: Optional[Dict[str, Any]] = Field(
         None,
         description="Updated metadata for the document",
     )
-    unique_name: Optional[
-        constr(
-            max_length=128,
-            pattern=r"^[a-zA-Z0-9]+$",  # noqa: F722
-        )
-    ] = Field(
+    unique_name: Optional[str] = Field(
         None,
+        max_length=128,
+        pattern=r"^[a-zA-Z0-9]+$",
         description="Unique identifier for public access",
     )
     is_public: Optional[bool] = Field(
@@ -115,6 +108,8 @@ class DocumentUpdate(BaseModel):
 class DocumentResponse(DocumentBase):
     """Schema for document responses."""
 
+    model_config = ConfigDict(from_attributes=True)
+
     id: int
     user_id: str
     storage_url: str
@@ -122,9 +117,3 @@ class DocumentResponse(DocumentBase):
     status: DocumentStatus
     created_at: datetime
     updated_at: Optional[datetime] = None
-
-    class Config:
-        """Pydantic configuration."""
-
-        from_attributes = True
-        orm_mode = True

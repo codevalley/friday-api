@@ -5,13 +5,13 @@ from sqlalchemy import (
     Column,
     Integer,
     String,
-    Text,
     ForeignKey,
     DateTime,
     JSON,
     Enum,
     BigInteger,
     Boolean,
+    event,
 )
 from sqlalchemy.orm import relationship, Mapped
 from typing import TYPE_CHECKING
@@ -51,7 +51,7 @@ class Document(EntityMeta):
 
     # Basic document metadata
     name = Column(String(255), nullable=False)
-    storage_url = Column(Text, nullable=False)
+    storage_url = Column(String(2048), nullable=False)
     mime_type = Column(String(255), nullable=False)
     size_bytes = Column(BigInteger, nullable=False)
 
@@ -87,7 +87,6 @@ class Document(EntityMeta):
         DateTime(timezone=True),
         nullable=False,
         default=lambda: datetime.now(UTC),
-        onupdate=lambda: datetime.now(UTC),
     )
 
     # Public access fields
@@ -145,3 +144,9 @@ class Document(EntityMeta):
             unique_name=domain.unique_name,
             is_public=domain.is_public,
         )
+
+
+@event.listens_for(Document, "before_update")
+def receive_before_update(mapper, connection, target):
+    """Update the updated_at timestamp before any update."""
+    target.updated_at = datetime.now(UTC)

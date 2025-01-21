@@ -137,7 +137,12 @@ class TestDocumentService:
         document = DocumentCreate(
             name="test.pdf",
             mime_type="application/pdf",
-            metadata={},  # Ensure metadata is a valid dict
+            metadata={},
+            # Ensure metadata is a valid dict
+            storage_url="/test/path/test.pdf",
+            # Will be replaced by stored file path
+            size_bytes=1024,
+            # Will be replaced by stored file size
         )
         file = Mock(spec=UploadFile)
         file.read = AsyncMock(return_value=b"test content")
@@ -174,6 +179,10 @@ class TestDocumentService:
             name="test.pdf",
             mime_type="application/pdf",
             metadata={},
+            storage_url="/test/path/test.pdf",
+            # Will be replaced by stored file path
+            size_bytes=1024,
+            # Will be replaced by stored file size
         )
         file = Mock(spec=UploadFile)
         file.read = AsyncMock(return_value=b"test content")
@@ -182,13 +191,21 @@ class TestDocumentService:
         )
 
         # Test
-        with pytest.raises(HTTPException) as exc:
+        with pytest.raises(HTTPException) as exc_info:
             await document_service.create_document(
                 document=document,
                 user_id="test-user",
                 file=file,
             )
-        assert exc.value.status_code == 500
+
+        # Assert
+        assert (
+            exc_info.value.status_code
+            == status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+        assert "Failed to store file" in str(
+            exc_info.value.detail
+        )
 
     @pytest.mark.asyncio
     async def test_get_document_not_found(
