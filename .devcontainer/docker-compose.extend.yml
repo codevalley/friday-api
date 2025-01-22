@@ -6,41 +6,66 @@ services:
       context: ..
       dockerfile: Dockerfile
     volumes:
-      - ..:/workspaces/${localWorkspaceFolderBasename}:cached
-      - ~/.gitconfig:/home/vscode/.gitconfig
-    command: sleep infinity
-    environment:
-      - PYTHONPATH=/workspaces/${localWorkspaceFolderBasename}
-    user: vscode
+      - ..:/workspaces/friday-api:cached
+      - ../logs:/app/logs
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
     ports:
-      - "8000:8000"  # For FastAPI development server
-    networks:
-      - default
+      - "8000:8000"
+    depends_on:
+      - db
+      - redis
+    environment:
+      - PYTHONPATH=/workspaces/friday-api
+      - STORAGE_BACKEND=local
+      - STORAGE_PATH=/workspaces/friday-api/storage
+      - REDIS_HOST=redis
+      - DATABASE_URL=mysql://friday_dev:friday_dev@db:3306/friday_dev
+      - DATABASE_NAME=friday_dev
+      - DATABASE_USERNAME=friday_dev
+      - DATABASE_PASSWORD=friday_dev
+      - ENVIRONMENT=development
+      - LOG_LEVEL=DEBUG
+
+  worker:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    volumes:
+      - ..:/workspaces/friday-api:cached
+      - ../logs:/app/logs
+    command: python -m infrastructure.queue.run_worker
+    depends_on:
+      - redis
+      - db
+    environment:
+      - PYTHONPATH=/workspaces/friday-api
+      - REDIS_HOST=redis
+      - DATABASE_URL=mysql://friday_dev:friday_dev@db:3306/friday_dev
+      - DATABASE_NAME=friday_dev
+      - DATABASE_USERNAME=friday_dev
+      - DATABASE_PASSWORD=friday_dev
+      - ENVIRONMENT=development
+      - LOG_LEVEL=DEBUG
 
   db:
+    image: mysql:8.0
     environment:
-      MYSQL_ROOT_PASSWORD: root_password
-      MYSQL_DATABASE: friday_dev
-      MYSQL_USER: friday_dev
-      MYSQL_PASSWORD: friday_dev
+      - MYSQL_ROOT_PASSWORD=root_password
+      - MYSQL_DATABASE=friday_dev
+      - MYSQL_USER=friday_dev
+      - MYSQL_PASSWORD=friday_dev
     ports:
       - "3306:3306"
     volumes:
-      - friday-mysql-data:/var/lib/mysql
-    networks:
-      - default
+      - mysql_data:/var/lib/mysql
 
   redis:
+    image: redis:7.0-alpine
     ports:
       - "6379:6379"
     volumes:
-      - friday-redis-data:/data
-    networks:
-      - default
+      - redis_data:/data
 
 volumes:
-  friday-mysql-data:
-  friday-redis-data:
-
-networks:
-  default:
+  mysql_data:
+  redis_data:

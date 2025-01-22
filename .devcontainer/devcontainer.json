@@ -1,16 +1,22 @@
 {
     "name": "Friday API Development",
     "dockerComposeFile": [
-        "../docker-compose.yml",
         "docker-compose.extend.yml"
     ],
     "service": "api",
-    "workspaceFolder": "/workspaces/${localWorkspaceFolderBasename}",
+    "workspaceFolder": "/workspaces/friday-api",
     "remoteEnv": {
         "STORAGE_BACKEND": "local",
-        "STORAGE_PATH": "/workspaces/${localWorkspaceFolderBasename}/storage",
+        "STORAGE_PATH": "/workspaces/friday-api/storage",
         "REDIS_HOST": "redis",
-        "DATABASE_URL": "mysql://friday_dev:friday_dev@db:3306/friday_dev"
+        "DATABASE_URL": "mysql://friday_dev:friday_dev@db:3306/friday_dev",
+        "PYTHONPATH": "/workspaces/friday-api",
+        "DATABASE_NAME": "friday_dev",
+        "DATABASE_USERNAME": "friday_dev",
+        "DATABASE_PASSWORD": "friday_dev",
+        "DB_ROOT_PASSWORD": "root_password",
+        "ENVIRONMENT": "development",
+        "LOG_LEVEL": "DEBUG"
     },
     "customizations": {
         "vscode": {
@@ -45,7 +51,7 @@
         "ghcr.io/devcontainers/features/github-cli:1": {}
     },
     "mounts": [
-        "source=${localWorkspaceFolder}/storage,target=/workspaces/${localWorkspaceFolderBasename}/storage,type=bind,consistency=cached"
+        "source=${localWorkspaceFolder}/storage,target=/workspaces/friday-api/storage,type=bind,consistency=cached"
     ],
-    "forwardPorts": [80, 3306, 6379]
+    "forwardPorts": [8000, 3306, 6379]
 }
