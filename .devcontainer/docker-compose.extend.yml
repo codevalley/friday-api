@@ -1,0 +1,27 @@
+version: '3.8'
+
+services:
+  api:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    volumes:
+      - ..:/workspace:cached
+    command: /bin/sh -c "while sleep 1000; do :; done"
+    environment:
+      - REDIS_HOST=redis
+      - MYSQL_HOST=db
+    # Overrides default command so things don't shut down after the process ends.
+    
+  db:
+    ports:
+      - "3306:3306"
+    environment:
+      MYSQL_ROOT_PASSWORD: dev_password
+      MYSQL_DATABASE: friday_dev
+      MYSQL_USER: friday_user
+      MYSQL_PASSWORD: friday_password
+
+  redis:
+    ports:
+      - "6379:6379"
