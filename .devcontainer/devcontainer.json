@@ -5,7 +5,13 @@
         "docker-compose.extend.yml"
     ],
     "service": "api",
-    "workspaceFolder": "/workspace",
+    "workspaceFolder": "/workspaces/${localWorkspaceFolderBasename}",
+    "remoteEnv": {
+        "STORAGE_BACKEND": "local",
+        "STORAGE_PATH": "/workspaces/${localWorkspaceFolderBasename}/storage",
+        "REDIS_HOST": "redis",
+        "DATABASE_URL": "mysql://friday_dev:friday_dev@db:3306/friday_dev"
+    },
     "customizations": {
         "vscode": {
             "extensions": [
@@ -16,7 +22,8 @@
                 "ms-python.mypy-type-checker",
                 "ms-azuretools.vscode-docker",
                 "redhat.vscode-yaml",
-                "streetsidesoftware.code-spell-checker"
+                "streetsidesoftware.code-spell-checker",
+                "eamodio.gitlens"
             ],
             "settings": {
                 "python.defaultInterpreterPath": "/usr/local/bin/python",
@@ -32,10 +39,13 @@
         }
     },
     "postCreateCommand": "pip install pipenv && pipenv install --dev",
-    "remoteUser": "root",
     "features": {
         "ghcr.io/devcontainers/features/docker-in-docker:2": {},
         "ghcr.io/devcontainers/features/git:1": {},
         "ghcr.io/devcontainers/features/github-cli:1": {}
-    }
+    },
+    "mounts": [
+        "source=${localWorkspaceFolder}/storage,target=/workspaces/${localWorkspaceFolderBasename}/storage,type=bind,consistency=cached"
+    ],
+    "forwardPorts": [80, 3306, 6379]
 }

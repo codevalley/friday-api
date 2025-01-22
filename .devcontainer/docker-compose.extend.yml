@@ -6,22 +6,41 @@ services:
       context: ..
       dockerfile: Dockerfile
     volumes:
-      - ..:/workspace:cached
-    command: /bin/sh -c "while sleep 1000; do :; done"
+      - ..:/workspaces/${localWorkspaceFolderBasename}:cached
+      - ~/.gitconfig:/home/vscode/.gitconfig
+    command: sleep infinity
     environment:
-      - REDIS_HOST=redis
-      - MYSQL_HOST=db
-    # Overrides default command so things don't shut down after the process ends.
-    
+      - PYTHONPATH=/workspaces/${localWorkspaceFolderBasename}
+    user: vscode
+    ports:
+      - "8000:8000"  # For FastAPI development server
+    networks:
+      - default
+
   db:
+    environment:
+      MYSQL_ROOT_PASSWORD: root_password
+      MYSQL_DATABASE: friday_dev
+      MYSQL_USER: friday_dev
+      MYSQL_PASSWORD: friday_dev
     ports:
       - "3306:3306"
-    environment:
-      MYSQL_ROOT_PASSWORD: dev_password
-      MYSQL_DATABASE: friday_dev
-      MYSQL_USER: friday_user
-      MYSQL_PASSWORD: friday_password
+    volumes:
+      - friday-mysql-data:/var/lib/mysql
+    networks:
+      - default
 
   redis:
     ports:
       - "6379:6379"
+    volumes:
+      - friday-redis-data:/data
+    networks:
+      - default
+
+volumes:
+  friday-mysql-data:
+  friday-redis-data:
+
+networks:
+  default:
