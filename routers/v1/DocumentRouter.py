@@ -8,6 +8,8 @@ from fastapi import (
     UploadFile,
     Query,
     status,
+    Body,
+    Form,
 )
 from fastapi.responses import StreamingResponse
 from fastapi import HTTPException
@@ -21,14 +23,17 @@ from schemas.pydantic.PaginationSchema import (
     PaginationParams,
 )
 from schemas.pydantic.CommonSchema import (
-    MessageResponse,
     GenericResponse,
+)
+from schemas.pydantic.StorageSchema import (
+    StorageUsageResponse,
 )
 from domain.document import DocumentStatus
 from dependencies import get_current_user
 from orm.UserModel import User
 from utils.error_handlers import handle_exceptions
 from auth.bearer import CustomHTTPBearer
+import json
 
 # Use our custom bearer that returns 401 for invalid tokens
 auth_scheme = CustomHTTPBearer()
@@ -36,18 +41,29 @@ auth_scheme = CustomHTTPBearer()
 router = APIRouter(
     prefix="/docs",
     tags=["documents"],
-    dependencies=[Depends(auth_scheme)],
 )
 
+# Protected endpoints
+protected_router = APIRouter()
 
-@router.post(
+
+@protected_router.post(
     "/upload",
     response_model=GenericResponse[DocumentResponse],
+    dependencies=[Depends(auth_scheme)],
     status_code=status.HTTP_201_CREATED,
 )
 @handle_exceptions
 async def upload_document(
-    document: DocumentCreate,
+    name: str = Form(...),
+    mime_type: str = Form(...),
+    metadata: Optional[str] = Form(None),
+    is_public: str = Form(
+        "false"
+    ),  # Form values come as strings
+    unique_name: Optional[str] = Form(
+        ""
+    ),  # Empty string for None
     file: UploadFile = File(...),
     service: DocumentService = Depends(),
     current_user: User = Depends(get_current_user),
@@ -58,14 +74,34 @@ async def upload_document(
     The file will be stored and a document record will be created with
     its metadata.
     """
-    # TODO: Implement file storage service integration
-    storage_url = f"local://documents/{file.filename}"
+    # Convert metadata string to dict if provided
+    metadata_dict = (
+        json.loads(metadata)
+        if metadata and metadata.strip()
+        else None
+    )
 
-    result = service.create_document(
+    # Convert form values to appropriate types
+    is_public_bool = is_public.lower() == "true"
+    unique_name_clean = (
+        unique_name
+        if unique_name and unique_name.strip()
+        else None
+    )
+
+    # Create document data
+    document = DocumentCreate(
+        name=name,
+        mime_type=mime_type,
+        metadata=metadata_dict,
+        is_public=is_public_bool,
+        unique_name=unique_name_clean,
+    )
+
+    result = await service.create_document(
         document=document,
         user_id=current_user.id,
         file=file,
-        storage_url=storage_url,
     )
     return GenericResponse(
         data=result,
@@ -73,9 +109,10 @@ async def upload_document(
     )
 
 
-@router.get(
+@protected_router.get(
     "",
     response_model=GenericResponse[List[DocumentResponse]],
+    dependencies=[Depends(auth_scheme)],
 )
 @handle_exceptions
 async def list_documents(
@@ -92,22 +129,48 @@ async def list_documents(
         status: Filter by document status
         mime_type: Filter by MIME type
     """
-    documents = service.get_user_documents(
+    # Convert page and size to skip and limit
+    skip = (pagination.page - 1) * pagination.size
+    limit = pagination.size
+
+    documents = await service.get_user_documents(
         user_id=current_user.id,
-        skip=pagination.skip,
-        limit=pagination.limit,
+        skip=skip,
+        limit=limit,
         status=status,
         mime_type=mime_type,
     )
+
     return GenericResponse(
         data=documents,
         message="Documents retrieved successfully",
     )
 
 
-@router.get(
+@protected_router.get(
+    "/storage-usage",
+    response_model=GenericResponse[StorageUsageResponse],
+    dependencies=[Depends(auth_scheme)],
+)
+@handle_exceptions
+async def get_storage_usage(
+    service: DocumentService = Depends(),
+    current_user: User = Depends(get_current_user),
+) -> GenericResponse[StorageUsageResponse]:
+    """Get total storage usage for the current user."""
+    total_bytes = await service.get_user_storage_usage(
+        user_id=current_user.id,
+    )
+    return GenericResponse(
+        data=StorageUsageResponse(usage_bytes=total_bytes),
+        message="Storage usage retrieved successfully",
+    )
+
+
+@protected_router.get(
     "/{document_id}",
     response_model=GenericResponse[DocumentResponse],
+    dependencies=[Depends(auth_scheme)],
 )
 @handle_exceptions
 async def get_document(
@@ -116,7 +179,7 @@ async def get_document(
     current_user: User = Depends(get_current_user),
 ) -> GenericResponse[DocumentResponse]:
     """Get a specific document by ID."""
-    document = service.get_document(
+    document = await service.get_document(
         document_id=document_id,
         user_id=current_user.id,
     )
@@ -126,9 +189,10 @@ async def get_document(
     )
 
 
-@router.patch(
+@protected_router.patch(
     "/{document_id}",
     response_model=GenericResponse[DocumentResponse],
+    dependencies=[Depends(auth_scheme)],
 )
 @handle_exceptions
 async def update_document(
@@ -138,78 +202,68 @@ async def update_document(
     current_user: User = Depends(get_current_user),
 ) -> GenericResponse[DocumentResponse]:
     """Update a document's metadata."""
-    result = service.update_document(
+    updated_doc = await service.update_document(
         document_id=document_id,
         user_id=current_user.id,
         update_data=document,
     )
     return GenericResponse(
-        data=result,
+        data=updated_doc,
         message="Document updated successfully",
     )
 
 
-@router.patch(
+@protected_router.patch(
     "/{document_id}/status",
     response_model=GenericResponse[DocumentResponse],
+    dependencies=[Depends(auth_scheme)],
 )
 @handle_exceptions
 async def update_document_status(
     document_id: int,
-    status: DocumentStatus,
+    status_update: dict = Body(...),
     service: DocumentService = Depends(),
     current_user: User = Depends(get_current_user),
 ) -> GenericResponse[DocumentResponse]:
     """Update a document's status."""
-    result = service.update_document_status(
+    try:
+        new_status = DocumentStatus(status_update["status"])
+    except (KeyError, ValueError):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid status value ",
+        )
+
+    updated_doc = await service.update_document_status(
         document_id=document_id,
         user_id=current_user.id,
-        new_status=status,
+        new_status=new_status,
     )
     return GenericResponse(
-        data=result,
+        data=updated_doc,
         message="Document status updated successfully",
     )
 
 
-@router.delete(
+@protected_router.delete(
     "/{document_id}",
-    response_model=MessageResponse,
-    status_code=status.HTTP_200_OK,
+    status_code=status.HTTP_204_NO_CONTENT,
+    dependencies=[Depends(auth_scheme)],
 )
 @handle_exceptions
 async def delete_document(
     document_id: int,
     service: DocumentService = Depends(),
     current_user: User = Depends(get_current_user),
-) -> MessageResponse:
+) -> None:
     """Delete a document."""
-    service.delete_document(
+    await service.delete_document(
         document_id=document_id,
         user_id=current_user.id,
     )
-    return MessageResponse(
-        message="Document deleted successfully"
-    )
 
 
-@router.get(
-    "/storage/usage",
-    response_model=GenericResponse[int],
-)
-@handle_exceptions
-async def get_storage_usage(
-    service: DocumentService = Depends(),
-    current_user: User = Depends(get_current_user),
-) -> GenericResponse[int]:
-    """Get total storage usage for the current user."""
-    usage = service.get_user_storage_usage(current_user.id)
-    return GenericResponse(
-        data=usage,
-        message="Storage usage retrieved successfully",
-    )
-
-
+# Public endpoints
 @router.get(
     "/public/{document_id}",
     response_model=GenericResponse[DocumentResponse],
@@ -220,14 +274,10 @@ async def get_public_document(
     service: DocumentService = Depends(),
 ) -> GenericResponse[DocumentResponse]:
     """Get a public document by ID."""
-    document = service.get_public_document(
+    document = await service.get_public_document(
         document_id=document_id,
     )
-    if document is None:
-        raise HTTPException(
-            status_code=404, detail="Document not found"
-        )
-    return GenericResponse(
+    return GenericResponse[DocumentResponse](
         data=document,
         message="Public document retrieved successfully",
     )
@@ -235,7 +285,6 @@ async def get_public_document(
 
 @router.get(
     "/public/{document_id}/download",
-    response_class=StreamingResponse,
 )
 @handle_exceptions
 async def download_public_document(
@@ -243,18 +292,20 @@ async def download_public_document(
     service: DocumentService = Depends(),
 ) -> StreamingResponse:
     """Download a public document."""
-    document = service.get_public_document(
+    (
+        document,
+        content,
+    ) = await service.get_public_document_content(
         document_id=document_id,
     )
-    if document is None:
-        raise HTTPException(
-            status_code=404, detail="Document not found"
-        )
-    content = service.get_document_content(document_id)
     return StreamingResponse(
         content,
         media_type=document.mime_type,
         headers={
-            "Content-Disposition": f'attachment; filename="{document.name}"'
+            "Content-Disposition": f"attachment; filename={document.name}",
         },
     )
+
+
+# Include protected routes
+router.include_router(protected_router, prefix="/protected")

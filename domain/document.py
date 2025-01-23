@@ -44,10 +44,10 @@ class DocumentData:
 
     Attributes:
         name: Original name of the document
-        storage_url: URL where the document is stored
         mime_type: MIME type of the document
-        size_bytes: Size of the document in bytes
         user_id: ID of the user who owns this document
+        storage_url: URL where the document is stored (set after upload)
+        size_bytes: Size of the document in bytes (set after upload)
         status: Current status of the document
         metadata: Additional metadata about the document (optional)
         id: Unique identifier for this document (optional)
@@ -58,10 +58,10 @@ class DocumentData:
     """
 
     name: str
-    storage_url: str
     mime_type: str
-    size_bytes: int
     user_id: str
+    storage_url: Optional[str] = field(default=None)
+    size_bytes: Optional[int] = field(default=None)
     status: DocumentStatus = field(
         default=DocumentStatus.PENDING
     )
@@ -98,24 +98,30 @@ class DocumentData:
                 "name cannot be empty"
             )
 
-        if not self.storage_url:
-            raise DocumentValidationError(
-                "storage_url cannot be empty"
-            )
-
         if not self.mime_type:
             raise DocumentValidationError(
-                "mime_type is required"
-            )
-
-        if self.size_bytes < 0:
-            raise DocumentValidationError(
-                "size_bytes must be positive"
+                "mime_type cannot be empty"
             )
 
         if require_user_id and not self.user_id:
             raise DocumentValidationError(
-                "user_id is required"
+                "user_id cannot be empty"
+            )
+
+        if (
+            self.storage_url is not None
+            and not self.storage_url
+        ):
+            raise DocumentValidationError(
+                "storage_url cannot be empty"
+            )
+
+        if (
+            self.size_bytes is not None
+            and self.size_bytes < 0
+        ):
+            raise DocumentValidationError(
+                "size_bytes must be positive"
             )
 
         if not isinstance(self.status, DocumentStatus):
@@ -215,9 +221,9 @@ class DocumentData:
         return cls(
             id=data.get("id"),
             name=data["name"],
-            storage_url=data["storage_url"],
+            storage_url=data.get("storage_url"),
             mime_type=data["mime_type"],
-            size_bytes=data["size_bytes"],
+            size_bytes=data.get("size_bytes"),
             user_id=user_id,
             status=status,
             metadata=data.get("metadata"),

@@ -51,9 +51,13 @@ class Document(EntityMeta):
 
     # Basic document metadata
     name = Column(String(255), nullable=False)
-    storage_url = Column(String(2048), nullable=False)
+    storage_url = Column(
+        String(2048), nullable=True
+    )  # Allow null during creation
     mime_type = Column(String(255), nullable=False)
-    size_bytes = Column(BigInteger, nullable=False)
+    size_bytes = Column(
+        BigInteger, nullable=True
+    )  # Allow null during creation
 
     # Document status
     status = Column(

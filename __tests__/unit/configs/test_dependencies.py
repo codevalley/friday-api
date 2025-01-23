@@ -25,8 +25,7 @@ def mock_user():
     return user
 
 
-@pytest.mark.asyncio
-async def test_get_current_user_valid(
+def test_get_current_user_valid(
     mock_credentials, mock_user, mock_db
 ):
     """Test getting current user with valid token."""
@@ -39,7 +38,7 @@ async def test_get_current_user_valid(
                 mock_user
             )
 
-            user = await get_current_user(
+            user = get_current_user(
                 mock_credentials, mock_db
             )
 
@@ -52,8 +51,7 @@ async def test_get_current_user_valid(
             )
 
 
-@pytest.mark.asyncio
-async def test_get_current_user_invalid_token(
+def test_get_current_user_invalid_token(
     mock_credentials, mock_db
 ):
     """Test getting current user with invalid token."""
@@ -61,16 +59,13 @@ async def test_get_current_user_invalid_token(
         mock_verify.return_value = None
 
         with pytest.raises(HTTPException) as exc:
-            await get_current_user(
-                mock_credentials, mock_db
-            )
+            get_current_user(mock_credentials, mock_db)
 
         assert exc.value.status_code == 401
         assert "Invalid token" in str(exc.value.detail)
 
 
-@pytest.mark.asyncio
-async def test_get_current_user_user_not_found(
+def test_get_current_user_user_not_found(
     mock_credentials, mock_db
 ):
     """Test getting current user when user not found in DB."""
@@ -84,16 +79,13 @@ async def test_get_current_user_user_not_found(
             )
 
             with pytest.raises(HTTPException) as exc:
-                await get_current_user(
-                    mock_credentials, mock_db
-                )
+                get_current_user(mock_credentials, mock_db)
 
             assert exc.value.status_code == 401
             assert "User not found" in str(exc.value.detail)
 
 
-@pytest.mark.asyncio
-async def test_get_optional_user_valid(
+def test_get_optional_user_valid(
     mock_credentials, mock_user, mock_db
 ):
     """Test getting optional user with valid token."""
@@ -106,37 +98,39 @@ async def test_get_optional_user_valid(
                 mock_user
             )
 
-            user = await get_optional_user(
+            user = get_optional_user(
                 mock_db, mock_credentials
             )
 
             assert user == mock_user
+            mock_verify.assert_called_once_with(
+                "valid_token"
+            )
+            mock_repo.return_value.get_by_id.assert_called_once_with(
+                "test_user_id"
+            )
 
 
-@pytest.mark.asyncio
-async def test_get_optional_user_no_credentials(mock_db):
+def test_get_optional_user_no_credentials(mock_db):
     """Test getting optional user with no credentials."""
-    user = await get_optional_user(mock_db, None)
+    user = get_optional_user(mock_db, None)
     assert user is None
 
 
-@pytest.mark.asyncio
-async def test_get_optional_user_invalid_token(
+def test_get_optional_user_invalid_token(
     mock_credentials, mock_db
 ):
     """Test getting optional user with invalid token."""
     with patch("dependencies.verify_token") as mock_verify:
         mock_verify.return_value = None
 
-        user = await get_optional_user(
-            mock_db, mock_credentials
-        )
+        user = get_optional_user(mock_db, mock_credentials)
 
         assert user is None
+        mock_verify.assert_called_once_with("valid_token")
 
 
-@pytest.mark.asyncio
-async def test_get_current_user_verify_token_error(
+def test_get_current_user_verify_token_error(
     mock_credentials, mock_db
 ):
     """Test getting current user when token verification fails."""
@@ -146,9 +140,7 @@ async def test_get_current_user_verify_token_error(
         )
 
         with pytest.raises(HTTPException) as exc:
-            await get_current_user(
-                mock_credentials, mock_db
-            )
+            get_current_user(mock_credentials, mock_db)
 
         assert exc.value.status_code == 401
         assert "Token verification failed" in str(
@@ -156,8 +148,7 @@ async def test_get_current_user_verify_token_error(
         )
 
 
-@pytest.mark.asyncio
-async def test_get_optional_user_verify_token_error(
+def test_get_optional_user_verify_token_error(
     mock_credentials, mock_db
 ):
     """Test getting optional user when token verification fails."""
@@ -166,14 +157,12 @@ async def test_get_optional_user_verify_token_error(
             "Token verification failed"
         )
 
-        user = await get_optional_user(
-            mock_db, mock_credentials
-        )
+        user = get_optional_user(mock_db, mock_credentials)
+
         assert user is None
 
 
-@pytest.mark.asyncio
-async def test_get_optional_user_db_error(
+def test_get_optional_user_db_error(
     mock_credentials, mock_db
 ):
     """Test getting optional user when database query fails."""
@@ -186,7 +175,8 @@ async def test_get_optional_user_db_error(
                 Exception("DB error")
             )
 
-            user = await get_optional_user(
+            user = get_optional_user(
                 mock_db, mock_credentials
             )
+
             assert user is None

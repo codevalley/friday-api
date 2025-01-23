@@ -17,7 +17,7 @@ from domain.ports.QueueService import QueueService
 from fastapi.security import HTTPAuthorizationCredentials
 
 
-async def get_current_user(
+def get_current_user(
     credentials: HTTPAuthorizationCredentials = Depends(
         security
     ),
@@ -53,13 +53,13 @@ async def get_current_user(
         )
 
 
-async def get_optional_user(
+def get_optional_user(
     db: Session = Depends(get_db_connection),
     credentials: Optional[
         HTTPAuthorizationCredentials
     ] = Depends(security),
 ) -> Optional[User]:
-    """Get the current user if authenticated, otherwise return None"""
+    """Get the current user if authenticated, otherwise return None."""
     try:
         if not credentials:
             return None

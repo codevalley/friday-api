@@ -1,26 +1,28 @@
 """Test configuration and fixtures."""
 
-import asyncio
-import sys
-import uuid
-import warnings
+# Third-party imports
 import pytest
-import fakeredis
+from sqlalchemy import create_engine, text, inspect
+from sqlalchemy.orm import sessionmaker, Session
+from moto import mock_aws
+from fastapi.testclient import TestClient
+from fakeredis import FakeStrictRedis
+import boto3
 
 # Standard library imports
 from datetime import datetime, timezone
 from typing import Generator
 from unittest.mock import Mock
-
-# Third-party imports
-from fastapi.testclient import TestClient
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker, Session
-from moto import mock_aws
-import boto3
+import asyncio
+import sys
+import uuid
+import warnings
+import os
 
 # Local imports
-from configs.Database import get_db_connection
+from configs.Database import (
+    get_db_connection,
+)
 from configs.Environment import get_environment_variables
 from configs.Logging import configure_logging
 from main import app
@@ -29,8 +31,10 @@ from orm.BaseModel import Base
 from orm.MomentModel import Moment
 from orm.NoteModel import Note
 from orm.UserModel import User
+from orm.DocumentModel import Document
 from repositories.NoteRepository import NoteRepository
 from services.NoteService import NoteService
+from services.DocumentService import DocumentService
 from utils.security import hash_user_secret
 from domain.robo import RoboProcessingResult
 from domain.storage import IStorageService, StoredFile
@@ -38,14 +42,16 @@ from infrastructure.storage import (
     LocalStorageService,
     S3StorageService,
 )
-from orm.DocumentModel import Document
-from services.DocumentService import DocumentService
+from services.ActivityService import ActivityService
+from repositories.ActivityRepository import (
+    ActivityRepository,
+)
+from services.OpenAIService import OpenAIService
+from configs.RoboConfig import get_robo_settings
+
 
 # Set test environment before any imports
-import os
-
 os.environ["ENV"] = "test"
-
 
 # Add project root to Python path
 project_root = os.path.dirname(
@@ -83,7 +89,7 @@ print("================================\n")
 @pytest.fixture(scope="session")
 def redis_connection():
     """Create a fake Redis connection for testing."""
-    return fakeredis.FakeStrictRedis()
+    return FakeStrictRedis()
 
 
 @pytest.fixture(scope="function")
@@ -91,27 +97,57 @@ def test_db_engine():
     """Create a test database engine."""
     engine = create_engine(TEST_SQLALCHEMY_DATABASE_URL)
 
-    # Drop tables in correct order (reverse dependency order)
-    for table in reversed(Base.metadata.sorted_tables):
-        try:
-            table.drop(engine, checkfirst=True)
-        except Exception as e:
-            print(
-                f"Warning: Could not drop table {table}: {e}"
-            )
+    # Drop all tables with foreign key checks disabled
+    inspector = inspect(engine)
+    with engine.begin() as connection:
+        # Drop all foreign key constraints first
+        for table_name in inspector.get_table_names():
+            for fk in inspector.get_foreign_keys(
+                table_name
+            ):
+                connection.execute(
+                    text(
+                        f"ALTER TABLE {table_name}"
+                        f' DROP FOREIGN KEY {fk["name"]};'
+                    )
+                )
+
+        # Now drop all tables
+        for table in reversed(Base.metadata.sorted_tables):
+            try:
+                table.drop(bind=connection, checkfirst=True)
+            except Exception as e:
+                print(
+                    f"Warning: Could not drop table {table}: {e}"
+                )
 
     # Create all tables
     Base.metadata.create_all(bind=engine)
     yield engine
 
-    # Drop tables in correct order again during cleanup
-    for table in reversed(Base.metadata.sorted_tables):
-        try:
-            table.drop(engine, checkfirst=True)
-        except Exception as e:
-            print(
-                f"Warning: Could not drop table {table}: {e}"
-            )
+    # Cleanup: Drop all tables again
+    inspector = inspect(engine)
+    with engine.begin() as connection:
+        # Drop all foreign key constraints first
+        for table_name in inspector.get_table_names():
+            for fk in inspector.get_foreign_keys(
+                table_name
+            ):
+                connection.execute(
+                    text(
+                        f"ALTER TABLE {table_name}"
+                        f' DROP FOREIGN KEY {fk["name"]};'
+                    )
+                )
+
+        # Now drop all tables
+        for table in reversed(Base.metadata.sorted_tables):
+            try:
+                table.drop(bind=connection, checkfirst=True)
+            except Exception as e:
+                print(
+                    f"Warning: Could not drop table {table}: {e}"
+                )
 
 
 @pytest.fixture(scope="function")
@@ -123,6 +159,20 @@ def test_db_session(test_db_engine):
         bind=test_db_engine,
     )
     session = TestingSessionLocal()
+
+    # Clear all tables before each test
+    with test_db_engine.begin() as connection:
+        connection.execute(
+            text("SET FOREIGN_KEY_CHECKS = 0;")
+        )
+        for table in Base.metadata.sorted_tables:
+            connection.execute(
+                text(f"TRUNCATE TABLE {table.name};")
+            )
+        connection.execute(
+            text("SET FOREIGN_KEY_CHECKS = 1;")
+        )
+
     try:
         yield session
     finally:
@@ -301,9 +351,6 @@ def robo_service(request):
     use @pytest.mark.integration to get a real service.
     """
     if request.node.get_closest_marker("integration"):
-        from services.OpenAIService import OpenAIService
-        from configs.RoboConfig import get_robo_settings
-
         config = get_robo_settings()
         return OpenAIService(config)
     else:
@@ -340,11 +387,6 @@ def fastapi_app():
 @pytest.fixture(scope="function")
 def activity_service(test_db_session, queue_service):
     """Create an activity service instance for testing."""
-    from services.ActivityService import ActivityService
-    from repositories.ActivityRepository import (
-        ActivityRepository,
-    )
-
     repository = ActivityRepository(test_db_session)
     return ActivityService(repository, queue_service)
 

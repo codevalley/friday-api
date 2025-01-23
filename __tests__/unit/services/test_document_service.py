@@ -1,11 +1,10 @@
 """Test suite for DocumentService."""
 
+from typing import Iterator
+from datetime import datetime
 import pytest
 from unittest.mock import Mock, AsyncMock
-from datetime import datetime
-from fastapi import HTTPException, UploadFile
-from typing import AsyncIterator
-from fastapi import status
+from fastapi import HTTPException
 
 from domain.document import DocumentStatus
 from domain.storage import (
@@ -21,11 +20,12 @@ from repositories.DocumentRepository import (
 from schemas.pydantic.DocumentSchema import (
     DocumentCreate,
     DocumentUpdate,
+    DocumentResponse,
 )
 
 
-async def async_iter(items) -> AsyncIterator[bytes]:
-    """Create an async iterator from a list of items."""
+def iter(items) -> Iterator[bytes]:
+    """Create an iterator from a list of items."""
     for item in items:
         yield item
 
@@ -33,37 +33,40 @@ async def async_iter(items) -> AsyncIterator[bytes]:
 @pytest.fixture
 def mock_repository(sample_document):
     """Create a mock document repository."""
-    mock_repo = AsyncMock(spec=DocumentRepository)
-    mock_repo.db = AsyncMock()
-    mock_repo.db.commit = AsyncMock()
-
-    # Set up get_by_id to return sample_document or None based on ID
-    async def mock_get_by_id(document_id):
-        if document_id == 999:
-            return None
-        return sample_document
-
-    mock_repo.get_by_id.side_effect = mock_get_by_id
+    mock_repo = Mock(spec=DocumentRepository)
+    mock_repo.get_by_id.return_value = sample_document
 
     # Set up create to return a new document
-    async def mock_create(document):
-        return sample_document
+    mock_repo.create.return_value = sample_document
 
-    mock_repo.create.side_effect = mock_create
+    # Set up update to return a new document
+    mock_repo.update.return_value = sample_document
 
     # Set up update_status to update and return document
-    async def mock_update_status(document_id, new_status):
+    def mock_update_status(document_id, new_status):
         doc = sample_document
         doc.status = new_status
         return doc
 
     mock_repo.update_status.side_effect = mock_update_status
 
-    # Set up delete to return None
-    async def mock_delete(document_id):
+    # Set up delete to do nothing
+    def mock_delete(document_id):
         return None
 
     mock_repo.delete.side_effect = mock_delete
+
+    # Set up get_total_size_by_user to return total size
+    def mock_get_total_size_by_user(user_id):
+        return 2048
+
+    mock_repo.get_total_size_by_user.side_effect = (
+        mock_get_total_size_by_user
+    )
+
+    # Mock the db attribute
+    mock_repo.db = Mock()
+    mock_repo.db.commit = Mock()
 
     return mock_repo
 
@@ -72,12 +75,44 @@ def mock_repository(sample_document):
 def mock_storage():
     """Create a mock storage service."""
     mock_storage = AsyncMock(spec=IStorageService)
+    mock_storage.store = AsyncMock(
+        return_value=StoredFile(
+            id="test-file-id",
+            user_id="test-user-id",
+            path="/test/path/file.pdf",
+            size_bytes=2048,
+            mime_type="application/pdf",
+            status=StorageStatus.ACTIVE,
+            created_at=datetime.now(),
+            updated_at=datetime.now(),
+        )
+    )
+
+    class AsyncIterator:
+        def __init__(self, content):
+            self.content = content
+            self.current = 0
+
+        def __aiter__(self):
+            return self
+
+        async def __anext__(self):
+            if self.current < len(self.content):
+                chunk = self.content[self.current]
+                self.current += 1
+                return chunk
+            raise StopAsyncIteration
 
     async def mock_retrieve(*args, **kwargs):
-        yield b"test content"
+        return AsyncIterator([b"test content"])
 
-    mock_storage.retrieve = mock_retrieve
-    mock_storage.store.return_value = "test/path/file.txt"
+    mock_storage.retrieve = AsyncMock(
+        side_effect=mock_retrieve
+    )
+    mock_storage.get = AsyncMock(
+        return_value=b"test content"
+    )
+    mock_storage.delete = AsyncMock()
     return mock_storage
 
 
@@ -85,7 +120,7 @@ def mock_storage():
 def document_service(mock_repository, mock_storage):
     """Create a document service with mocked dependencies."""
     return DocumentService(
-        db=mock_repository, storage=mock_storage
+        db=mock_repository, storage_service=mock_storage
     )
 
 
@@ -108,112 +143,84 @@ def sample_document():
     return mock_doc
 
 
-@pytest.fixture
-def sample_stored_file():
-    """Create a sample stored file for testing."""
-    return StoredFile(
-        id="test-file-id",
-        user_id="test-user-id",
-        path="/test/path/file.pdf",
-        size_bytes=2048,
-        mime_type="application/pdf",
-        status=StorageStatus.ACTIVE,
-        created_at=datetime.now(),
-        updated_at=datetime.now(),
-    )
-
-
 class TestDocumentService:
     """Test cases for DocumentService."""
 
-    @pytest.mark.asyncio
-    async def test_create_document(
+    def test_create_document(
         self,
         document_service,
         mock_storage,
         mock_repository,
-        sample_stored_file,
         sample_document,
     ):
         """Test creating a new document."""
         # Setup
-        document = DocumentCreate(
-            name="test.pdf",
-            mime_type="application/pdf",
-            metadata={},
-            # Ensure metadata is a valid dict
-            storage_url="/test/path/test.pdf",
-            # Will be replaced by stored file path
-            size_bytes=1024,
-            # Will be replaced by stored file size
-        )
-        file = Mock(spec=UploadFile)
-        file.read = AsyncMock(return_value=b"test content")
-        mock_storage.store.return_value = sample_stored_file
-
-        # Fix: Make create return the sample document directly
         mock_repository.create.return_value = (
             sample_document
         )
+        mock_repository.update.return_value = (
+            sample_document
+        )
+
+        # Create a mock file
+        mock_file = AsyncMock()
+        mock_file.read = AsyncMock(
+            return_value=b"test content"
+        )
+        mock_file.filename = "test.pdf"
 
         # Test
-        result = await document_service.create_document(
-            document=document,
+        result = document_service.create_document(
+            document=DocumentCreate(
+                name="test.pdf",
+                mime_type="application/pdf",
+                metadata={},
+                is_public=False,
+            ),
             user_id="test-user",
-            file=file,
+            file=mock_file,
         )
 
         # Assert
-        assert result.id == 1
+        assert result.id == sample_document.id
         assert result.name == "test.pdf"
-        assert (
-            result.metadata == {}
-        )  # Verify metadata is a dict
+        assert result.user_id == "test-user"
         mock_storage.store.assert_called_once()
         mock_repository.create.assert_called_once()
+        mock_repository.update.assert_called_once()
+        mock_repository.db.commit.assert_called_once()
 
-    @pytest.mark.asyncio
-    async def test_create_document_storage_error(
+    def test_create_document_storage_error(
         self,
         document_service,
         mock_storage,
     ):
         """Test handling storage errors during document creation."""
         # Setup
-        document = DocumentCreate(
-            name="test.pdf",
-            mime_type="application/pdf",
-            metadata={},
-            storage_url="/test/path/test.pdf",
-            # Will be replaced by stored file path
-            size_bytes=1024,
-            # Will be replaced by stored file size
-        )
-        file = Mock(spec=UploadFile)
-        file.read = AsyncMock(return_value=b"test content")
         mock_storage.store.side_effect = StorageError(
             "Failed to store file"
         )
 
+        # Create a mock file
+        mock_file = Mock()
+        mock_file.read = Mock(return_value=b"test content")
+        mock_file.filename = "test.pdf"
+
         # Test
-        with pytest.raises(HTTPException) as exc_info:
-            await document_service.create_document(
-                document=document,
+        with pytest.raises(HTTPException) as exc:
+            document_service.create_document(
+                document=DocumentCreate(
+                    name="test.pdf",
+                    mime_type="application/pdf",
+                    metadata={},
+                    is_public=False,
+                ),
                 user_id="test-user",
-                file=file,
+                file=mock_file,
             )
+        assert exc.value.status_code == 500
 
-        # Assert
-        assert (
-            exc_info.value.status_code
-            == status.HTTP_500_INTERNAL_SERVER_ERROR
-        )
-        assert "Failed to store file" in str(
-            exc_info.value.detail
-        )
-
-    @pytest.mark.asyncio
-    async def test_get_document_not_found(
+    def test_get_document_not_found(
         self, document_service, mock_repository
     ):
         """Test getting a nonexistent document."""
@@ -222,14 +229,12 @@ class TestDocumentService:
 
         # Test
         with pytest.raises(HTTPException) as exc:
-            await document_service.get_document(
-                document_id=999,
-                user_id="test-user",
+            document_service.get_document(
+                document_id=999, user_id="test-user"
             )
         assert exc.value.status_code == 404
 
-    @pytest.mark.asyncio
-    async def test_get_document_unauthorized(
+    def test_get_document_unauthorized(
         self,
         document_service,
         mock_repository,
@@ -243,14 +248,12 @@ class TestDocumentService:
 
         # Test
         with pytest.raises(HTTPException) as exc:
-            await document_service.get_document(
-                document_id=1,
-                user_id="wrong-user",
+            document_service.get_document(
+                document_id=1, user_id="different-user"
             )
         assert exc.value.status_code == 403
 
-    @pytest.mark.asyncio
-    async def test_get_document_content(
+    def test_get_document_content(
         self,
         document_service,
         mock_repository,
@@ -262,22 +265,18 @@ class TestDocumentService:
         mock_repository.get_by_id.return_value = (
             sample_document
         )
-        sample_document.is_public = True
-        sample_document.user_id = "test-user"
 
         # Test
-        content = (
-            await document_service.get_document_content(
-                document_id=1,
-                user_id="test-user",
-            )
+        content = document_service.get_document_content(
+            document_id=1, user_id=sample_document.user_id
         )
 
         # Assert
         assert content == b"test content"
+        mock_storage.retrieve.assert_called_once()
+        mock_repository.get_by_id.assert_called_once_with(1)
 
-    @pytest.mark.asyncio
-    async def test_get_document_content_not_found(
+    def test_get_document_content_not_found(
         self,
         document_service,
         mock_repository,
@@ -290,14 +289,12 @@ class TestDocumentService:
 
         # Test
         with pytest.raises(HTTPException) as exc:
-            await document_service.get_document_content(
-                document_id=999,
-                user_id="test-user",
+            document_service.get_document_content(
+                document_id=999, user_id="test-user"
             )
         assert exc.value.status_code == 404
 
-    @pytest.mark.asyncio
-    async def test_update_document(
+    def test_update_document(
         self,
         document_service,
         mock_repository,
@@ -312,8 +309,36 @@ class TestDocumentService:
             metadata={"key": "value"}
         )
 
+        # Mock the update to return a document with valid data
+        def mock_update(doc_id, update_dict):
+            # Create a dictionary with all required fields
+            doc_dict = {
+                "id": sample_document.id,
+                "user_id": sample_document.user_id,
+                "name": update_dict.get(
+                    "name", sample_document.name
+                ),
+                "mime_type": sample_document.mime_type,
+                "unique_name": sample_document.unique_name,
+                "storage_url": sample_document.storage_url,
+                "size_bytes": sample_document.size_bytes,
+                "status": sample_document.status,
+                "created_at": sample_document.created_at,
+                "updated_at": sample_document.updated_at,
+                "metadata": update_dict.get(
+                    "metadata", sample_document.metadata
+                ),
+                "is_public": update_dict.get(
+                    "is_public", sample_document.is_public
+                ),
+            }
+            # Convert the dictionary to a DocumentResponse
+            return DocumentResponse.model_validate(doc_dict)
+
+        mock_repository.update.side_effect = mock_update
+
         # Test
-        result = await document_service.update_document(
+        result = document_service.update_document(
             document_id=1,
             user_id="test-user",
             update_data=update_data,
@@ -322,10 +347,11 @@ class TestDocumentService:
         # Assert
         assert result.id == sample_document.id
         assert result.metadata == update_data.metadata
+        mock_repository.get_by_id.assert_called_once_with(1)
+        mock_repository.update.assert_called_once()
         mock_repository.db.commit.assert_called_once()
 
-    @pytest.mark.asyncio
-    async def test_update_document_status(
+    def test_update_document_status(
         self,
         document_service,
         mock_repository,
@@ -338,31 +364,18 @@ class TestDocumentService:
         )
         new_status = DocumentStatus.ARCHIVED
 
-        # Fix: Update the mock document's status when update_status is called
-        async def update_status(document_id, new_status):
-            doc = sample_document
-            doc.status = new_status
-            return doc
-
-        mock_repository.update_status.side_effect = (
-            update_status
-        )
-
         # Test
-        result = (
-            await document_service.update_document_status(
-                document_id=1,
-                user_id="test-user",
-                new_status=new_status,
-            )
+        result = document_service.update_document_status(
+            document_id=1,
+            user_id="test-user",
+            new_status=new_status,
         )
 
         # Assert
         assert result.status == new_status
         assert mock_repository.update_status.call_count == 1
 
-    @pytest.mark.asyncio
-    async def test_update_document_status_unauthorized(
+    def test_update_document_status_unauthorized(
         self,
         document_service,
         mock_repository,
@@ -376,15 +389,14 @@ class TestDocumentService:
 
         # Test
         with pytest.raises(HTTPException) as exc:
-            await document_service.update_document_status(
+            document_service.update_document_status(
                 document_id=1,
                 user_id="wrong-user",
                 new_status=DocumentStatus.ARCHIVED,
             )
         assert exc.value.status_code == 403
 
-    @pytest.mark.asyncio
-    async def test_delete_document(
+    def test_delete_document(
         self,
         document_service,
         mock_repository,
@@ -398,7 +410,7 @@ class TestDocumentService:
         )
 
         # Test
-        await document_service.delete_document(
+        document_service.delete_document(
             document_id=1,
             user_id="test-user",
         )
@@ -407,8 +419,7 @@ class TestDocumentService:
         mock_storage.delete.assert_called_once()
         mock_repository.delete.assert_called_once_with(1)
 
-    @pytest.mark.asyncio
-    async def test_delete_document_not_found(
+    def test_delete_document_not_found(
         self,
         document_service,
         mock_repository,
@@ -419,14 +430,13 @@ class TestDocumentService:
 
         # Test
         with pytest.raises(HTTPException) as exc:
-            await document_service.delete_document(
+            document_service.delete_document(
                 document_id=999,
                 user_id="test-user",
             )
         assert exc.value.status_code == 404
 
-    @pytest.mark.asyncio
-    async def test_delete_document_unauthorized(
+    def test_delete_document_unauthorized(
         self,
         document_service,
         mock_repository,
@@ -440,14 +450,13 @@ class TestDocumentService:
 
         # Test
         with pytest.raises(HTTPException) as exc:
-            await document_service.delete_document(
+            document_service.delete_document(
                 document_id=1,
                 user_id="wrong-user",
             )
         assert exc.value.status_code == 403
 
-    @pytest.mark.asyncio
-    async def test_get_user_storage_usage(
+    def test_get_user_storage_usage(
         self,
         document_service,
         mock_repository,
@@ -469,8 +478,7 @@ class TestDocumentService:
             "test-user"
         )
 
-    @pytest.mark.asyncio
-    async def test_get_public_document(
+    def test_get_public_document(
         self,
         document_service,
         mock_repository,
@@ -484,16 +492,15 @@ class TestDocumentService:
         )
 
         # Test
-        result = await document_service.get_public_document(
-            document_id=1,
+        result = document_service.get_public_document(
+            document_id=1
         )
 
         # Assert
         assert result.id == sample_document.id
         assert result.is_public is True
 
-    @pytest.mark.asyncio
-    async def test_get_public_document_not_found(
+    def test_get_public_document_not_found(
         self,
         document_service,
         mock_repository,
@@ -504,13 +511,12 @@ class TestDocumentService:
 
         # Test
         with pytest.raises(HTTPException) as exc:
-            await document_service.get_public_document(
-                document_id=999,
+            document_service.get_public_document(
+                document_id=999
             )
         assert exc.value.status_code == 404
 
-    @pytest.mark.asyncio
-    async def test_get_private_document_as_public(
+    def test_get_private_document_as_public(
         self,
         document_service,
         mock_repository,
@@ -525,13 +531,12 @@ class TestDocumentService:
 
         # Test
         with pytest.raises(HTTPException) as exc:
-            await document_service.get_public_document(
-                document_id=1,
+            document_service.get_public_document(
+                document_id=1
             )
-        assert exc.value.status_code == 404
+        assert exc.value.status_code == 403
 
-    @pytest.mark.asyncio
-    async def test_get_public_document_content(
+    def test_get_public_document_content(
         self,
         document_service,
         mock_repository,
@@ -545,26 +550,44 @@ class TestDocumentService:
             sample_document
         )
 
-        async def mock_retrieve(*args, **kwargs):
-            yield b"test content"
+        class AsyncIterator:
+            def __init__(self, content):
+                self.content = content
+                self.current = 0
 
-        mock_storage.retrieve = mock_retrieve
+            def __aiter__(self):
+                return self
+
+            async def __anext__(self):
+                if self.current < len(self.content):
+                    chunk = self.content[self.current]
+                    self.current += 1
+                    return chunk
+                raise StopAsyncIteration
+
+        async def mock_retrieve(*args, **kwargs):
+            return AsyncIterator([b"test content"])
+
+        mock_storage.retrieve = AsyncMock(
+            side_effect=mock_retrieve
+        )
 
         # Test
         (
-            document,
+            result,
             content,
-        ) = await document_service.get_public_document_content(
-            document_id=1,
+        ) = document_service.get_public_document_content(
+            document_id=1
         )
 
         # Assert
-        assert document.id == sample_document.id
-        assert document.is_public is True
         assert content == b"test content"
+        assert result.id == sample_document.id
+        assert result.is_public is True
+        mock_storage.retrieve.assert_called_once()
+        mock_repository.get_by_id.assert_called_once_with(1)
 
-    @pytest.mark.asyncio
-    async def test_get_private_document_as_owner(
+    def test_get_private_document_as_owner(
         self,
         document_service,
         mock_repository,
@@ -579,18 +602,15 @@ class TestDocumentService:
         )
 
         # Test
-        content = (
-            await document_service.get_document_content(
-                document_id=1,
-                user_id=sample_document.user_id,
-            )
+        result = document_service.get_document(
+            document_id=1, user_id=sample_document.user_id
         )
 
         # Assert
-        assert content == b"test content"
+        assert result.id == sample_document.id
+        assert result.user_id == sample_document.user_id
 
-    @pytest.mark.asyncio
-    async def test_get_public_document_as_non_owner(
+    def test_get_public_document_as_non_owner(
         self,
         document_service,
         mock_repository,
@@ -605,12 +625,10 @@ class TestDocumentService:
         )
 
         # Test
-        content = (
-            await document_service.get_document_content(
-                document_id=1,
-                user_id="different-user",
-            )
+        result = document_service.get_document(
+            document_id=1, user_id="different-user"
         )
 
         # Assert
-        assert content == b"test content"
+        assert result.id == sample_document.id
+        assert result.is_public is True

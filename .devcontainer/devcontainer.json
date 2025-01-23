@@ -11,7 +11,7 @@
         "DEBUG_MODE": "true",
         "ENVIRONMENT": "development",
         "LOG_LEVEL": "DEBUG",
-        
+
         "DATABASE_DIALECT": "mysql",
         "DATABASE_DRIVER": "+pymysql",
         "DATABASE_HOSTNAME": "db",
@@ -21,10 +21,10 @@
         "DATABASE_PASSWORD": "friday_dev",
         "DATABASE_URL": "mysql://friday_dev:friday_dev@db:3306/friday_dev",
         "DB_ROOT_PASSWORD": "root_password",
-        
+
         "STORAGE_BACKEND": "local",
         "STORAGE_PATH": "/workspaces/friday-api/storage",
-        
+
         "REDIS_HOST": "redis",
         "REDIS_PORT": "6379",
         "REDIS_DB": "0",
@@ -32,15 +32,15 @@
         "REDIS_TIMEOUT": "10",
         "QUEUE_JOB_TIMEOUT": "600",
         "QUEUE_JOB_TTL": "3600",
-        
+
         "JWT_SECRET_KEY": "dev_secret_key_for_development_only",
         "JWT_ALGORITHM": "HS256",
         "ACCESS_TOKEN_EXPIRE_MINUTES": "30",
-        
+
         "CORS_ORIGINS": "[\"*\"]",
         "CORS_METHODS": "[\"*\"]",
         "CORS_HEADERS": "[\"*\"]",
-        
+
         "PYTHONPATH": "/workspaces/friday-api"
     },
     "customizations": {

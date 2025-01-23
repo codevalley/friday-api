@@ -110,9 +110,9 @@ CREATE TABLE IF NOT EXISTS tasks (
 CREATE TABLE IF NOT EXISTS documents (
     id INT PRIMARY KEY AUTO_INCREMENT,
     name VARCHAR(255) NOT NULL,
-    storage_url VARCHAR(1024) NOT NULL,
+    storage_url VARCHAR(1024) NULL,  -- Allow null during creation
     mime_type VARCHAR(128) NOT NULL,
-    size_bytes BIGINT NOT NULL,
+    size_bytes BIGINT NULL,  -- Allow null during creation
     user_id VARCHAR(36) NOT NULL,
     status ENUM('PENDING', 'ACTIVE', 'ARCHIVED', 'ERROR') NOT NULL DEFAULT 'PENDING',
     metadata JSON NULL,
@@ -122,9 +122,8 @@ CREATE TABLE IF NOT EXISTS documents (
     updated_at TIMESTAMP NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
     CHECK (name != ''),
-    CHECK (storage_url != ''),
     CHECK (mime_type != ''),
-    CHECK (size_bytes >= 0),
+    CHECK (size_bytes IS NULL OR size_bytes >= 0),
     CHECK (unique_name REGEXP '^[a-zA-Z0-9]+$' OR unique_name IS NULL)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 

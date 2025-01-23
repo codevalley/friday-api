@@ -42,17 +42,7 @@ class DocumentBase(BaseModel):
 class DocumentCreate(DocumentBase):
     """Schema for document creation."""
 
-    storage_url: str = Field(
-        ...,
-        min_length=1,
-        max_length=2048,
-        description="URL where the document is stored",
-    )
-    size_bytes: int = Field(
-        ...,
-        gt=0,
-        description="Size of the document in bytes",
-    )
+    pass
 
     def to_domain(
         self,
@@ -68,9 +58,7 @@ class DocumentCreate(DocumentBase):
         """
         return DocumentData(
             name=self.name,
-            storage_url=self.storage_url,
             mime_type=self.mime_type,
-            size_bytes=self.size_bytes,
             user_id=user_id,
             metadata=self.metadata,
             unique_name=self.unique_name,
