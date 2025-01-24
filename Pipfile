@@ -26,12 +26,14 @@ exceptiongroup = "*"
 sqlalchemy = ">=1.4.35"
 pytest = "*"
 pymysql = "*"
+pytest-asyncio = "*"
 
 [dev-packages]
 pre-commit = ">=2.18.1"
 black = ">=22.3.0"
 pytest-mock = "*"
 fakeredis = "*"
+pytest-asyncio = "*"
 
 [requires]
 python_version = "3.12"

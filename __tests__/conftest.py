@@ -48,6 +48,7 @@ from repositories.ActivityRepository import (
 )
 from services.OpenAIService import OpenAIService
 from configs.RoboConfig import get_robo_settings
+from repositories.DocumentRepository import DocumentRepository
 
 
 # Set test environment before any imports
@@ -393,10 +394,8 @@ def activity_service(test_db_session, queue_service):
 
 # Storage fixtures
 @pytest.fixture
-def storage_service():
-    """Create a mock storage service for testing."""
-    mock_service = Mock(spec=IStorageService)
-
+def storage_service(mocker):
+    """Mock storage service for testing."""
     async def mock_store(
         file_data: bytes,
         file_id: str,
@@ -404,21 +403,18 @@ def storage_service():
         mime_type: str,
     ):
         return StoredFile(
+            id=file_id,
             path=f"/test/{file_id}",
             mime_type=mime_type,
             size_bytes=len(file_data),
+            user_id=user_id,
+            status="ACTIVE",
+            created_at=datetime.now(),
         )
 
-    async def mock_retrieve(file_path: str):
-        return b"test file content"
-
-    async def mock_delete(file_path: str):
-        return True
-
-    mock_service.store = mock_store
-    mock_service.retrieve = mock_retrieve
-    mock_service.delete = mock_delete
-    return mock_service
+    mock_storage = mocker.Mock()
+    mock_storage.store = mock_store
+    return mock_storage
 
 
 @pytest.fixture
@@ -477,6 +473,8 @@ def sample_public_document(test_db_session, sample_user):
 @pytest.fixture
 def document_service(test_db_session, storage_service):
     """Create a document service instance for testing."""
+    repository = DocumentRepository(test_db_session)
     return DocumentService(
-        db=test_db_session, storage=storage_service
+        repository=repository,
+        storage=storage_service
     )

@@ -51,28 +51,25 @@ class DocumentRepository(BaseRepository[Document, int]):
             if document.unique_name:
                 existing = (
                     self.db.query(Document)
-                    .filter(
-                        Document.unique_name
-                        == document.unique_name
-                    )
+                    .filter(Document.unique_name == document.unique_name)
                     .first()
                 )
                 if existing:
                     raise HTTPException(
                         status_code=409,
-                        detail=f"Document with unique name "
-                        f"'{document.unique_name}' already exists",
+                        detail=f"Document with unique_name {document.unique_name} already exists",
                     )
 
-            return super().create(document)
-        except HTTPException as e:
-            if e.status_code == 409:
-                raise e
-            raise DocumentValidationError(str(e.detail))
+            # Ensure metadata is a dictionary
+            self._ensure_metadata_dict(document)
+
+            self.db.add(document)
+            self.db.commit()
+            self.db.refresh(document)
+            return document
         except IntegrityError as e:
-            raise DocumentValidationError(
-                f"Document creation failed: {str(e)}"
-            )
+            self.db.rollback()
+            raise DocumentValidationError(str(e)) from e
 
     def list_documents(
         self,
@@ -233,3 +230,85 @@ class DocumentRepository(BaseRepository[Document, int]):
             .first()
         )
         return result.total_size or 0
+
+    def _ensure_metadata_dict(self, document: Document) -> None:
+        """Ensure document metadata is a dictionary.
+
+        Args:
+            document: Document instance to check
+
+        Returns:
+            None
+        """
+        if document.doc_metadata is None:
+            document.doc_metadata = {}
+        elif not isinstance(document.doc_metadata, dict):
+            document.doc_metadata = {}
+
+    def get_by_id(self, id: int, user_id: str = None) -> Optional[Document]:
+        """Get document by ID and optionally user ID.
+
+        Args:
+            id: Document ID
+            user_id: Optional User ID. If provided, checks access permissions.
+
+        Returns:
+            Optional[Document]: Document if found and accessible, None otherwise
+        """
+        document = (
+            self.db.query(Document)
+            .filter(Document.id == id)
+            .first()
+        )
+
+        if document:
+            self._ensure_metadata_dict(document)
+            if user_id is None or document.user_id == user_id or document.is_public:
+                return document
+        return None
+
+    def list(
+        self,
+        user_id: str,
+        skip: int = 0,
+        limit: int = 10,
+        offset: int = None,  # For backward compatibility
+        filters: dict = None,
+    ) -> List[Document]:
+        """List documents for a user with optional filters.
+
+        Args:
+            user_id: User ID
+            skip: Number of records to skip
+            limit: Maximum number of records to return
+            offset: Deprecated, use skip instead
+            filters: Optional filters to apply
+
+        Returns:
+            List[Document]: List of documents
+        """
+        # Use offset if provided for backward compatibility
+        if offset is not None:
+            skip = offset
+
+        # Base query for user's own documents
+        query = self.db.query(Document).filter(Document.user_id == user_id)
+
+        # Include public documents only if requested
+        if filters and filters.get("include_public"):
+            query = self.db.query(Document).filter(
+                (Document.user_id == user_id) | Document.is_public
+            )
+
+        if filters:
+            if filters.get("status"):
+                query = query.filter(Document.status == filters["status"])
+            if filters.get("mime_type"):
+                query = query.filter(Document.mime_type == filters["mime_type"])
+            if filters.get("name"):
+                query = query.filter(Document.name.ilike(f"%{filters['name']}%"))
+
+        documents = query.offset(skip).limit(limit).all()
+        for document in documents:
+            self._ensure_metadata_dict(document)
+        return documents

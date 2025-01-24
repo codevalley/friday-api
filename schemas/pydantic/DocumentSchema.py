@@ -23,9 +23,10 @@ class DocumentBase(BaseModel):
         max_length=255,
         description="MIME type of the document",
     )
-    metadata: Optional[Dict[str, Any]] = Field(
+    doc_metadata: Optional[Dict[str, Any]] = Field(
         None,
         description="Additional metadata about the document",
+        alias="metadata",
     )
     unique_name: Optional[str] = Field(
         None,
@@ -60,7 +61,7 @@ class DocumentCreate(DocumentBase):
             name=self.name,
             mime_type=self.mime_type,
             user_id=user_id,
-            metadata=self.metadata,
+            metadata=self.doc_metadata,
             unique_name=self.unique_name,
             is_public=self.is_public,
         )
@@ -77,9 +78,10 @@ class DocumentUpdate(BaseModel):
         max_length=255,
         description="New name for the document",
     )
-    metadata: Optional[Dict[str, Any]] = Field(
+    doc_metadata: Optional[Dict[str, Any]] = Field(
         None,
         description="Updated metadata for the document",
+        alias="metadata",
     )
     unique_name: Optional[str] = Field(
         None,
@@ -105,3 +107,8 @@ class DocumentResponse(DocumentBase):
     status: DocumentStatus
     created_at: datetime
     updated_at: Optional[datetime] = None
+    doc_metadata: Optional[Dict[str, Any]] = Field(
+        None,
+        description="Additional metadata about the document",
+        alias="metadata",
+    )

@@ -57,6 +57,9 @@ class DocumentData:
         is_public: Whether the document is publicly accessible
     """
 
+    # Maximum document size in bytes (100MB)
+    MAX_DOCUMENT_SIZE = 100 * 1024 * 1024
+
     name: str
     mime_type: str
     user_id: str
@@ -122,6 +125,14 @@ class DocumentData:
         ):
             raise DocumentValidationError(
                 "size_bytes must be positive"
+            )
+
+        if (
+            self.size_bytes is not None
+            and self.size_bytes > self.MAX_DOCUMENT_SIZE
+        ):
+            raise DocumentValidationError(
+                f"Document size ({self.size_bytes} bytes) exceeds maximum allowed size ({self.MAX_DOCUMENT_SIZE} bytes)"
             )
 
         if not isinstance(self.status, DocumentStatus):

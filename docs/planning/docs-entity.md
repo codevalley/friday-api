@@ -187,85 +187,73 @@ class StorageBackend(Protocol):
     - [ ] Access control
     - [ ] URL generation and validation
 
-### EPIC 4: Convert to Synchronous Operations
-This epic addresses the async/sync mismatch in the document feature implementation by converting to a fully synchronous approach (except for storage operations which remain async).
+### EPIC 4: Convert to Synchronous Operations [MOSTLY COMPLETE]
 
-#### 1. Service Layer Updates [COMPLETED]
+#### 1. Service Layer Updates [COMPLETED ✓]
 - [x] Convert DocumentService methods to synchronous
-  - [x] Identify all async methods that need conversion:
-    - create_document
-    - get_document
-    - get_document_content
-    - get_public_document
-    - get_public_document_content
-    - update_document
-    - update_document_status
-    - delete_document
-  - [x] Remove async/await from service methods
-  - [x] Properly wrap async storage operations in sync context using asyncio.run()
-  - [x] Update method signatures and return types
-  - [x] Update error handling for sync context
 - [x] Update service tests
-  - [x] Convert async tests to sync where appropriate
-  - [x] Update mocks and fixtures
-  - [x] Add tests for storage operation wrapping
-  - [x] Verify error propagation in sync context
+- [x] Handle async storage operations properly
+- [x] Update error handling
 
-#### Service Layer Changes Summary:
-1. Converted all async methods to sync in DocumentService
-2. Used asyncio.run() to handle async storage operations
-3. Updated test suite to use sync mocks and removed async/await
-4. Maintained existing functionality while making it sync
-5. Properly handled error propagation in sync context
-6. Updated Pydantic model usage to V2 standards
-   - Replaced deprecated from_orm with model_validate
-   - Using ConfigDict for model configuration
+#### 2. Router Layer Updates [COMPLETED ✓]
+- [x] Convert router endpoints to synchronous
+- [x] Update endpoint signatures
+- [x] Ensure proper error handling
+- [x] Maintain FastAPI response models
+- [x] Update router tests
 
-#### Next Steps:
-1. Move on to router layer updates
-2. Update router tests to match sync implementation
-3. Implement integration tests
+#### 3. Integration Testing [IN PROGRESS]
+- [ ] Complete end-to-end document lifecycle tests
+  - [ ] Upload flow
+  - [ ] Download flow
+  - [ ] Update operations
+  - [ ] Delete operations
+  - [ ] Public access flows
+- [ ] Storage integration verification
+  - [ ] Test file storage operations
+  - [ ] Verify cleanup procedures
+  - [ ] Test concurrent access patterns
+- [ ] Error scenario testing
+  - [ ] Invalid uploads
+  - [ ] Permission errors
+  - [ ] Storage failures
+  - [ ] Cleanup failures
 
-#### 2. Router Layer Updates
-- [ ] Convert router endpoints to synchronous
-  - [ ] Remove async/await from route handlers
-  - [ ] Update endpoint signatures
-  - [ ] Ensure proper error handling
-  - [ ] Maintain FastAPI response models
-- [ ] Update router tests
-  - [ ] Convert async tests to sync
-  - [ ] Update test client usage
-  - [ ] Verify response models
-  - [ ] Test error scenarios
-
-#### 3. Integration Testing
-- [ ] Update integration tests for sync operations
-  - [ ] Convert async test cases to sync
-  - [ ] Test full document lifecycle
-  - [ ] Verify storage operations still work
-  - [ ] Test error scenarios
-- [ ] Performance testing
-  - [ ] Compare sync vs async performance
-  - [ ] Monitor storage operation impact
-  - [ ] Verify no degradation in response times
-
-#### 4. Documentation Updates
+#### 4. Documentation & Cleanup [NEXT UP]
 - [ ] Update API documentation
-- [ ] Update code comments
-- [ ] Document sync/async boundaries
+  - [ ] Document new endpoint structures
+  - [ ] Update request/response examples
+  - [ ] Document error scenarios
+- [ ] Code cleanup
+  - [ ] Remove unused async/await
+  - [ ] Standardize error handling
+  - [ ] Clean up imports
 - [ ] Update development guides
+  - [ ] Document testing approach
+  - [ ] Add troubleshooting guide
+  - [ ] Update setup instructions
 
-### Next Actions (Sync Conversion Focus)
-1. Begin Router Updates
-   - Start with core CRUD operations
-   - Handle storage operations carefully
-   - Update tests as we go
-   - Verify each method works before moving on
+### Next Actions (Priority Order)
+1. Complete Integration Tests
+   - Focus on document lifecycle flows
+   - Add error scenario coverage
+   - Test storage operations thoroughly
 
-2. Move to Integration Testing
-   - Run full test suite
-   - Fix any issues
-   - Document performance impacts
+2. Documentation Updates
+   - Update API documentation
+   - Add integration test guide
+   - Document common issues/solutions
+
+3. Final Review & Cleanup
+   - Code review for consistency
+   - Remove any remaining async/await
+   - Update type hints
+   - Verify error handling
+
+4. Performance Verification
+   - Load testing
+   - Concurrent operation testing
+   - Storage operation benchmarks
 
 ### Future Enhancements
 1. Performance Testing
