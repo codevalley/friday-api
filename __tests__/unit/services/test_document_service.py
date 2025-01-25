@@ -120,7 +120,7 @@ def mock_storage():
 def document_service(mock_repository, mock_storage):
     """Create a document service with mocked dependencies."""
     return DocumentService(
-        db=mock_repository, storage_service=mock_storage
+        repository=mock_repository, storage=mock_storage
     )
 
 

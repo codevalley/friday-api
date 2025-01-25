@@ -1,10 +1,10 @@
 """Domain models and interfaces for storage functionality."""
 
 from abc import abstractmethod
-from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
-from typing import AsyncIterator, Optional, Protocol
+from typing import Optional, Protocol, BinaryIO
+from dataclasses import dataclass
 
 
 class StorageStatus(str, Enum):
@@ -60,7 +60,7 @@ class IStorageService(Protocol):
     """
 
     @abstractmethod
-    async def store(
+    def store(
         self,
         file_data: bytes,
         file_id: str,
@@ -84,12 +84,12 @@ class IStorageService(Protocol):
         ...
 
     @abstractmethod
-    async def retrieve(
+    def retrieve(
         self,
         file_id: str,
         user_id: str,
         owner_id: Optional[str] = None,
-    ) -> AsyncIterator[bytes]:
+    ) -> BinaryIO:
         """Retrieve a file's content.
 
         Args:
@@ -98,7 +98,7 @@ class IStorageService(Protocol):
             owner_id: Optional ID of the file owner (for public files)
 
         Returns:
-            AsyncIterator[bytes]: File content stream
+            BinaryIO: File-like object for reading file content
 
         Raises:
             FileNotFoundError: If file does not exist
@@ -108,7 +108,7 @@ class IStorageService(Protocol):
         ...
 
     @abstractmethod
-    async def delete(
+    def delete(
         self,
         file_id: str,
         user_id: str,
@@ -127,7 +127,7 @@ class IStorageService(Protocol):
         ...
 
     @abstractmethod
-    async def get_metadata(
+    def get_metadata(
         self,
         file_id: str,
         user_id: str,

@@ -1,10 +1,10 @@
 """Local filesystem implementation of storage service."""
 
 import os
-import aiofiles
-import aiofiles.os
 from datetime import datetime
-from typing import AsyncIterator, Optional
+from io import BytesIO
+from typing import Optional
+import json
 
 from domain.storage import (
     IStorageService,
@@ -48,7 +48,53 @@ class LocalStorageService(IStorageService):
             self.base_path, user_id, file_id
         )
 
-    async def store(
+    def _get_metadata_path(
+        self, user_id: str, file_id: str
+    ) -> str:
+        """Get the filesystem path for a file's metadata.
+
+        Args:
+            user_id: ID of the file owner
+            file_id: ID of the file
+
+        Returns:
+            str: Absolute path where the file's metadata should be stored
+        """
+        # Store metadata in a separate file
+        return (
+            f"{self._get_file_path(user_id, file_id)}.meta"
+        )
+
+    def _verify_user_access(
+        self,
+        path: str,
+        user_id: str,
+        owner_id: Optional[str] = None,
+    ) -> None:
+        """Verify a user has access to a file path.
+
+        Args:
+            path: Path to verify
+            user_id: ID of the user requesting access
+            owner_id: Optional ID of the file owner (for public files)
+
+        Raises:
+            StoragePermissionError: If user cannot access the path
+        """
+        # If owner_id is provided, user must be the owner
+        if owner_id and user_id != owner_id:
+            raise StoragePermissionError(
+                "Not authorized to access this file"
+            )
+        # Otherwise, ensure user can only access their own files
+        elif not owner_id and not path.startswith(
+            os.path.join(self.base_path, user_id)
+        ):
+            raise StoragePermissionError(
+                "Not authorized to access this file"
+            )
+
+    def store(
         self,
         file_data: bytes,
         file_id: str,
@@ -70,11 +116,26 @@ class LocalStorageService(IStorageService):
             StorageError: If file storage fails
         """
         path = self._get_file_path(user_id, file_id)
-        os.makedirs(os.path.dirname(path), exist_ok=True)
 
         try:
-            async with aiofiles.open(path, "wb") as f:
-                await f.write(file_data)
+            os.makedirs(
+                os.path.dirname(path), exist_ok=True
+            )
+
+            with open(path, "wb") as f:
+                f.write(file_data)
+
+            # Store metadata in a separate file
+            meta_path = self._get_metadata_path(
+                user_id, file_id
+            )
+            metadata = {
+                "mime_type": mime_type,
+                "owner_id": user_id,
+                "created_at": datetime.utcnow().isoformat(),
+            }
+            with open(meta_path, "w") as f:
+                json.dump(metadata, f)
 
             return StoredFile(
                 id=file_id,
@@ -90,12 +151,12 @@ class LocalStorageService(IStorageService):
                 f"Failed to store file: {str(e)}"
             ) from e
 
-    async def retrieve(
+    def retrieve(
         self,
         file_id: str,
         user_id: str,
         owner_id: Optional[str] = None,
-    ) -> AsyncIterator[bytes]:
+    ) -> BytesIO:
         """Retrieve a file from the local filesystem.
 
         Args:
@@ -104,7 +165,7 @@ class LocalStorageService(IStorageService):
             owner_id: Optional ID of the file owner (for public files)
 
         Returns:
-            AsyncIterator[bytes]: File content stream
+            BytesIO: File-like object containing file content
 
         Raises:
             FileNotFoundError: If file does not exist
@@ -113,64 +174,111 @@ class LocalStorageService(IStorageService):
         """
         # If owner_id is provided, use that for the path lookup
         lookup_user_id = owner_id if owner_id else user_id
-        path = self._get_file_path(lookup_user_id, file_id)
 
-        if not os.path.isfile(path):
-            raise FileNotFoundError(
-                f"File not found: {file_id}"
-            )
+        # Try to find the file's metadata in owner's directory
+        metadata_path = self._get_metadata_path(
+            lookup_user_id, file_id
+        )
+        actual_owner_id = None
 
-        # If owner_id is provided, we're accessing a public file
-        # Otherwise, ensure user can only access their own files
-        if not owner_id and not path.startswith(
-            os.path.join(self.base_path, user_id)
-        ):
-            raise StoragePermissionError(
-                "Not authorized to access this file"
-            )
+        # If metadata not found in user's directory, search all directories
+        if not os.path.isfile(metadata_path):
+            for dir_name in os.listdir(self.base_path):
+                other_metadata_path = os.path.join(
+                    self.base_path,
+                    dir_name,
+                    f"{file_id}.meta",
+                )
+                if os.path.isfile(other_metadata_path):
+                    with open(
+                        other_metadata_path, "r"
+                    ) as f:
+                        metadata = json.load(f)
+                        if "owner_id" in metadata:
+                            actual_owner_id = metadata[
+                                "owner_id"
+                            ]
+                            metadata_path = (
+                                other_metadata_path
+                            )
+                            break
 
-        try:
-            async with aiofiles.open(path, "rb") as f:
-                while chunk := await f.read(8192):
-                    yield chunk
-        except Exception as e:
-            raise StorageError(
-                f"Failed to retrieve file: {str(e)}"
-            ) from e
+        # If we found metadata, check permissions
+        if os.path.isfile(metadata_path):
+            with open(metadata_path, "r") as f:
+                metadata = json.load(f)
+                if "owner_id" in metadata:
+                    actual_owner_id = metadata["owner_id"]
+                    if (
+                        user_id != actual_owner_id
+                        and not owner_id
+                    ):
+                        raise StoragePermissionError(
+                            "Not authorized to access this file"
+                        )
+                    path = self._get_file_path(
+                        actual_owner_id, file_id
+                    )
+                    if os.path.isfile(path):
+                        try:
+                            # Read file in chunks to handle large files
+                            buffer = BytesIO()
+                            with open(path, "rb") as f:
+                                while chunk := f.read(8192):
+                                    buffer.write(chunk)
+                            buffer.seek(0)
+                            return buffer
+                        except Exception as e:
+                            raise StorageError(
+                                f"Failed to retrieve file: {str(e)}"
+                            ) from e
+        raise FileNotFoundError(
+            f"File not found: {file_id}"
+        )
 
-    async def delete(
+    def delete(
         self,
         file_id: str,
         user_id: str,
     ) -> None:
-        """Delete a file from the local filesystem.
+        """Delete a file and its metadata.
 
         Args:
-            file_id: ID of the file to delete
-            user_id: ID of the user requesting deletion
+            file_id: ID of file to delete
+            user_id: ID of requesting user
 
         Raises:
-            FileNotFoundError: If file does not exist
-            StoragePermissionError: If user cannot delete file
+            FileNotFoundError: If file not found
+            StoragePermissionError: If user lacks permission
             StorageError: If deletion fails
         """
-        path = self._get_file_path(user_id, file_id)
-
-        if not os.path.exists(path):
+        # First find the metadata to determine the owner
+        metadata = self.get_metadata(file_id, user_id)
+        if not metadata:
             raise FileNotFoundError(
                 f"File not found: {file_id}"
             )
 
-        # Ensure user can only delete their own files
-        if not path.startswith(
-            os.path.join(self.base_path, user_id)
-        ):
-            raise StoragePermissionError(
-                "Not authorized to delete this file"
-            )
+        # Get the actual file path using the owner's ID
+        path = self._get_file_path(
+            metadata.user_id, file_id
+        )
+        meta_path = self._get_metadata_path(
+            metadata.user_id, file_id
+        )
+
+        # Check permissions using the owner ID from metadata
+        self._verify_user_access(
+            path, user_id, metadata.user_id
+        )
 
         try:
-            await aiofiles.os.remove(path)
+            # Delete the file
+            os.remove(path)
+
+            # Remove metadata file if it exists
+            if os.path.exists(meta_path):
+                os.remove(meta_path)
 
             # Try to remove empty parent directories
             parent_dir = os.path.dirname(path)
@@ -178,7 +286,7 @@ class LocalStorageService(IStorageService):
                 while (
                     parent_dir.startswith(
                         os.path.join(
-                            self.base_path, user_id
+                            self.base_path, metadata.user_id
                         )
                     )
                     and len(os.listdir(parent_dir)) == 0
@@ -193,7 +301,7 @@ class LocalStorageService(IStorageService):
                 f"Failed to delete file: {str(e)}"
             ) from e
 
-    async def get_metadata(
+    def get_metadata(
         self,
         file_id: str,
         user_id: str,
@@ -212,38 +320,59 @@ class LocalStorageService(IStorageService):
             StoragePermissionError: If user cannot access file
             StorageError: If metadata retrieval fails
         """
-        path = self._get_file_path(user_id, file_id)
+        # Search through all user directories
+        for dir_name in os.listdir(self.base_path):
+            dir_path = os.path.join(
+                self.base_path, dir_name
+            )
+            if not os.path.isdir(dir_path):
+                continue
 
-        if not os.path.exists(path):
-            raise FileNotFoundError(
-                f"File not found: {file_id}"
+            path = self._get_file_path(dir_name, file_id)
+            if not os.path.exists(path):
+                continue
+
+            # Found the file, now check permissions
+            self._verify_user_access(
+                path, user_id, dir_name
             )
 
-        # Ensure user can only access their own files
-        if not path.startswith(
-            os.path.join(self.base_path, user_id)
-        ):
-            raise StoragePermissionError(
-                "Not authorized to access this file"
-            )
+            try:
+                stat = os.stat(path)
 
-        try:
-            stats = os.stat(path)
-            return StoredFile(
-                id=file_id,
-                user_id=user_id,
-                path=path,
-                size_bytes=stats.st_size,
-                mime_type="application/octet-stream",  # Default MIME type
-                status=StorageStatus.ACTIVE,
-                created_at=datetime.fromtimestamp(
-                    stats.st_ctime
-                ),
-                updated_at=datetime.fromtimestamp(
-                    stats.st_mtime
-                ),
-            )
-        except Exception as e:
-            raise StorageError(
-                f"Failed to get file metadata: {str(e)}"
-            ) from e
+                # Read MIME type from metadata file
+                meta_path = self._get_metadata_path(
+                    dir_name, file_id
+                )
+                mime_type = (
+                    "application/octet-stream"  # Default
+                )
+                if os.path.exists(meta_path):
+                    with open(meta_path, "r") as f:
+                        metadata = json.load(f)
+                        mime_type = metadata.get(
+                            "mime_type", mime_type
+                        )
+
+                return StoredFile(
+                    id=file_id,
+                    user_id=dir_name,  # Use actual owner's ID
+                    path=path,
+                    size_bytes=stat.st_size,
+                    mime_type=mime_type,
+                    status=StorageStatus.ACTIVE,
+                    created_at=datetime.fromtimestamp(
+                        stat.st_ctime
+                    ),
+                    updated_at=datetime.fromtimestamp(
+                        stat.st_mtime
+                    ),
+                )
+            except Exception as e:
+                raise StorageError(
+                    f"Failed to get metadata: {str(e)}"
+                ) from e
+
+        raise FileNotFoundError(
+            f"File not found: {file_id}"
+        )

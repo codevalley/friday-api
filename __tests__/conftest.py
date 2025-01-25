@@ -2,7 +2,7 @@
 
 # Third-party imports
 import pytest
-from sqlalchemy import create_engine, text, inspect
+from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker, Session
 from moto import mock_aws
 from fastapi.testclient import TestClient
@@ -37,7 +37,7 @@ from services.NoteService import NoteService
 from services.DocumentService import DocumentService
 from utils.security import hash_user_secret
 from domain.robo import RoboProcessingResult
-from domain.storage import IStorageService, StoredFile
+from domain.storage import StoredFile
 from infrastructure.storage import (
     LocalStorageService,
     S3StorageService,
@@ -48,7 +48,9 @@ from repositories.ActivityRepository import (
 )
 from services.OpenAIService import OpenAIService
 from configs.RoboConfig import get_robo_settings
-from repositories.DocumentRepository import DocumentRepository
+from repositories.DocumentRepository import (
+    DocumentRepository,
+)
 
 
 # Set test environment before any imports
@@ -99,21 +101,10 @@ def test_db_engine():
     engine = create_engine(TEST_SQLALCHEMY_DATABASE_URL)
 
     # Drop all tables with foreign key checks disabled
-    inspector = inspect(engine)
     with engine.begin() as connection:
-        # Drop all foreign key constraints first
-        for table_name in inspector.get_table_names():
-            for fk in inspector.get_foreign_keys(
-                table_name
-            ):
-                connection.execute(
-                    text(
-                        f"ALTER TABLE {table_name}"
-                        f' DROP FOREIGN KEY {fk["name"]};'
-                    )
-                )
-
-        # Now drop all tables
+        connection.execute(
+            text("SET FOREIGN_KEY_CHECKS = 0;")
+        )
         for table in reversed(Base.metadata.sorted_tables):
             try:
                 table.drop(bind=connection, checkfirst=True)
@@ -121,27 +112,19 @@ def test_db_engine():
                 print(
                     f"Warning: Could not drop table {table}: {e}"
                 )
+        connection.execute(
+            text("SET FOREIGN_KEY_CHECKS = 1;")
+        )
 
     # Create all tables
     Base.metadata.create_all(bind=engine)
     yield engine
 
     # Cleanup: Drop all tables again
-    inspector = inspect(engine)
     with engine.begin() as connection:
-        # Drop all foreign key constraints first
-        for table_name in inspector.get_table_names():
-            for fk in inspector.get_foreign_keys(
-                table_name
-            ):
-                connection.execute(
-                    text(
-                        f"ALTER TABLE {table_name}"
-                        f' DROP FOREIGN KEY {fk["name"]};'
-                    )
-                )
-
-        # Now drop all tables
+        connection.execute(
+            text("SET FOREIGN_KEY_CHECKS = 0;")
+        )
         for table in reversed(Base.metadata.sorted_tables):
             try:
                 table.drop(bind=connection, checkfirst=True)
@@ -149,6 +132,9 @@ def test_db_engine():
                 print(
                     f"Warning: Could not drop table {table}: {e}"
                 )
+        connection.execute(
+            text("SET FOREIGN_KEY_CHECKS = 1;")
+        )
 
 
 @pytest.fixture(scope="function")
@@ -396,6 +382,7 @@ def activity_service(test_db_session, queue_service):
 @pytest.fixture
 def storage_service(mocker):
     """Mock storage service for testing."""
+
     async def mock_store(
         file_data: bytes,
         file_id: str,
@@ -475,6 +462,5 @@ def document_service(test_db_session, storage_service):
     """Create a document service instance for testing."""
     repository = DocumentRepository(test_db_session)
     return DocumentService(
-        repository=repository,
-        storage=storage_service
+        repository=repository, storage=storage_service
     )

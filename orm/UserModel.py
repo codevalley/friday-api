@@ -52,7 +52,9 @@ class User(EntityMeta):
     id: Mapped[str] = Column(
         String(36),  # UUID length is 36 characters
         primary_key=True,
-        default=lambda: str(uuid4()),  # Use lambda to generate new UUID for each row
+        default=lambda: str(
+            uuid4()
+        ),  # Use lambda to generate new UUID for each row
         index=True,
     )
 

@@ -4,13 +4,13 @@ import pytest
 from unittest.mock import AsyncMock, MagicMock
 from sqlalchemy.orm import Session
 
-from repositories.DocumentRepository import DocumentRepository
+from repositories.DocumentRepository import (
+    DocumentRepository,
+)
 from services.DocumentService import DocumentService
 from infrastructure.storage.local import LocalStorageService
 from domain.storage import IStorageService
 
-# Import fixtures from parent conftest
-pytest_plugins = ["__tests__.conftest"]
 
 @pytest.fixture
 def local_storage_service() -> LocalStorageService:
@@ -34,8 +34,10 @@ def local_storage_service() -> LocalStorageService:
 @pytest.fixture
 def document_service(
     storage_service: IStorageService,
-    test_db_session: Session
+    test_db_session: Session,
 ) -> DocumentService:
     """Create a document service with mocked dependencies."""
     repository = DocumentRepository(test_db_session)
-    return DocumentService(repository=repository, storage=storage_service)
+    return DocumentService(
+        repository=repository, storage=storage_service
+    )

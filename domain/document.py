@@ -132,7 +132,8 @@ class DocumentData:
             and self.size_bytes > self.MAX_DOCUMENT_SIZE
         ):
             raise DocumentValidationError(
-                f"Document size ({self.size_bytes} bytes) exceeds maximum allowed size ({self.MAX_DOCUMENT_SIZE} bytes)"
+                f"Document size ({self.size_bytes} bytes) exceeds maximum "
+                f"allowed size ({self.MAX_DOCUMENT_SIZE} bytes)"
             )
 
         if not isinstance(self.status, DocumentStatus):

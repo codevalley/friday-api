@@ -33,6 +33,11 @@ from dependencies import get_current_user
 from orm.UserModel import User
 from utils.error_handlers import handle_exceptions
 from auth.bearer import CustomHTTPBearer
+from configs.Database import get_db_connection
+from repositories.DocumentRepository import (
+    DocumentRepository,
+)
+from infrastructure.storage.factory import StorageFactory
 import json
 
 # Use our custom bearer that returns 401 for invalid tokens
@@ -45,6 +50,20 @@ router = APIRouter(
 
 # Protected endpoints
 protected_router = APIRouter()
+
+
+def get_document_service(
+    db=Depends(get_db_connection),
+) -> DocumentService:
+    """Get document service instance."""
+    repository = DocumentRepository(db)
+    storage_service = (
+        StorageFactory.create_storage_service()
+    )
+    return DocumentService(
+        repository=repository,
+        storage=storage_service,
+    )
 
 
 @protected_router.post(
@@ -65,7 +84,9 @@ async def upload_document(
         ""
     ),  # Empty string for None
     file: UploadFile = File(...),
-    service: DocumentService = Depends(),
+    service: DocumentService = Depends(
+        get_document_service
+    ),
     current_user: User = Depends(get_current_user),
 ) -> GenericResponse[DocumentResponse]:
     """Upload a new document.
@@ -119,7 +140,9 @@ async def list_documents(
     pagination: PaginationParams = Depends(),
     status: Optional[DocumentStatus] = None,
     mime_type: Optional[str] = Query(None),
-    service: DocumentService = Depends(),
+    service: DocumentService = Depends(
+        get_document_service
+    ),
     current_user: User = Depends(get_current_user),
 ) -> GenericResponse[List[DocumentResponse]]:
     """List documents with filtering and pagination.
@@ -154,7 +177,9 @@ async def list_documents(
 )
 @handle_exceptions
 async def get_storage_usage(
-    service: DocumentService = Depends(),
+    service: DocumentService = Depends(
+        get_document_service
+    ),
     current_user: User = Depends(get_current_user),
 ) -> GenericResponse[StorageUsageResponse]:
     """Get total storage usage for the current user."""
@@ -175,7 +200,9 @@ async def get_storage_usage(
 @handle_exceptions
 async def get_document(
     document_id: int,
-    service: DocumentService = Depends(),
+    service: DocumentService = Depends(
+        get_document_service
+    ),
     current_user: User = Depends(get_current_user),
 ) -> GenericResponse[DocumentResponse]:
     """Get a specific document by ID."""
@@ -198,7 +225,9 @@ async def get_document(
 async def update_document(
     document_id: int,
     document: DocumentUpdate,
-    service: DocumentService = Depends(),
+    service: DocumentService = Depends(
+        get_document_service
+    ),
     current_user: User = Depends(get_current_user),
 ) -> GenericResponse[DocumentResponse]:
     """Update a document's metadata."""
@@ -222,7 +251,9 @@ async def update_document(
 async def update_document_status(
     document_id: int,
     status_update: dict = Body(...),
-    service: DocumentService = Depends(),
+    service: DocumentService = Depends(
+        get_document_service
+    ),
     current_user: User = Depends(get_current_user),
 ) -> GenericResponse[DocumentResponse]:
     """Update a document's status."""
@@ -253,7 +284,9 @@ async def update_document_status(
 @handle_exceptions
 async def delete_document(
     document_id: int,
-    service: DocumentService = Depends(),
+    service: DocumentService = Depends(
+        get_document_service
+    ),
     current_user: User = Depends(get_current_user),
 ) -> None:
     """Delete a document."""
@@ -271,7 +304,9 @@ async def delete_document(
 @handle_exceptions
 async def get_public_document(
     document_id: int,
-    service: DocumentService = Depends(),
+    service: DocumentService = Depends(
+        get_document_service
+    ),
 ) -> GenericResponse[DocumentResponse]:
     """Get a public document by ID."""
     document = await service.get_public_document(
@@ -289,7 +324,9 @@ async def get_public_document(
 @handle_exceptions
 async def download_public_document(
     document_id: int,
-    service: DocumentService = Depends(),
+    service: DocumentService = Depends(
+        get_document_service
+    ),
 ) -> StreamingResponse:
     """Download a public document."""
     (

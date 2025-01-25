@@ -51,13 +51,17 @@ class DocumentRepository(BaseRepository[Document, int]):
             if document.unique_name:
                 existing = (
                     self.db.query(Document)
-                    .filter(Document.unique_name == document.unique_name)
+                    .filter(
+                        Document.unique_name
+                        == document.unique_name
+                    )
                     .first()
                 )
                 if existing:
                     raise HTTPException(
                         status_code=409,
-                        detail=f"Document with unique_name {document.unique_name} already exists",
+                        detail=f"Document with unique_name "
+                        f"{document.unique_name} already exists",
                     )
 
             # Ensure metadata is a dictionary
@@ -231,7 +235,9 @@ class DocumentRepository(BaseRepository[Document, int]):
         )
         return result.total_size or 0
 
-    def _ensure_metadata_dict(self, document: Document) -> None:
+    def _ensure_metadata_dict(
+        self, document: Document
+    ) -> None:
         """Ensure document metadata is a dictionary.
 
         Args:
@@ -245,7 +251,9 @@ class DocumentRepository(BaseRepository[Document, int]):
         elif not isinstance(document.doc_metadata, dict):
             document.doc_metadata = {}
 
-    def get_by_id(self, id: int, user_id: str = None) -> Optional[Document]:
+    def get_by_id(
+        self, id: int, user_id: str = None
+    ) -> Optional[Document]:
         """Get document by ID and optionally user ID.
 
         Args:
@@ -253,7 +261,7 @@ class DocumentRepository(BaseRepository[Document, int]):
             user_id: Optional User ID. If provided, checks access permissions.
 
         Returns:
-            Optional[Document]: Document if found and accessible, None otherwise
+            Optional[Document]: Document if found, None otherwise
         """
         document = (
             self.db.query(Document)
@@ -263,7 +271,11 @@ class DocumentRepository(BaseRepository[Document, int]):
 
         if document:
             self._ensure_metadata_dict(document)
-            if user_id is None or document.user_id == user_id or document.is_public:
+            if (
+                user_id is None
+                or document.user_id == user_id
+                or document.is_public
+            ):
                 return document
         return None
 
@@ -292,21 +304,33 @@ class DocumentRepository(BaseRepository[Document, int]):
             skip = offset
 
         # Base query for user's own documents
-        query = self.db.query(Document).filter(Document.user_id == user_id)
+        query = self.db.query(Document).filter(
+            Document.user_id == user_id
+        )
 
         # Include public documents only if requested
         if filters and filters.get("include_public"):
             query = self.db.query(Document).filter(
-                (Document.user_id == user_id) | Document.is_public
+                (Document.user_id == user_id)
+                | Document.is_public
             )
 
         if filters:
             if filters.get("status"):
-                query = query.filter(Document.status == filters["status"])
+                query = query.filter(
+                    Document.status == filters["status"]
+                )
             if filters.get("mime_type"):
-                query = query.filter(Document.mime_type == filters["mime_type"])
+                query = query.filter(
+                    Document.mime_type
+                    == filters["mime_type"]
+                )
             if filters.get("name"):
-                query = query.filter(Document.name.ilike(f"%{filters['name']}%"))
+                query = query.filter(
+                    Document.name.ilike(
+                        f"%{filters['name']}%"
+                    )
+                )
 
         documents = query.offset(skip).limit(limit).all()
         for document in documents:
