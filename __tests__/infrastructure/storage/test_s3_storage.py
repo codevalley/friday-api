@@ -34,8 +34,7 @@ def storage(s3_client):
     """Create an S3 storage service for testing."""
     storage = S3StorageService(
         bucket_name="test-bucket",
-        access_key="test",
-        secret_key="test",
+        client=s3_client,
     )
     storage.client = s3_client
     return storage

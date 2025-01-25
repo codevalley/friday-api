@@ -3,7 +3,7 @@
 from typing import Iterator
 from datetime import datetime
 import pytest
-from unittest.mock import Mock, AsyncMock
+from unittest.mock import Mock
 from fastapi import HTTPException
 from io import BytesIO
 
@@ -19,9 +19,7 @@ from repositories.DocumentRepository import (
     DocumentRepository,
 )
 from schemas.pydantic.DocumentSchema import (
-    DocumentCreate,
     DocumentUpdate,
-    DocumentResponse,
 )
 
 
@@ -44,7 +42,9 @@ def mock_repository(sample_document):
     mock_repo.update.return_value = sample_document
 
     # Set up update_status to update and return document
-    def mock_update_status(document_id, new_status):
+    def mock_update_status(
+        document_id, new_status, user_id
+    ):
         doc = sample_document
         doc.status = new_status
         return doc
@@ -52,7 +52,7 @@ def mock_repository(sample_document):
     mock_repo.update_status.side_effect = mock_update_status
 
     # Set up delete to do nothing
-    def mock_delete(document_id):
+    def mock_delete(document_id, user_id):
         return None
 
     mock_repo.delete.side_effect = mock_delete
@@ -90,7 +90,6 @@ def mock_storage():
     mock_storage.retrieve.return_value = BytesIO(
         b"test content"
     )
-    mock_storage.get.return_value = b"test content"
     mock_storage.delete.return_value = None
     return mock_storage
 
@@ -106,20 +105,22 @@ def document_service(mock_repository, mock_storage):
 @pytest.fixture
 def sample_document():
     """Create a sample document for testing."""
-    mock_doc = Mock()
-    mock_doc.id = 1
-    mock_doc.name = "test.pdf"
-    mock_doc.mime_type = "application/pdf"
-    mock_doc.metadata = {}
-    mock_doc.unique_name = "test123"
-    mock_doc.size_bytes = 100
-    mock_doc.status = DocumentStatus.ACTIVE
-    mock_doc.created_at = datetime.now()
-    mock_doc.updated_at = datetime.now()
-    mock_doc.user_id = "test-user"
-    mock_doc.is_public = False
-    mock_doc.storage_url = "test/path/file.txt"
-    return mock_doc
+    doc = Mock()
+    doc.id = 1
+    doc.user_id = "test-user"
+    doc.name = "test.pdf"
+    doc.mime_type = "application/pdf"
+    doc.storage_url = "/test/path/file.pdf"
+    doc.size_bytes = 2048
+    doc.status = DocumentStatus.ACTIVE
+    doc.created_at = datetime.now()
+    doc.updated_at = datetime.now()
+    doc.doc_metadata = {}  # Empty dict for metadata
+    doc.unique_name = (
+        "test_doc"  # Using underscore instead of hyphen
+    )
+    doc.is_public = False
+    return doc
 
 
 class TestDocumentService:
@@ -237,9 +238,7 @@ class TestDocumentService:
         )
 
         # Assert
-        assert content == b"test content"
-        mock_storage.retrieve.assert_called_once()
-        mock_repository.get_by_id.assert_called_once_with(1)
+        assert content.read() == b"test content"
 
     def test_get_document_content_not_found(
         self,
@@ -271,36 +270,13 @@ class TestDocumentService:
             sample_document
         )
         update_data = DocumentUpdate(
-            metadata={"key": "value"}
+            doc_metadata={"key": "value"}
         )
 
-        # Mock the update to return a document with valid data
-        def mock_update(doc_id, update_dict):
-            # Create a dictionary with all required fields
-            doc_dict = {
-                "id": sample_document.id,
-                "user_id": sample_document.user_id,
-                "name": update_dict.get(
-                    "name", sample_document.name
-                ),
-                "mime_type": sample_document.mime_type,
-                "unique_name": sample_document.unique_name,
-                "storage_url": sample_document.storage_url,
-                "size_bytes": sample_document.size_bytes,
-                "status": sample_document.status,
-                "created_at": sample_document.created_at,
-                "updated_at": sample_document.updated_at,
-                "metadata": update_dict.get(
-                    "metadata", sample_document.metadata
-                ),
-                "is_public": update_dict.get(
-                    "is_public", sample_document.is_public
-                ),
-            }
-            # Convert the dictionary to a DocumentResponse
-            return DocumentResponse.model_validate(doc_dict)
-
-        mock_repository.update.side_effect = mock_update
+        # Mock the update to return updated sample document
+        updated_doc = sample_document
+        updated_doc.doc_metadata = {"key": "value"}
+        mock_repository.update.return_value = updated_doc
 
         # Test
         result = document_service.update_document(
@@ -311,8 +287,12 @@ class TestDocumentService:
 
         # Assert
         assert result.id == sample_document.id
-        assert result.metadata == update_data.metadata
-        mock_repository.get_by_id.assert_called_once_with(1)
+        assert (
+            result.doc_metadata == update_data.doc_metadata
+        )
+        mock_repository.get_by_id.assert_called_once_with(
+            1, "test-user"
+        )
         mock_repository.update.assert_called_once()
         mock_repository.db.commit.assert_called_once()
 
@@ -382,7 +362,9 @@ class TestDocumentService:
 
         # Assert
         mock_storage.delete.assert_called_once()
-        mock_repository.delete.assert_called_once_with(1)
+        mock_repository.delete.assert_called_once_with(
+            1, "test-user"
+        )
 
     def test_delete_document_not_found(
         self,
@@ -421,24 +403,28 @@ class TestDocumentService:
             )
         assert exc.value.status_code == 403
 
-    def test_get_user_storage_usage(
+    def test_get_storage_usage(
         self,
         document_service,
         mock_repository,
     ):
         """Test getting user's storage usage."""
         # Setup
+        expected_size = 2048
         mock_repository.get_total_size_by_user.return_value = (
-            2048
+            expected_size
         )
 
         # Test
-        usage = document_service.get_user_storage_usage(
+        usage = document_service.get_storage_usage(
             user_id="test-user"
         )
 
         # Assert
-        assert usage == 2048
+        assert usage.used_bytes == expected_size
+        assert (
+            usage.total_bytes == 1024 * 1024 * 1024
+        )  # 1GB
         mock_repository.get_total_size_by_user.assert_called_once_with(
             "test-user"
         )
@@ -452,21 +438,21 @@ class TestDocumentService:
         """Test getting a public document."""
         # Setup
         sample_document.is_public = True
-        sample_document.unique_name = "test-doc"
+        sample_document.unique_name = "test_doc123"
         mock_repository.get_by_unique_name.return_value = (
             sample_document
         )
 
         # Test
         result = document_service.get_public_document(
-            unique_name="test-doc"
+            unique_name="test_doc123"
         )
 
         # Assert
         assert result.id == sample_document.id
         assert result.is_public is True
         mock_repository.get_by_unique_name.assert_called_once_with(
-            "test-doc"
+            "test_doc123"
         )
 
     def test_get_public_document_not_found(

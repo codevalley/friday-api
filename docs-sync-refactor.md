@@ -44,6 +44,8 @@ This document outlines the plan for converting the storage and document features
    - Added unit tests for permission handling and file access
    - Fixed permission verification in `_verify_user_access`
    - Improved file search in `get_metadata` to look across all user directories
+   - Added metadata file storage for MIME types and creation times
+   - Implemented proper cleanup of metadata files during deletion
    - All unit tests passing including permission checks and error cases
 
 3. Update Storage Implementations 
@@ -199,16 +201,20 @@ The sync refactoring project is now complete with all phases implemented:
 1. Unit Tests
    - DocumentService tests passing
    - DocumentRepository tests passing
-   - Storage implementation tests passing
+   - Storage implementation tests passing:
+     - File operations (store, retrieve, delete)
+     - Metadata handling (MIME types, creation times)
+     - Permission checks and access control
+     - Error handling and edge cases
    - All linter errors addressed
 
 2. Integration Tests
    - Document router tests passing:
-     - Document upload
+     - Document upload with proper MIME type handling
      - Document listing with pagination
-     - Document retrieval
+     - Document retrieval with correct metadata
      - Document updates
-     - Document deletion
+     - Document deletion (including metadata cleanup)
      - Storage usage
      - Public document access
    - Storage integration tests passing

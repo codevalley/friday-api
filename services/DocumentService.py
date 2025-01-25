@@ -101,7 +101,7 @@ class DocumentService:
         Raises:
             HTTPException: If validation fails
         """
-        # Check if the string contains only alphanumeric characters and underscores
+        # Check if string contains only alphanumeric chars and underscores
         if not all(
             c.isalnum() or c == "_" for c in unique_name
         ):
@@ -137,7 +137,7 @@ class DocumentService:
                 "status": document.status,
                 "created_at": document.created_at,
                 "updated_at": document.updated_at,
-                "metadata": document.doc_metadata,
+                "doc_metadata": document.doc_metadata,
                 "unique_name": document.unique_name,
                 "is_public": document.is_public,
             }
@@ -198,12 +198,21 @@ class DocumentService:
         document = self.repository.create(document)
 
         # Store file content and get storage URL
-        stored_file = self.storage.store(
-            file_content,
-            str(document.id),
-            user_id,
-            mime_type,
-        )
+        try:
+            stored_file = self.storage.store(
+                file_content,
+                str(document.id),
+                user_id,
+                mime_type,
+            )
+        except StorageError as e:
+            # Clean up the document if storage fails
+            self.repository.delete(document.id, user_id)
+            self.repository.db.commit()
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Failed to store document: {str(e)}",
+            ) from e
 
         # Update storage URL
         document.storage_url = stored_file.path
@@ -211,6 +220,7 @@ class DocumentService:
             document.id,
             {"storage_url": stored_file.path},
         )
+        self.repository.db.commit()
 
         return self._prepare_document_response(document)
 
@@ -230,14 +240,25 @@ class DocumentService:
             HTTPException: If document not found or user not authorized
         """
         try:
-            document = self._get_document_for_user(
-                document_id, user_id
+            document = self._get_document_internal(
+                document_id
             )
             if not document:
                 raise HTTPException(
                     status_code=status.HTTP_404_NOT_FOUND,
                     detail="Document not found",
                 )
+
+            # Check authorization
+            if (
+                document.user_id != user_id
+                and not document.is_public
+            ):
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="Not authorized to access this document",
+                )
+
             return self._prepare_document_response(document)
         except HTTPException:
             raise
@@ -346,7 +367,8 @@ class DocumentService:
             user_id: ID of the user making the request
 
         Returns:
-            Optional[DocumentResponse]: Updated document if found, None otherwise
+            Optional[DocumentResponse]: Updated document if found,
+            None otherwise
 
         Raises:
             HTTPException: If document not found or update fails
@@ -412,13 +434,20 @@ class DocumentService:
             HTTPException: If deletion fails or user not authorized
         """
         try:
-            document = self._get_document_for_user(
-                document_id, user_id
+            document = self._get_document_internal(
+                document_id
             )
             if not document:
                 raise HTTPException(
                     status_code=status.HTTP_404_NOT_FOUND,
                     detail="Document not found",
+                )
+
+            # Check authorization
+            if document.user_id != user_id:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="Not authorized to delete this document",
                 )
 
             # Delete from storage first
@@ -517,13 +546,20 @@ class DocumentService:
             HTTPException: If update fails or user not authorized
         """
         try:
-            document = self._get_document_for_user(
-                document_id, user_id
+            document = self._get_document_internal(
+                document_id
             )
             if not document:
                 raise HTTPException(
                     status_code=status.HTTP_404_NOT_FOUND,
                     detail="Document not found",
+                )
+
+            # Check authorization
+            if document.user_id != user_id:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="Not authorized to update this document",
                 )
 
             # Update document status

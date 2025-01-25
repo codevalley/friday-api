@@ -9,6 +9,7 @@ from domain.storage import (
     StoragePermissionError,
     StorageStatus,
     StoredFile,
+    FileNotFoundError,
 )
 
 
@@ -22,9 +23,9 @@ class MockStorageService(IStorageService):
     def __init__(self):
         """Initialize mock storage."""
         # Dict mapping file keys to (content, metadata) tuples
-        self._files: Dict[
-            str, Tuple[bytes, StoredFile]
-        ] = {}
+        self._files: Dict[str, Tuple[bytes, StoredFile]] = (
+            {}
+        )
 
     def _get_file_key(
         self, user_id: str, file_id: str
@@ -127,42 +128,61 @@ class MockStorageService(IStorageService):
             FileNotFoundError: If file not found
             StoragePermissionError: If user lacks permission
         """
-        key = self._get_file_key(
-            owner_id if owner_id else user_id,
-            file_id,
+        found_file = False
+        permission_error = None
+
+        # First try with provided owner_id
+        if owner_id:
+            key = self._get_file_key(owner_id, file_id)
+            if key in self._files:
+                found_file = True
+                file_data, metadata = self._files[key]
+                try:
+                    self._verify_user_access(
+                        user_id,
+                        metadata.user_id,
+                        owner_id,
+                    )
+                    return BytesIO(file_data)
+                except StoragePermissionError as e:
+                    permission_error = e
+
+        # Then try with user_id
+        key = self._get_file_key(user_id, file_id)
+        if key in self._files:
+            found_file = True
+            file_data, metadata = self._files[key]
+            try:
+                self._verify_user_access(
+                    user_id,
+                    metadata.user_id,
+                )
+                return BytesIO(file_data)
+            except StoragePermissionError as e:
+                permission_error = e
+
+        # Finally search all directories
+        for other_key in self._files:
+            if other_key.endswith(f"/{file_id}"):
+                found_file = True
+                file_data, metadata = self._files[other_key]
+                try:
+                    self._verify_user_access(
+                        user_id,
+                        metadata.user_id,
+                        owner_id,
+                    )
+                    return BytesIO(file_data)
+                except StoragePermissionError as e:
+                    permission_error = e
+
+        # If we found a file but had permission errors, raise the last one
+        if found_file and permission_error:
+            raise permission_error
+
+        raise FileNotFoundError(
+            "The specified key does not exist."
         )
-
-        # If file not found in specified location, search all directories
-        if key not in self._files:
-            for other_key in self._files:
-                if other_key.endswith(f"/{file_id}"):
-                    metadata = self._files[other_key][1]
-                    try:
-                        self._verify_user_access(
-                            user_id,
-                            metadata.user_id,
-                            owner_id,
-                        )
-                        return BytesIO(
-                            self._files[other_key][0]
-                        )
-                    except StoragePermissionError:
-                        continue
-            raise FileNotFoundError(
-                "The specified key does not exist."
-            )
-
-        # Get file data and metadata
-        file_data, metadata = self._files[key]
-
-        # Verify user has access
-        self._verify_user_access(
-            user_id,
-            metadata.user_id,
-            owner_id,
-        )
-
-        return BytesIO(file_data)
 
     def delete(
         self,
@@ -179,25 +199,46 @@ class MockStorageService(IStorageService):
             FileNotFoundError: If file not found
             StoragePermissionError: If user lacks permission
         """
-        key = self._get_file_key(user_id, file_id)
+        found_file = False
+        permission_error = None
 
-        # If file not found in user's directory, search all directories
-        if key not in self._files:
-            for other_key in self._files:
-                if other_key.endswith(f"/{file_id}"):
-                    metadata = self._files[other_key][1]
-                    if metadata.user_id != user_id:
-                        raise StoragePermissionError(
-                            "Not authorized to delete this file"
-                        )
+        # First try user's directory
+        key = self._get_file_key(user_id, file_id)
+        if key in self._files:
+            found_file = True
+            metadata = self._files[key][1]
+            try:
+                self._verify_user_access(
+                    user_id,
+                    metadata.user_id,
+                )
+                del self._files[key]
+                return
+            except StoragePermissionError as e:
+                permission_error = e
+
+        # Then search all directories
+        for other_key in self._files:
+            if other_key.endswith(f"/{file_id}"):
+                found_file = True
+                metadata = self._files[other_key][1]
+                try:
+                    self._verify_user_access(
+                        user_id,
+                        metadata.user_id,
+                    )
                     del self._files[other_key]
                     return
-            raise FileNotFoundError(
-                "The specified key does not exist."
-            )
+                except StoragePermissionError as e:
+                    permission_error = e
 
-        # Delete the file
-        del self._files[key]
+        # If we found a file but had permission errors, raise the last one
+        if found_file and permission_error:
+            raise permission_error
+
+        raise FileNotFoundError(
+            "The specified key does not exist."
+        )
 
     def get_metadata(
         self,
@@ -217,23 +258,41 @@ class MockStorageService(IStorageService):
             FileNotFoundError: If file not found
             StoragePermissionError: If user lacks permission
         """
+        found_file = False
+        permission_error = None
+
+        # First try user's directory
         key = self._get_file_key(user_id, file_id)
+        if key in self._files:
+            found_file = True
+            metadata = self._files[key][1]
+            try:
+                self._verify_user_access(
+                    user_id,
+                    metadata.user_id,
+                )
+                return metadata
+            except StoragePermissionError as e:
+                permission_error = e
 
-        # If file not found in user's directory, search all directories
-        if key not in self._files:
-            for other_key in self._files:
-                if other_key.endswith(f"/{file_id}"):
-                    metadata = self._files[other_key][1]
-                    try:
-                        self._verify_user_access(
-                            user_id,
-                            metadata.user_id,
-                        )
-                        return metadata
-                    except StoragePermissionError:
-                        continue
-            raise FileNotFoundError(
-                "The specified key does not exist."
-            )
+        # Then search all directories
+        for other_key in self._files:
+            if other_key.endswith(f"/{file_id}"):
+                found_file = True
+                metadata = self._files[other_key][1]
+                try:
+                    self._verify_user_access(
+                        user_id,
+                        metadata.user_id,
+                    )
+                    return metadata
+                except StoragePermissionError as e:
+                    permission_error = e
 
-        return self._files[key][1]
+        # If we found a file but had permission errors, raise the last one
+        if found_file and permission_error:
+            raise permission_error
+
+        raise FileNotFoundError(
+            "The specified key does not exist."
+        )

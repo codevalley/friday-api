@@ -67,6 +67,7 @@ from domain.storage import (
     StoragePermissionError,
     StorageStatus,
     StoredFile,
+    FileNotFoundError,
 )
 
 
