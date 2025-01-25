@@ -12,7 +12,9 @@ from domain.storage import (
     FileNotFoundError,
     StoragePermissionError,
 )
-from infrastructure.storage.local import LocalStorageService
+from infrastructure.storage.local_sync import (
+    LocalStorageService,
+)
 
 
 @pytest.fixture
@@ -193,8 +195,12 @@ def test_storage_error_handling(
     storage_service, storage_dir
 ):
     """Test error handling for storage operations."""
-    # Make base directory read-only
-    os.chmod(storage_dir, 0o444)
+    # Create user directory first
+    user_dir = os.path.join(storage_dir, "user456")
+    os.makedirs(user_dir, exist_ok=True)
+
+    # Make user directory read-only
+    os.chmod(user_dir, 0o444)
 
     try:
         with pytest.raises(StorageError):
@@ -206,7 +212,7 @@ def test_storage_error_handling(
             )
     finally:
         # Restore permissions for cleanup
-        os.chmod(storage_dir, 0o755)
+        os.chmod(user_dir, 0o755)
 
 
 def test_public_file_access(storage_service):

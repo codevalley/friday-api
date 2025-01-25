@@ -1,6 +1,7 @@
 """Local storage service implementation."""
 
 import os
+import json
 from datetime import datetime
 from typing import BinaryIO, Optional
 
@@ -38,6 +39,22 @@ class LocalStorageService:
             Full path to the file
         """
         return os.path.join(self.base_dir, user_id, file_id)
+
+    def _get_metadata_path(
+        self, file_id: str, user_id: str
+    ) -> str:
+        """Get the full path for a file's metadata.
+
+        Args:
+            file_id: File ID
+            user_id: User ID
+
+        Returns:
+            Full path to the metadata file
+        """
+        return os.path.join(
+            self.base_dir, user_id, f"{file_id}.meta"
+        )
 
     def _check_permission(
         self,
@@ -101,6 +118,9 @@ class LocalStorageService:
             StorageError: If file cannot be stored
         """
         file_path = self._get_file_path(file_id, user_id)
+        metadata_path = self._get_metadata_path(
+            file_id, user_id
+        )
         os.makedirs(
             os.path.dirname(file_path), exist_ok=True
         )
@@ -108,6 +128,15 @@ class LocalStorageService:
         try:
             with open(file_path, "wb") as f:
                 f.write(file_data)
+
+            # Store metadata
+            metadata = {
+                "mime_type": mime_type,
+                "created_at": datetime.utcnow().isoformat(),
+            }
+            with open(metadata_path, "w") as f:
+                json.dump(metadata, f)
+
         except OSError as e:
             raise StorageError(
                 f"Failed to store file: {str(e)}"
@@ -116,6 +145,7 @@ class LocalStorageService:
         return StoredFile(
             id=file_id,
             user_id=user_id,
+            path=file_path,
             size_bytes=len(file_data),
             mime_type=mime_type,
             status=StorageStatus.ACTIVE,
@@ -191,7 +221,14 @@ class LocalStorageService:
             file_path = self._get_file_path(
                 file_id, file_owner
             )
+            metadata_path = self._get_metadata_path(
+                file_id, file_owner
+            )
+
+            # Delete both file and metadata
             os.remove(file_path)
+            if os.path.exists(metadata_path):
+                os.remove(metadata_path)
 
             # Remove user directory if empty
             user_dir = os.path.dirname(file_path)
@@ -235,18 +272,37 @@ class LocalStorageService:
             file_path = self._get_file_path(
                 file_id, file_owner
             )
+            metadata_path = self._get_metadata_path(
+                file_id, file_owner
+            )
             stats = os.stat(file_path)
 
-            # We don't store mime_type on disk, so use a generic type
+            # Load metadata if available
+            mime_type = "application/octet-stream"
+            created_at = datetime.fromtimestamp(
+                stats.st_ctime
+            )
+            if os.path.exists(metadata_path):
+                with open(metadata_path, "r") as f:
+                    metadata = json.load(f)
+                    mime_type = metadata.get(
+                        "mime_type", mime_type
+                    )
+                    created_at = datetime.fromisoformat(
+                        metadata.get(
+                            "created_at",
+                            created_at.isoformat(),
+                        )
+                    )
+
             return StoredFile(
                 id=file_id,
                 user_id=file_owner,
+                path=file_path,
                 size_bytes=stats.st_size,
-                mime_type="application/octet-stream",
+                mime_type=mime_type,
                 status=StorageStatus.ACTIVE,
-                created_at=datetime.fromtimestamp(
-                    stats.st_ctime
-                ),
+                created_at=created_at,
             )
         except OSError as e:
             raise StorageError(
