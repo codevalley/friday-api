@@ -1,7 +1,8 @@
 """Mock storage service for testing."""
 
 from datetime import datetime
-from typing import AsyncIterator, Dict, Optional, Tuple
+from typing import Dict, Optional, Tuple
+from io import BytesIO
 
 from domain.storage import (
     IStorageService,
@@ -62,7 +63,7 @@ class MockStorageService(IStorageService):
                 "Simulated failure"
             )
 
-    async def store(
+    def store(
         self,
         file_data: bytes,
         file_id: str,
@@ -100,12 +101,12 @@ class MockStorageService(IStorageService):
         )
         return stored_file
 
-    async def retrieve(
+    def retrieve(
         self,
         file_id: str,
         user_id: str,
         owner_id: Optional[str] = None,
-    ) -> AsyncIterator[bytes]:
+    ) -> BytesIO:
         """Retrieve a file from memory.
 
         Args:
@@ -114,27 +115,34 @@ class MockStorageService(IStorageService):
             owner_id: Optional ID of the file owner (for public files)
 
         Returns:
-            AsyncIterator[bytes]: File content stream
+            BytesIO: File-like object containing file content
 
         Raises:
             FileNotFoundError: If file does not exist
-            StoragePermissionError: If user cannot access file
+            StoragePermissionError: If user lacks permission
         """
         self._check_failure(user_id)
 
-        # If owner_id is provided, use that for lookup
-        lookup_user_id = owner_id if owner_id else user_id
-        key = (lookup_user_id, file_id)
+        # For public files, use owner_id as key if provided
+        lookup_user = owner_id if owner_id else user_id
+        key = (lookup_user, file_id)
 
         if key not in self._files:
             raise FileNotFoundError(
-                f"File not found: {file_id}"
+                f"File {file_id} not found"
             )
 
-        file_data, _ = self._files[key]
-        yield file_data
+        file_data, stored_file = self._files[key]
 
-    async def delete(
+        # Check if user has permission
+        if user_id != stored_file.user_id and not owner_id:
+            raise StoragePermissionError(
+                "User does not have permission to access file"
+            )
+
+        return BytesIO(file_data)
+
+    def delete(
         self,
         file_id: str,
         user_id: str,
@@ -143,23 +151,31 @@ class MockStorageService(IStorageService):
 
         Args:
             file_id: ID of the file to delete
-            user_id: ID of the user requesting deletion
+            user_id: ID of the file owner
 
         Raises:
             FileNotFoundError: If file does not exist
-            StoragePermissionError: If user cannot delete file
+            StoragePermissionError: If user lacks permission
         """
         self._check_failure(user_id)
 
         key = (user_id, file_id)
         if key not in self._files:
             raise FileNotFoundError(
-                f"File not found: {file_id}"
+                f"File {file_id} not found"
+            )
+
+        _, stored_file = self._files[key]
+
+        # Check if user has permission
+        if user_id != stored_file.user_id:
+            raise StoragePermissionError(
+                "User does not have permission to delete file"
             )
 
         del self._files[key]
 
-    async def get_metadata(
+    def get_metadata(
         self,
         file_id: str,
         user_id: str,
@@ -182,7 +198,7 @@ class MockStorageService(IStorageService):
         key = (user_id, file_id)
         if key not in self._files:
             raise FileNotFoundError(
-                f"File not found: {file_id}"
+                f"File {file_id} not found"
             )
 
         _, stored_file = self._files[key]

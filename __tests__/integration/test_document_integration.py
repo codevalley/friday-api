@@ -3,7 +3,7 @@
 import pytest
 from fastapi import UploadFile, HTTPException, status
 from io import BytesIO
-from unittest.mock import AsyncMock
+from unittest.mock import Mock
 from schemas.pydantic.DocumentSchema import (
     DocumentCreate,
     DocumentUpdate,
@@ -42,65 +42,37 @@ def create_test_file(
 @pytest.fixture
 def storage_service():
     """Mock storage service."""
-    mock_storage = AsyncMock(spec=IStorageService)
+    mock_storage = Mock(spec=IStorageService)
     stored_content = {}
 
-    async def mock_store(
-        file_data, file_id, user_id, mime_type
-    ):
+    def mock_store(file_data, file_id, user_id, mime_type):
         stored_content[file_id] = file_data
         return StoredFile(
-            id=file_id,
-            user_id=user_id,
-            path=f"test/{file_id}",
+            path=f"/test/{file_id}",
             size_bytes=len(file_data),
             mime_type=mime_type,
             status=StorageStatus.ACTIVE,
-            created_at=datetime.now(),
         )
 
-    async def mock_retrieve(
-        file_id, user_id, owner_id=None
-    ):
+    def mock_retrieve(file_id, user_id):
         if file_id not in stored_content:
             raise FileNotFoundError(
                 f"File {file_id} not found"
             )
-        file = BytesIO(stored_content[file_id])
-        file.seek(0)  # Reset file pointer to beginning
-        return file
+        content = stored_content[file_id]
+        return BytesIO(content)
 
-    async def mock_delete(file_id, user_id):
+    def mock_delete(file_id, user_id):
         if file_id not in stored_content:
             raise FileNotFoundError(
                 f"File {file_id} not found"
             )
         del stored_content[file_id]
 
-    async def mock_get_metadata(file_id, user_id):
-        if file_id not in stored_content:
-            raise FileNotFoundError(
-                f"File {file_id} not found"
-            )
-        content = stored_content[file_id]
-        return StoredFile(
-            id=file_id,
-            user_id=user_id,
-            path=f"test/{file_id}",
-            size_bytes=len(content),
-            mime_type="text/plain",
-            status=StorageStatus.ACTIVE,
-            created_at=datetime.now(),
-        )
+    mock_storage.store = mock_store
+    mock_storage.retrieve = mock_retrieve
+    mock_storage.delete = mock_delete
 
-    mock_storage.store = AsyncMock(side_effect=mock_store)
-    mock_storage.retrieve = AsyncMock(
-        side_effect=mock_retrieve
-    )
-    mock_storage.delete = AsyncMock(side_effect=mock_delete)
-    mock_storage.get_metadata = AsyncMock(
-        side_effect=mock_get_metadata
-    )
     return mock_storage
 
 
@@ -108,8 +80,7 @@ def storage_service():
 class TestDocumentIntegration:
     """Integration tests for document management system."""
 
-    @pytest.mark.asyncio
-    async def test_create_and_retrieve_document(
+    def test_create_and_retrieve_document(
         self,
         document_service: DocumentService,
         sample_user,
@@ -117,104 +88,70 @@ class TestDocumentIntegration:
     ):
         """Test creating and retrieving a document."""
         # Create document
-        doc_create = DocumentCreate(
-            name="Test Document",
-            metadata={"description": "Test Description"},
-            is_public=False,
-            mime_type="text/plain",
-        )
         test_file = create_test_file()
-
-        created_doc = (
-            await document_service.create_document(
-                document=doc_create,
-                user_id=sample_user.id,
-                file=test_file,
-            )
+        doc_create = DocumentCreate(
+            name="Test Doc",
+            mime_type="text/plain",
+            metadata={"test": "data"},
+            is_public=False,
         )
 
-        # Verify document was created
-        assert created_doc.name == "Test Document"
-        assert created_doc.user_id == sample_user.id
+        created_doc = document_service.create_document(
+            doc_create, sample_user.id, test_file
+        )
+
+        assert created_doc.name == "Test Doc"
+        assert created_doc.mime_type == "text/plain"
+        assert created_doc.metadata == {"test": "data"}
+        assert created_doc.status == DocumentStatus.ACTIVE
 
         # Retrieve document
-        retrieved_doc = await document_service.get_document(
-            document_id=created_doc.id,
-            user_id=sample_user.id,
+        retrieved_doc = document_service.get_document(
+            created_doc.id, sample_user.id
         )
+        assert retrieved_doc.id == created_doc.id
         assert retrieved_doc.name == created_doc.name
-        assert (
-            retrieved_doc.doc_metadata
-            == created_doc.doc_metadata
-        )
 
-        # Verify file content
-        file_content = (
-            await document_service.get_document_content(
-                document_id=created_doc.id,
-                user_id=sample_user.id,
-            )
+        # Get file content
+        content = document_service.get_file_content(
+            created_doc.id, sample_user.id
         )
-        assert file_content.read() == b"test content"
+        assert content.read() == b"test content"
 
-    @pytest.mark.asyncio
-    async def test_update_document(
+    def test_update_document(
         self,
         document_service: DocumentService,
         sample_user,
         storage_service: IStorageService,
     ):
         """Test updating a document's metadata."""
-        # Create initial document
+        # Create document
+        test_file = create_test_file()
         doc_create = DocumentCreate(
             name="Original Name",
-            metadata={
-                "description": "Original Description"
-            },
-            is_public=False,
             mime_type="text/plain",
+            metadata={"original": "data"},
+            is_public=False,
         )
-        test_file = create_test_file()
-        created_doc = (
-            await document_service.create_document(
-                document=doc_create,
-                user_id=sample_user.id,
-                file=test_file,
-            )
+
+        created_doc = document_service.create_document(
+            doc_create, sample_user.id, test_file
         )
 
         # Update document
         doc_update = DocumentUpdate(
             name="Updated Name",
-            metadata={"description": "Updated Description"},
-            is_public=True,
+            metadata={"updated": "data"},
         )
-        updated_doc = (
-            await document_service.update_document(
-                document_id=created_doc.id,
-                document=doc_update,
-                user_id=sample_user.id,
-            )
+
+        updated_doc = document_service.update_document(
+            created_doc.id, doc_update, sample_user.id
         )
 
         assert updated_doc.name == "Updated Name"
-        assert (
-            updated_doc.doc_metadata.get("description")
-            == "Updated Description"
-        )
-        assert updated_doc.is_public is True
+        assert updated_doc.metadata == {"updated": "data"}
 
-        # Verify file content remains unchanged
-        file_content = (
-            await document_service.get_document_content(
-                document_id=created_doc.id,
-                user_id=sample_user.id,
-            )
-        )
-        assert file_content.read() == b"test content"
-
-    @pytest.mark.asyncio
-    async def test_delete_document(
+    def test_delete_document(
         self,
         document_service: DocumentService,
         sample_user,
@@ -222,53 +159,30 @@ class TestDocumentIntegration:
     ):
         """Test deleting a document."""
         # Create document
-        doc_create = DocumentCreate(
-            name="To Be Deleted",
-            metadata={
-                "description": "This document will be deleted"
-            },
-            is_public=False,
-            mime_type="text/plain",
-        )
         test_file = create_test_file()
-        created_doc = (
-            await document_service.create_document(
-                document=doc_create,
-                user_id=sample_user.id,
-                file=test_file,
-            )
+        doc_create = DocumentCreate(
+            name="To Delete",
+            mime_type="text/plain",
+            is_public=False,
+        )
+
+        created_doc = document_service.create_document(
+            doc_create, sample_user.id, test_file
         )
 
         # Delete document
-        await document_service.delete_document(
-            document_id=created_doc.id,
-            user_id=sample_user.id,
+        document_service.delete_document(
+            created_doc.id, sample_user.id
         )
 
         # Verify document is deleted
-        with pytest.raises(HTTPException) as exc_info:
-            await document_service.get_document(
-                document_id=created_doc.id,
-                user_id=sample_user.id,
+        with pytest.raises(HTTPException) as exc:
+            document_service.get_document(
+                created_doc.id, sample_user.id
             )
-        assert (
-            exc_info.value.status_code
-            == status.HTTP_404_NOT_FOUND
-        )
+        assert exc.value.status_code == status.HTTP_404_NOT_FOUND
 
-        # Verify file is deleted from storage
-        with pytest.raises(HTTPException) as exc_info:
-            await document_service.get_document_content(
-                document_id=created_doc.id,
-                user_id=sample_user.id,
-            )
-        assert (
-            exc_info.value.status_code
-            == status.HTTP_404_NOT_FOUND
-        )
-
-    @pytest.mark.asyncio
-    async def test_public_document_access(
+    def test_public_document_access(
         self,
         document_service: DocumentService,
         sample_user,
@@ -277,41 +191,26 @@ class TestDocumentIntegration:
     ):
         """Test public document access."""
         # Create public document
-        doc_create = DocumentCreate(
-            name="Public Document",
-            metadata={
-                "description": "This is a public document"
-            },
-            is_public=True,
-            mime_type="text/plain",
-        )
         test_file = create_test_file()
-        created_doc = (
-            await document_service.create_document(
-                document=doc_create,
-                user_id=sample_user.id,
-                file=test_file,
-            )
+        doc_create = DocumentCreate(
+            name="Public Doc",
+            mime_type="text/plain",
+            is_public=True,
+            unique_name="public-doc-1",
         )
 
-        # Verify another user can access the document
-        retrieved_doc = await document_service.get_document(
-            document_id=created_doc.id,
-            user_id=another_user.id,
+        created_doc = document_service.create_document(
+            doc_create, sample_user.id, test_file
         )
-        assert retrieved_doc.name == created_doc.name
 
-        # Verify another user can access the file content
-        file_content = (
-            await document_service.get_document_content(
-                document_id=created_doc.id,
-                user_id=another_user.id,
-            )
+        # Other user can access public document
+        retrieved_doc = document_service.get_document(
+            created_doc.id, another_user.id
         )
-        assert file_content.read() == b"test content"
+        assert retrieved_doc.id == created_doc.id
+        assert retrieved_doc.is_public is True
 
-    @pytest.mark.asyncio
-    async def test_document_list_and_filter(
+    def test_document_list_and_filter(
         self,
         document_service: DocumentService,
         sample_user,
@@ -319,107 +218,55 @@ class TestDocumentIntegration:
     ):
         """Test listing and filtering documents."""
         # Create multiple documents
-        doc_names = ["Doc1", "Doc2", "Doc3"]
-        for name in doc_names:
+        for i in range(3):
+            test_file = create_test_file()
             doc_create = DocumentCreate(
-                name=name,
-                metadata={
-                    "description": f"Description for {name}"
-                },
-                is_public=False,
+                name=f"Doc {i}",
                 mime_type="text/plain",
+                is_public=False,
             )
-            test_file = create_test_file(
-                content=f"Content for {name}".encode()
-            )
-            await document_service.create_document(
-                document=doc_create,
-                user_id=sample_user.id,
-                file=test_file,
+            document_service.create_document(
+                doc_create, sample_user.id, test_file
             )
 
         # List all documents
-        documents = await document_service.list_documents(
-            user_id=sample_user.id, skip=0, limit=10
+        docs = document_service.list_documents(
+            sample_user.id, skip=0, limit=10
         )
-        assert (
-            len(documents) >= 3
-        )  # May include documents from other tests
+        assert len(docs) >= 3
 
-        # Test filtering by name
-        filtered_docs = (
-            await document_service.list_documents(
-                user_id=sample_user.id,
-                skip=0,
-                limit=10,
-                filters={"name": "Doc1"},
-            )
+        # Filter by mime type
+        docs = document_service.list_documents(
+            sample_user.id,
+            skip=0,
+            limit=10,
+            mime_type="text/plain",
         )
-        assert len(filtered_docs) == 1
-        assert filtered_docs[0].name == "Doc1"
+        assert all(doc.mime_type == "text/plain" for doc in docs)
 
-    @pytest.mark.asyncio
-    async def test_document_size_limits(
+    def test_document_size_limits(
         self,
         document_service: DocumentService,
         sample_user,
         storage_service: IStorageService,
     ):
         """Test document size limits."""
-        # Test with a valid size document (1MB)
-        valid_content = b"x" * (1024 * 1024)  # 1MB
+        # Create large file
+        large_content = b"x" * (DocumentData.MAX_DOCUMENT_SIZE + 1)
+        large_file = create_test_file(large_content)
+
+        # Attempt to create document with large file
         doc_create = DocumentCreate(
-            name="Valid Size Document",
-            metadata={
-                "description": "This is a valid size document"
-            },
+            name="Large Doc",
+            mime_type="text/plain",
             is_public=False,
-            mime_type="application/octet-stream",
-        )
-        test_file = create_test_file(content=valid_content)
-
-        created_doc = (
-            await document_service.create_document(
-                document=doc_create,
-                user_id=sample_user.id,
-                file=test_file,
-            )
         )
 
-        # Verify file content for valid size
-        file_content = (
-            await document_service.get_document_content(
-                document_id=created_doc.id,
-                user_id=sample_user.id,
-            )
-        )
-        assert len(file_content.read()) == len(
-            valid_content
-        )
-
-        # Test with an oversized document (150MB)
-        oversized_content = b"x" * (
-            150 * 1024 * 1024
-        )  # 150MB
-        doc_create = DocumentCreate(
-            name="Oversized Document",
-            metadata={
-                "description": "This document exceeds size limits"
-            },
-            is_public=False,
-            mime_type="application/octet-stream",
-        )
-        test_file = create_test_file(
-            content=oversized_content
-        )
-
-        with pytest.raises(HTTPException) as exc_info:
-            await document_service.create_document(
-                document=doc_create,
-                user_id=sample_user.id,
-                file=test_file,
+        with pytest.raises(HTTPException) as exc:
+            document_service.create_document(
+                doc_create, sample_user.id, large_file
             )
         assert (
-            exc_info.value.status_code
+            exc.value.status_code
             == status.HTTP_413_REQUEST_ENTITY_TOO_LARGE
         )

@@ -31,7 +31,7 @@ from orm.BaseModel import Base
 from orm.MomentModel import Moment
 from orm.NoteModel import Note
 from orm.UserModel import User
-from orm.DocumentModel import Document
+from orm.DocumentModel import Document, DocumentStatus
 from repositories.NoteRepository import NoteRepository
 from services.NoteService import NoteService
 from services.DocumentService import DocumentService
@@ -176,9 +176,9 @@ def test_client(test_db_session):
         finally:
             test_db_session.close()
 
-    app.dependency_overrides[
-        get_db_connection
-    ] = override_get_db
+    app.dependency_overrides[get_db_connection] = (
+        override_get_db
+    )
     return TestClient(app)
 
 
@@ -432,7 +432,8 @@ def sample_document(test_db_session, sample_user):
         mime_type="text/plain",
         size_bytes=100,
         user_id=sample_user.id,
-        status="ACTIVE",
+        status=DocumentStatus.ACTIVE,  # Use enum value instead of string
+        doc_metadata={},  # Initialize with empty dict
     )
     test_db_session.add(doc)
     test_db_session.commit()
@@ -450,7 +451,7 @@ def sample_public_document(test_db_session, sample_user):
         user_id=sample_user.id,
         status="ACTIVE",
         is_public=True,
-        unique_name="test-doc",
+        unique_name="test_doc",
     )
     test_db_session.add(doc)
     test_db_session.commit()

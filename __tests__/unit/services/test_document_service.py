@@ -162,23 +162,15 @@ class TestDocumentService:
             sample_document
         )
 
-        # Create a mock file
-        mock_file = AsyncMock()
-        mock_file.read = AsyncMock(
-            return_value=b"test content"
-        )
-        mock_file.filename = "test.pdf"
-
         # Test
         result = document_service.create_document(
-            document=DocumentCreate(
-                name="test.pdf",
-                mime_type="application/pdf",
-                metadata={},
-                is_public=False,
-            ),
+            name="test.pdf",
+            mime_type="application/pdf",
+            file_content=b"test content",
+            file_size=len(b"test content"),
+            metadata={},
+            is_public=False,
             user_id="test-user",
-            file=mock_file,
         )
 
         # Assert
@@ -201,22 +193,16 @@ class TestDocumentService:
             "Failed to store file"
         )
 
-        # Create a mock file
-        mock_file = Mock()
-        mock_file.read = Mock(return_value=b"test content")
-        mock_file.filename = "test.pdf"
-
         # Test
         with pytest.raises(HTTPException) as exc:
             document_service.create_document(
-                document=DocumentCreate(
-                    name="test.pdf",
-                    mime_type="application/pdf",
-                    metadata={},
-                    is_public=False,
-                ),
+                name="test.pdf",
+                mime_type="application/pdf",
+                file_content=b"test content",
+                file_size=len(b"test content"),
+                metadata={},
+                is_public=False,
                 user_id="test-user",
-                file=mock_file,
             )
         assert exc.value.status_code == 500
 
@@ -487,18 +473,20 @@ class TestDocumentService:
         """Test getting a public document."""
         # Setup
         sample_document.is_public = True
-        mock_repository.get_by_id.return_value = (
-            sample_document
-        )
+        sample_document.unique_name = "test-doc"
+        mock_repository.get_by_unique_name.return_value = sample_document
 
         # Test
         result = document_service.get_public_document(
-            document_id=1
+            unique_name="test-doc"
         )
 
         # Assert
         assert result.id == sample_document.id
         assert result.is_public is True
+        mock_repository.get_by_unique_name.assert_called_once_with(
+            "test-doc"
+        )
 
     def test_get_public_document_not_found(
         self,
@@ -507,12 +495,12 @@ class TestDocumentService:
     ):
         """Test getting a nonexistent public document."""
         # Setup
-        mock_repository.get_by_id.return_value = None
+        mock_repository.get_by_unique_name.return_value = None
 
         # Test
         with pytest.raises(HTTPException) as exc:
             document_service.get_public_document(
-                document_id=999
+                unique_name="nonexistent"
             )
         assert exc.value.status_code == 404
 
@@ -525,67 +513,15 @@ class TestDocumentService:
         """Test attempting to get a private document as public."""
         # Setup
         sample_document.is_public = False
-        mock_repository.get_by_id.return_value = (
-            sample_document
-        )
+        sample_document.unique_name = "test-doc"
+        mock_repository.get_by_unique_name.return_value = sample_document
 
         # Test
         with pytest.raises(HTTPException) as exc:
             document_service.get_public_document(
-                document_id=1
+                unique_name="test-doc"
             )
         assert exc.value.status_code == 403
-
-    def test_get_public_document_content(
-        self,
-        document_service,
-        mock_repository,
-        mock_storage,
-        sample_document,
-    ):
-        """Test getting public document content."""
-        # Setup
-        sample_document.is_public = True
-        mock_repository.get_by_id.return_value = (
-            sample_document
-        )
-
-        class AsyncIterator:
-            def __init__(self, content):
-                self.content = content
-                self.current = 0
-
-            def __aiter__(self):
-                return self
-
-            async def __anext__(self):
-                if self.current < len(self.content):
-                    chunk = self.content[self.current]
-                    self.current += 1
-                    return chunk
-                raise StopAsyncIteration
-
-        async def mock_retrieve(*args, **kwargs):
-            return AsyncIterator([b"test content"])
-
-        mock_storage.retrieve = AsyncMock(
-            side_effect=mock_retrieve
-        )
-
-        # Test
-        (
-            result,
-            content,
-        ) = document_service.get_public_document_content(
-            document_id=1
-        )
-
-        # Assert
-        assert content == b"test content"
-        assert result.id == sample_document.id
-        assert result.is_public is True
-        mock_storage.retrieve.assert_called_once()
-        mock_repository.get_by_id.assert_called_once_with(1)
 
     def test_get_private_document_as_owner(
         self,

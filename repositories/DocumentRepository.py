@@ -32,11 +32,11 @@ class DocumentRepository(BaseRepository[Document, int]):
         """
         super().__init__(db, Document)
 
-    def create(self, **kwargs) -> Document:
+    def create(self, document: Document) -> Document:
         """Create a new document.
 
         Args:
-            **kwargs: Document attributes
+            document: Document model to create
 
         Returns:
             Document: Created document instance
@@ -45,7 +45,6 @@ class DocumentRepository(BaseRepository[Document, int]):
             DocumentValidationError: If doc creation fails due to invalid data
             HTTPException: If unique name already exists
         """
-        document = Document(**kwargs)
         try:
             # Check if unique_name already exists
             if document.unique_name:
@@ -336,3 +335,18 @@ class DocumentRepository(BaseRepository[Document, int]):
         for document in documents:
             self._ensure_metadata_dict(document)
         return documents
+
+    def count_by_user(self, user_id: str) -> int:
+        """Count total documents for a user.
+
+        Args:
+            user_id: ID of the user
+
+        Returns:
+            int: Total number of documents
+        """
+        return (
+            self.db.query(Document)
+            .filter(Document.user_id == user_id)
+            .count()
+        )

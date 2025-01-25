@@ -9,7 +9,10 @@ from domain.document import DocumentStatus, DocumentData
 class DocumentBase(BaseModel):
     """Base schema for document data."""
 
-    model_config = ConfigDict(from_attributes=True)
+    model_config = ConfigDict(
+        from_attributes=True,
+        populate_by_name=True,
+    )
 
     name: str = Field(
         ...,
@@ -31,7 +34,7 @@ class DocumentBase(BaseModel):
     unique_name: Optional[str] = Field(
         None,
         max_length=128,
-        pattern=r"^[a-zA-Z0-9]+$",
+        pattern=r"^[a-zA-Z0-9_]+$",
         description="Unique identifier for public access",
     )
     is_public: bool = Field(
@@ -68,37 +71,48 @@ class DocumentCreate(DocumentBase):
 
 
 class DocumentUpdate(BaseModel):
-    """Schema for document updates."""
+    """Schema for document update."""
 
-    model_config = ConfigDict(from_attributes=True)
-
-    name: Optional[str] = Field(
-        None,
-        min_length=1,
-        max_length=255,
-        description="New name for the document",
+    model_config = ConfigDict(
+        from_attributes=True,
+        populate_by_name=True,
+        json_schema_extra={
+            "example": {
+                "name": "Updated Document",
+                "metadata": {"key": "value"},
+                "is_public": True,
+                "unique_name": "updated-doc",
+            }
+        }
     )
+
+    name: Optional[str] = None
     doc_metadata: Optional[Dict[str, Any]] = Field(
         None,
-        description="Updated metadata for the document",
         alias="metadata",
     )
+    is_public: Optional[bool] = None
     unique_name: Optional[str] = Field(
         None,
         max_length=128,
-        pattern=r"^[a-zA-Z0-9]+$",
+        pattern=r"^[a-zA-Z0-9_]+$",
         description="Unique identifier for public access",
     )
-    is_public: Optional[bool] = Field(
-        None,
-        description="Whether the document is publicly accessible",
-    )
+
+
+class DocumentStatusUpdate(BaseModel):
+    """Document status update schema."""
+
+    status: DocumentStatus
 
 
 class DocumentResponse(DocumentBase):
     """Schema for document responses."""
 
-    model_config = ConfigDict(from_attributes=True)
+    model_config = ConfigDict(
+        from_attributes=True,
+        populate_by_name=True,
+    )
 
     id: int
     user_id: str
@@ -107,6 +121,16 @@ class DocumentResponse(DocumentBase):
     status: DocumentStatus
     created_at: datetime
     updated_at: Optional[datetime] = None
+    unique_name: Optional[str] = Field(
+        None,
+        max_length=128,
+        pattern=r"^[a-zA-Z0-9_]+$",
+        description="Unique identifier for public access",
+    )
+    is_public: bool = Field(
+        False,
+        description="Whether the document is publicly accessible",
+    )
     doc_metadata: Optional[Dict[str, Any]] = Field(
         None,
         description="Additional metadata about the document",

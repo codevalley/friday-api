@@ -2,7 +2,7 @@
 
 from datetime import datetime
 from typing import List, Optional, Dict, Any
-from fastapi import HTTPException, UploadFile, status
+from fastapi import HTTPException, status
 from io import BytesIO
 
 from domain.document import DocumentData, DocumentStatus
@@ -15,7 +15,10 @@ from schemas.pydantic.DocumentSchema import (
     DocumentResponse,
     DocumentUpdate,
 )
-from orm.DocumentModel import Document
+from schemas.pydantic.StorageSchema import (
+    StorageUsageResponse,
+)
+from orm.DocumentModel import Document as DocumentModel
 
 
 class DocumentService:
@@ -35,22 +38,22 @@ class DocumentService:
         self.repository = repository
         self.storage = storage
 
-    async def _get_document_internal(
+    def _get_document_internal(
         self, document_id: int
-    ) -> Optional[Document]:
+    ) -> Optional[DocumentModel]:
         """Get document by ID for internal use.
 
         Args:
             document_id: ID of the document to retrieve
 
         Returns:
-            Optional[Document]: Document if found, None otherwise
+            Optional[DocumentModel]: Document if found, None otherwise
         """
         return self.repository.get_by_id(document_id)
 
-    async def _get_document_for_user(
+    def _get_document_for_user(
         self, document_id: int, user_id: str
-    ) -> Optional[Document]:
+    ) -> Optional[DocumentModel]:
         """Get document by ID with user access check.
 
         Args:
@@ -58,7 +61,7 @@ class DocumentService:
             user_id: ID of the user making the request
 
         Returns:
-            Optional[Document]: Document if found, None otherwise
+            Optional[DocumentModel]: Document if found, None otherwise
         """
         return self.repository.get_by_id(
             document_id, user_id
@@ -98,14 +101,17 @@ class DocumentService:
         Raises:
             HTTPException: If validation fails
         """
-        if not unique_name.replace("_", "").isalnum():
+        # Check if the string contains only alphanumeric characters and underscores
+        if not all(
+            c.isalnum() or c == "_" for c in unique_name
+        ):
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="unique_name must be alphanumeric (underscore allowed)",
             )
 
     def _prepare_document_response(
-        self, document: Document
+        self, document: DocumentModel
     ) -> DocumentResponse:
         """Prepare document response from domain model.
 
@@ -137,145 +143,61 @@ class DocumentService:
             }
         )
 
-    async def create_document(
+    def create_document(
         self,
-        document: DocumentCreate,
-        user_id: str,
-        file: UploadFile,
+        name: str,
+        mime_type: str,
+        file_content: bytes,
+        file_size: int,
+        metadata: Optional[Dict[str, Any]] = None,
+        is_public: bool = False,
+        unique_name: Optional[str] = None,
+        user_id: str = None,
     ) -> DocumentResponse:
         """Create a new document.
 
         Args:
-            document: Document creation data
-            user_id: ID of the document owner
-            file: Uploaded file data
+            name: Name of the document
+            mime_type: MIME type of the document
+            file_content: Content of the document
+            file_size: Size of the document in bytes
+            metadata: Optional metadata for the document
+            is_public: Whether the document is publicly accessible
+            unique_name: Optional unique name for public access
+            user_id: Optional user ID
 
         Returns:
-            DocumentResponse: Created document data
-
-        Raises:
-            HTTPException: If document creation fails
+            DocumentResponse: Created document
         """
-        try:
-            # Check file size before reading content
-            if hasattr(file.file, "__len__"):
-                file_size = len(file.file)
-                if (
-                    file_size
-                    > DocumentData.MAX_DOCUMENT_SIZE
-                ):
-                    raise HTTPException(
-                        status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
-                        detail=(
-                            f"File size ({file_size} bytes) exceeds maximum "
-                            f"allowed size ({DocumentData.MAX_DOCUMENT_SIZE} "
-                            "bytes)"
-                        ),
-                    )
-                content = file.file.read()
-                file.file.seek(0)  # Reset file pointer
-            else:
-                # If we can't get the size directly, read in chunks
-                file_size = 0
-                chunk_size = 8192  # Read in 8KB chunks
-                chunks = []
+        # Create document in database
+        document = DocumentModel(
+            name=name,
+            mime_type=mime_type,
+            size_bytes=file_size,
+            doc_metadata=metadata or {},
+            is_public=is_public,
+            unique_name=unique_name,
+            user_id=user_id,
+            status=DocumentStatus.ACTIVE,
+        )
+        document = self.repository.create(document)
 
-                while True:
-                    chunk = await file.read(chunk_size)
-                    if not chunk:
-                        break
-                    file_size += len(chunk)
-                    if (
-                        file_size
-                        > DocumentData.MAX_DOCUMENT_SIZE
-                    ):
-                        raise HTTPException(
-                            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,  # noqa: E501
-                            detail=(
-                                f"File size ({file_size} bytes) exceeds maximum "  # noqa: E501
-                                f"allowed size ({DocumentData.MAX_DOCUMENT_SIZE} "  # noqa: E501
-                                "bytes)"
-                            ),
-                        )
-                    chunks.append(chunk)
+        # Store file content and get storage URL
+        storage_url = self.storage.store_file(
+            str(document.id),
+            file_content,
+            mime_type,
+        )
 
-                content = b"".join(chunks)
+        # Update storage URL
+        document.storage_url = storage_url
+        self.repository.update(
+            document.id, {"storage_url": storage_url}
+        )
 
-            # Generate unique name for public documents if not provided
-            if document.is_public:
-                if not document.unique_name:
-                    document.unique_name = (
-                        self._generate_unique_name(
-                            user_id, file.filename
-                        )
-                    )
-                else:
-                    self._validate_unique_name(
-                        document.unique_name
-                    )
+        return self._prepare_document_response(document)
 
-            # Create initial document record
-            doc_data = document.to_domain(user_id=user_id)
-            db_doc = self.repository.create(
-                **doc_data.__dict__
-            )
-
-            try:
-                # Store file in storage service
-                stored_file = await self.storage.store(
-                    file_data=content,
-                    file_id=str(db_doc.id),
-                    user_id=user_id,
-                    mime_type=document.mime_type,
-                )
-
-                # Update document with storage info
-                update_data = {
-                    "storage_url": stored_file.path,
-                    "size_bytes": stored_file.size_bytes,
-                    "status": DocumentStatus.ACTIVE,
-                }
-                db_doc = self.repository.update(
-                    db_doc.id, update_data
-                )
-
-                # Return document response
-                self.repository.db.commit()
-                return self._prepare_document_response(
-                    db_doc
-                )
-            except StorageError as e:
-                # Update document status to ERROR if storage fails
-                db_doc = self.repository.update(
-                    db_doc.id,
-                    {"status": DocumentStatus.ERROR},
-                )
-                self.repository.db.commit()
-                raise HTTPException(
-                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                    detail=str(e),
-                )
-            except Exception as e:
-                # Update document status to ERROR for any other failure
-                db_doc = self.repository.update(
-                    db_doc.id,
-                    {"status": DocumentStatus.ERROR},
-                )
-                self.repository.db.commit()
-                raise HTTPException(
-                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                    detail=f"Failed to process document: {str(e)}",
-                ) from e
-        except HTTPException as e:
-            # Re-raise HTTP exceptions directly
-            raise e
-        except Exception as e:
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=f"Failed to create document: {str(e)}",
-            ) from e
-
-    async def get_document(
+    def get_document(
         self, document_id: int, user_id: str
     ) -> DocumentResponse:
         """Get a document by ID.
@@ -291,7 +213,7 @@ class DocumentService:
             HTTPException: If document not found or user not authorized
         """
         try:
-            document = await self._get_document_for_user(
+            document = self._get_document_for_user(
                 document_id, user_id
             )
             if not document:
@@ -300,16 +222,15 @@ class DocumentService:
                     detail="Document not found",
                 )
             return self._prepare_document_response(document)
-        except HTTPException as e:
-            # Re-raise HTTP exceptions directly
-            raise e
+        except HTTPException:
+            raise
         except Exception as e:
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail=f"Failed to retrieve document: {str(e)}",
             ) from e
 
-    async def get_file_content(
+    def get_file_content(
         self, document_id: int, user_id: str
     ) -> BytesIO:
         """Get document file content.
@@ -325,7 +246,7 @@ class DocumentService:
             HTTPException: If document not found or user not authorized
         """
         try:
-            document = await self._get_document_for_user(
+            document = self._get_document_for_user(
                 document_id, user_id
             )
             if not document:
@@ -335,7 +256,7 @@ class DocumentService:
                 )
 
             # Get file content from storage
-            content = await self.storage.retrieve(
+            content = self.storage.retrieve(
                 file_id=str(document_id), user_id=user_id
             )
             return content
@@ -345,7 +266,7 @@ class DocumentService:
                 detail=f"Failed to get document content: {str(e)}",
             ) from e
 
-    async def get_document_content(
+    def get_document_content(
         self, document_id: int, user_id: str
     ) -> BytesIO:
         """Get document file content.
@@ -360,7 +281,7 @@ class DocumentService:
         Raises:
             HTTPException: If document not found or user not authorized
         """
-        document = await self._get_document_for_user(
+        document = self._get_document_for_user(
             document_id, user_id
         )
         if not document:
@@ -371,7 +292,7 @@ class DocumentService:
 
         try:
             # Get file content from storage
-            content = await self.storage.retrieve(
+            content = self.storage.retrieve(
                 file_id=str(document_id), user_id=user_id
             )
             if not isinstance(content, BytesIO):
@@ -394,59 +315,74 @@ class DocumentService:
                 detail=f"Failed to get document content: {str(e)}",
             ) from e
 
-    async def update_document(
+    def update_document(
         self,
         document_id: int,
-        document: DocumentUpdate,
+        update_data: DocumentUpdate,
         user_id: str,
-    ) -> DocumentResponse:
+    ) -> Optional[DocumentResponse]:
         """Update a document.
 
         Args:
             document_id: ID of the document to update
-            document: Document update data
+            update_data: Updated document data
             user_id: ID of the user making the request
 
         Returns:
-            DocumentResponse: Updated document data
+            Optional[DocumentResponse]: Updated document if found, None otherwise
 
         Raises:
-            HTTPException: If update fails or user not authorized
+            HTTPException: If document not found or update fails
         """
         try:
-            existing_doc = (
-                await self._get_document_for_user(
-                    document_id, user_id
-                )
+            # Get document
+            document = self._get_document_for_user(
+                document_id, user_id
             )
-            if not existing_doc:
+            if not document:
                 raise HTTPException(
                     status_code=status.HTTP_404_NOT_FOUND,
                     detail="Document not found",
                 )
 
-            # Update document with non-None fields
-            update_data = {}
-            for field, value in document.model_dump(
-                exclude_unset=True
-            ).items():
-                if value is not None:
-                    update_data[field] = value
-
-            updated_doc = self.repository.update(
-                document_id, update_data
+            # Update document fields
+            update_dict = update_data.model_dump(
+                exclude_unset=True,
+                by_alias=False,  # Don't use aliases when dumping
             )
+
+            # Validate unique_name if provided
+            if "unique_name" in update_dict:
+                self._validate_unique_name(
+                    update_dict["unique_name"]
+                )
+
+            # Update the document in the repository
+            updated_doc = self.repository.update(
+                document_id, update_dict
+            )
+            if not updated_doc:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="Document not found",
+                )
+
+            # Commit the transaction
             self.repository.db.commit()
+
+            # Prepare and return response
             return self._prepare_document_response(
                 updated_doc
             )
+        except HTTPException:
+            raise
         except Exception as e:
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail=f"Failed to update document: {str(e)}",
             ) from e
 
-    async def delete_document(
+    def delete_document(
         self, document_id: int, user_id: str
     ) -> None:
         """Delete a document.
@@ -459,7 +395,7 @@ class DocumentService:
             HTTPException: If deletion fails or user not authorized
         """
         try:
-            document = await self._get_document_for_user(
+            document = self._get_document_for_user(
                 document_id, user_id
             )
             if not document:
@@ -470,7 +406,7 @@ class DocumentService:
 
             # Delete from storage first
             try:
-                await self.storage.delete(
+                self.storage.delete(
                     str(document_id), user_id
                 )
             except FileNotFoundError:
@@ -494,79 +430,54 @@ class DocumentService:
                 detail=f"Failed to delete document: {str(e)}",
             ) from e
 
-    async def list_documents(
+    def list_documents(
         self,
         user_id: str,
-        skip: Optional[int] = None,
-        limit: Optional[int] = None,
-        offset: Optional[int] = None,
-        status: Optional[DocumentStatus] = None,
-        is_public: Optional[bool] = None,
-        filters: Optional[Dict[str, Any]] = None,
+        skip: int = 0,
+        limit: int = 10,
     ) -> List[DocumentResponse]:
-        """List documents with optional filtering.
+        """List documents for a user.
 
         Args:
-            user_id: ID of the user making the request
+            user_id: ID of the user
             skip: Number of records to skip
             limit: Maximum number of records to return
-            offset: Alias for skip (backward compatibility)
-            status: Filter by document status
-            is_public: Filter by public/private status
-            filters: Additional filters to apply
 
         Returns:
             List[DocumentResponse]: List of documents
         """
-        try:
-            # Handle offset/skip
-            if offset is not None and skip is None:
-                skip = offset
+        documents = self.repository.list(
+            user_id=user_id,
+            skip=skip,
+            limit=limit,
+        )
+        return [
+            self._prepare_document_response(doc)
+            for doc in documents
+        ]
 
-            # Build filter criteria
-            filter_criteria = {}
-            if status:
-                filter_criteria["status"] = status
-            if is_public is not None:
-                filter_criteria["is_public"] = is_public
-            if filters:
-                filter_criteria.update(filters)
-
-            # Get documents from repository
-            documents = self.repository.list(
-                user_id=user_id,
-                skip=skip,
-                limit=limit,
-                filters=filter_criteria,
-            )
-
-            # Convert to response schema
-            return [
-                self._prepare_document_response(doc)
-                for doc in documents
-            ]
-        except Exception as e:
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=f"Failed to list documents: {str(e)}",
-            ) from e
-
-    async def get_user_storage_usage(
-        self, user_id: str
-    ) -> int:
-        """Get total storage usage for a user.
+    def get_storage_usage(
+        self,
+        user_id: str,
+    ) -> StorageUsageResponse:
+        """Get storage usage for a user.
 
         Args:
             user_id: ID of the user
 
         Returns:
-            int: Total storage usage in bytes
+            StorageUsageResponse: Storage usage details
         """
-        return self.repository.get_total_size_by_user(
+        total_size = self.repository.get_total_size_by_user(
             user_id
         )
+        # Set a default storage limit of 1GB
+        total_limit = 1024 * 1024 * 1024  # 1GB in bytes
+        return StorageUsageResponse(
+            used_bytes=total_size, total_bytes=total_limit
+        )
 
-    async def update_document_status(
+    def update_document_status(
         self,
         document_id: int,
         user_id: str,
@@ -586,7 +497,7 @@ class DocumentService:
             HTTPException: If update fails or user not authorized
         """
         try:
-            document = await self._get_document_for_user(
+            document = self._get_document_for_user(
                 document_id, user_id
             )
             if not document:
@@ -595,14 +506,83 @@ class DocumentService:
                     detail="Document not found",
                 )
 
-            updated_doc = self.repository.update_status(
-                document_id, new_status
-            )
-            return self._prepare_document_response(
-                updated_doc
-            )
+            # Update document status
+            try:
+                updated_doc = self.repository.update_status(
+                    document_id=document_id,
+                    user_id=user_id,
+                    new_status=new_status,
+                )
+                if not updated_doc:
+                    raise HTTPException(
+                        status_code=status.HTTP_404_NOT_FOUND,
+                        detail="Document not found",
+                    )
+                return self._prepare_document_response(
+                    updated_doc
+                )
+            except Exception as e:
+                raise HTTPException(
+                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    detail=f"Failed to update document status: {str(e)}",
+                ) from e
+        except HTTPException:
+            raise
         except Exception as e:
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail=f"Failed to update document status: {str(e)}",
             ) from e
+
+    def get_public_document(
+        self,
+        unique_name: str,
+    ) -> DocumentResponse:
+        """Get a public document by its unique name.
+
+        Args:
+            unique_name: Unique name of the document
+
+        Returns:
+            DocumentResponse: Document if found and public
+
+        Raises:
+            HTTPException: If document not found or not public
+        """
+        try:
+            # Get document by unique name
+            document = self.repository.get_by_unique_name(
+                unique_name
+            )
+            if not document:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="Document not found",
+                )
+
+            # Check if document is public
+            if not document.is_public:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="Document is not public",
+                )
+
+            return self._prepare_document_response(document)
+        except HTTPException:
+            raise
+        except Exception as e:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Failed to get public document: {str(e)}",
+            ) from e
+
+    def count_documents(self, user_id: str) -> int:
+        """Count total documents for a user.
+
+        Args:
+            user_id: ID of the user
+
+        Returns:
+            int: Total number of documents
+        """
+        return self.repository.count_by_user(user_id)

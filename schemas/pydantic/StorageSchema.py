@@ -4,10 +4,15 @@ from pydantic import BaseModel, Field
 
 
 class StorageUsageResponse(BaseModel):
-    """Response model for storage usage."""
+    """Schema for storage usage response."""
 
-    usage_bytes: int = Field(
+    used_bytes: int = Field(
         ...,
-        description="Total storage usage in bytes",
+        description="Total storage used in bytes",
         example=1024,
+    )
+    total_bytes: int = Field(
+        ...,
+        description="Total storage limit in bytes",
+        example=1073741824,  # 1GB default
     )

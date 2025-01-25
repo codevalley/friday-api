@@ -51,25 +51,18 @@ class Document(EntityMeta):
 
     # Basic document metadata
     name = Column(String(255), nullable=False)
-    storage_url = Column(
-        String(2048), nullable=True
-    )  # Allow null during creation
     mime_type = Column(String(255), nullable=False)
-    size_bytes = Column(
-        BigInteger, nullable=True
-    )  # Allow null during creation
+    storage_url = Column(String(1024), nullable=True)
+    doc_metadata = Column(
+        JSON, nullable=True
+    )  # Renamed from metadata to avoid conflict
 
     # Document status
     status = Column(
         Enum(DocumentStatus),
         nullable=False,
-        default=DocumentStatus.PENDING,
+        default=DocumentStatus.ACTIVE,
     )
-
-    # Optional metadata as JSON
-    doc_metadata = Column(
-        JSON, nullable=True
-    )  # Renamed from metadata to avoid conflict
 
     # Foreign keys and relationships
     user_id = Column(
@@ -81,6 +74,9 @@ class Document(EntityMeta):
         "User", back_populates="documents"
     )
 
+    # File size
+    size_bytes = Column(Integer, default=0)
+
     # Timestamps
     created_at = Column(
         DateTime(timezone=True),
@@ -91,6 +87,7 @@ class Document(EntityMeta):
         DateTime(timezone=True),
         nullable=False,
         default=lambda: datetime.now(UTC),
+        onupdate=lambda: datetime.now(UTC),
     )
 
     # Public access fields
@@ -110,7 +107,6 @@ class Document(EntityMeta):
         return DocumentData(
             id=str(self.id),
             name=self.name,
-            storage_url=self.storage_url,
             mime_type=self.mime_type,
             size_bytes=self.size_bytes,
             user_id=str(self.user_id),
@@ -137,7 +133,6 @@ class Document(EntityMeta):
         return cls(
             id=int(domain.id) if domain.id else None,
             name=domain.name,
-            storage_url=domain.storage_url,
             mime_type=domain.mime_type,
             size_bytes=domain.size_bytes,
             user_id=domain.user_id,
