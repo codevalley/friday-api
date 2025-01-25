@@ -81,6 +81,7 @@ class DocumentRepository(BaseRepository[Document, int]):
         limit: int = 100,
         status: Optional[DocumentStatus] = None,
         mime_type: Optional[str] = None,
+        name_pattern: Optional[str] = None,
         order_by: str = "created_at",
         order: str = "desc",
     ) -> List[Document]:
@@ -92,6 +93,7 @@ class DocumentRepository(BaseRepository[Document, int]):
             limit: Maximum number of records to return
             status: Filter by document status
             mime_type: Filter by MIME type
+            name_pattern: Filter by document name pattern
             order_by: Field to order by (created_at, name, size_bytes)
             order: Sort order (asc or desc)
 
@@ -108,6 +110,10 @@ class DocumentRepository(BaseRepository[Document, int]):
         if mime_type:
             query = query.filter(
                 Document.mime_type == mime_type
+            )
+        if name_pattern:
+            query = query.filter(
+                Document.name.ilike(f"%{name_pattern}%")
             )
 
         # Apply ordering

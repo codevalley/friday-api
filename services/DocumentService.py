@@ -168,7 +168,22 @@ class DocumentService:
 
         Returns:
             DocumentResponse: Created document
+
+        Raises:
+            HTTPException: If file size exceeds the maximum allowed size
         """
+        # Validate file size
+        max_size = DocumentData.MAX_DOCUMENT_SIZE
+        if file_size > max_size:
+            msg = (
+                "File size exceeds maximum allowed size of "
+                f"{max_size} bytes"
+            )
+            raise HTTPException(
+                status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+                detail=msg,
+            )
+
         # Create document in database
         document = DocumentModel(
             name=name,
@@ -183,16 +198,18 @@ class DocumentService:
         document = self.repository.create(document)
 
         # Store file content and get storage URL
-        storage_url = self.storage.store_file(
-            str(document.id),
+        stored_file = self.storage.store(
             file_content,
+            str(document.id),
+            user_id,
             mime_type,
         )
 
         # Update storage URL
-        document.storage_url = storage_url
+        document.storage_url = stored_file.path
         self.repository.update(
-            document.id, {"storage_url": storage_url}
+            document.id,
+            {"storage_url": stored_file.path},
         )
 
         return self._prepare_document_response(document)
@@ -435,6 +452,7 @@ class DocumentService:
         user_id: str,
         skip: int = 0,
         limit: int = 10,
+        name_pattern: Optional[str] = None,
     ) -> List[DocumentResponse]:
         """List documents for a user.
 
@@ -442,14 +460,16 @@ class DocumentService:
             user_id: ID of the user
             skip: Number of records to skip
             limit: Maximum number of records to return
+            name_pattern: Optional pattern to filter documents by name
 
         Returns:
             List[DocumentResponse]: List of documents
         """
-        documents = self.repository.list(
+        documents = self.repository.list_documents(
             user_id=user_id,
             skip=skip,
             limit=limit,
+            name_pattern=name_pattern,
         )
         return [
             self._prepare_document_response(doc)
