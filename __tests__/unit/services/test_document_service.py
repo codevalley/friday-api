@@ -5,6 +5,7 @@ from datetime import datetime
 import pytest
 from unittest.mock import Mock, AsyncMock
 from fastapi import HTTPException
+from io import BytesIO
 
 from domain.document import DocumentStatus
 from domain.storage import (
@@ -74,45 +75,23 @@ def mock_repository(sample_document):
 @pytest.fixture
 def mock_storage():
     """Create a mock storage service."""
-    mock_storage = AsyncMock(spec=IStorageService)
-    mock_storage.store = AsyncMock(
-        return_value=StoredFile(
-            id="test-file-id",
-            user_id="test-user-id",
-            path="/test/path/file.pdf",
-            size_bytes=2048,
-            mime_type="application/pdf",
-            status=StorageStatus.ACTIVE,
-            created_at=datetime.now(),
-            updated_at=datetime.now(),
-        )
+    mock_storage = Mock(spec=IStorageService)
+    mock_storage.store.return_value = StoredFile(
+        id="test-file-id",
+        user_id="test-user-id",
+        path="/test/path/file.pdf",
+        size_bytes=2048,
+        mime_type="application/pdf",
+        status=StorageStatus.ACTIVE,
+        created_at=datetime.now(),
+        updated_at=datetime.now(),
     )
 
-    class AsyncIterator:
-        def __init__(self, content):
-            self.content = content
-            self.current = 0
-
-        def __aiter__(self):
-            return self
-
-        async def __anext__(self):
-            if self.current < len(self.content):
-                chunk = self.content[self.current]
-                self.current += 1
-                return chunk
-            raise StopAsyncIteration
-
-    async def mock_retrieve(*args, **kwargs):
-        return AsyncIterator([b"test content"])
-
-    mock_storage.retrieve = AsyncMock(
-        side_effect=mock_retrieve
+    mock_storage.retrieve.return_value = BytesIO(
+        b"test content"
     )
-    mock_storage.get = AsyncMock(
-        return_value=b"test content"
-    )
-    mock_storage.delete = AsyncMock()
+    mock_storage.get.return_value = b"test content"
+    mock_storage.delete.return_value = None
     return mock_storage
 
 
@@ -474,7 +453,9 @@ class TestDocumentService:
         # Setup
         sample_document.is_public = True
         sample_document.unique_name = "test-doc"
-        mock_repository.get_by_unique_name.return_value = sample_document
+        mock_repository.get_by_unique_name.return_value = (
+            sample_document
+        )
 
         # Test
         result = document_service.get_public_document(
@@ -495,7 +476,9 @@ class TestDocumentService:
     ):
         """Test getting a nonexistent public document."""
         # Setup
-        mock_repository.get_by_unique_name.return_value = None
+        mock_repository.get_by_unique_name.return_value = (
+            None
+        )
 
         # Test
         with pytest.raises(HTTPException) as exc:
@@ -514,7 +497,9 @@ class TestDocumentService:
         # Setup
         sample_document.is_public = False
         sample_document.unique_name = "test-doc"
-        mock_repository.get_by_unique_name.return_value = sample_document
+        mock_repository.get_by_unique_name.return_value = (
+            sample_document
+        )
 
         # Test
         with pytest.raises(HTTPException) as exc:
@@ -568,3 +553,52 @@ class TestDocumentService:
         # Assert
         assert result.id == sample_document.id
         assert result.is_public is True
+
+    def test_count_documents(
+        self,
+        document_service,
+        mock_repository,
+    ):
+        """Test counting documents for a user."""
+        # Setup
+        mock_repository.count_by_user.return_value = 5
+        user_id = "test-user"
+
+        # Test
+        result = document_service.count_documents(user_id)
+
+        # Assert
+        assert result == 5
+        mock_repository.count_by_user.assert_called_once_with(
+            user_id
+        )
+
+    def test_validate_unique_name_valid(
+        self,
+        document_service,
+    ):
+        """Test validating a valid unique name."""
+        # Test with valid names
+        document_service._validate_unique_name("test_doc")
+        document_service._validate_unique_name("test123")
+        document_service._validate_unique_name("a_b_c_123")
+
+    def test_validate_unique_name_invalid(
+        self,
+        document_service,
+    ):
+        """Test validating invalid unique names."""
+        invalid_names = [
+            "test-doc",  # Contains hyphen
+            "test doc",  # Contains space
+            "test@doc",  # Contains special char
+            "test/doc",  # Contains slash
+        ]
+
+        for name in invalid_names:
+            with pytest.raises(HTTPException) as exc:
+                document_service._validate_unique_name(name)
+            assert exc.value.status_code == 400
+            assert (
+                "must be alphanumeric" in exc.value.detail
+            )

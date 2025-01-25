@@ -38,10 +38,10 @@ from services.DocumentService import DocumentService
 from utils.security import hash_user_secret
 from domain.robo import RoboProcessingResult
 from domain.storage import StoredFile
-from infrastructure.storage import (
+from infrastructure.storage.local_sync import (
     LocalStorageService,
-    S3StorageService,
 )
+from infrastructure.storage.s3_sync import S3StorageService
 from services.ActivityService import ActivityService
 from repositories.ActivityRepository import (
     ActivityRepository,

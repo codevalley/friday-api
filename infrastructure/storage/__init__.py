@@ -1,6 +1,11 @@
 """Storage implementations package."""
 
-from .local import LocalStorageService
-from .s3_storage import S3StorageService
+from .local_sync import LocalStorageService
+from .s3_sync import S3StorageService
+from .mock_sync import MockStorageService
 
-__all__ = ["LocalStorageService", "S3StorageService"]
+__all__ = [
+    "LocalStorageService",
+    "S3StorageService",
+    "MockStorageService",
+]

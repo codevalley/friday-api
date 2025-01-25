@@ -9,6 +9,7 @@ from datetime import datetime
 from enum import Enum
 from typing import Optional, Dict, Any
 from datetime import timezone
+import re
 
 from domain.exceptions import DocumentValidationError
 
@@ -153,10 +154,14 @@ class DocumentData:
                 raise DocumentValidationError(
                     "unique_name must be 128 characters or less"
                 )
-            if not self.unique_name.isalnum():
-                raise DocumentValidationError(
-                    "unique_name must be alphanumeric"
+            if not re.match(
+                r"^[a-zA-Z0-9_]+$", self.unique_name
+            ):
+                msg = (
+                    "unique_name must contain only "
+                    "alphanumeric characters and underscores"
                 )
+                raise DocumentValidationError(msg)
 
         if self.is_public and not self.unique_name:
             raise DocumentValidationError(

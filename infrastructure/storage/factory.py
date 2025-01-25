@@ -1,11 +1,16 @@
 """Factory for creating storage service instances."""
 
 import os
+import boto3
 
 from domain.storage import IStorageService
-from infrastructure.storage.local import LocalStorageService
-from infrastructure.storage.mock import MockStorageService
-from infrastructure.storage.s3 import S3StorageService
+from infrastructure.storage.local_sync import (
+    LocalStorageService,
+)
+from infrastructure.storage.mock_sync import (
+    MockStorageService,
+)
+from infrastructure.storage.s3_sync import S3StorageService
 
 
 class StorageFactory:
@@ -51,12 +56,21 @@ class StorageFactory:
 
             return S3StorageService(
                 bucket_name=bucket_name,
-                endpoint_url=os.getenv("S3_ENDPOINT_URL"),
-                access_key=os.getenv("AWS_ACCESS_KEY_ID"),
-                secret_key=os.getenv(
-                    "AWS_SECRET_ACCESS_KEY"
+                client=boto3.client(
+                    "s3",
+                    endpoint_url=os.getenv(
+                        "S3_ENDPOINT_URL"
+                    ),
+                    aws_access_key_id=os.getenv(
+                        "AWS_ACCESS_KEY_ID"
+                    ),
+                    aws_secret_access_key=os.getenv(
+                        "AWS_SECRET_ACCESS_KEY"
+                    ),
+                    region_name=os.getenv(
+                        "AWS_REGION", "us-east-1"
+                    ),
                 ),
-                region=os.getenv("AWS_REGION", "us-east-1"),
             )
 
         else:

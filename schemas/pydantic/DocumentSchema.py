@@ -2,8 +2,17 @@
 
 from typing import Optional, Dict, Any
 from datetime import datetime
-from pydantic import BaseModel, Field, ConfigDict
+from pydantic import (
+    BaseModel,
+    Field,
+    ConfigDict,
+    constr,
+)
 from domain.document import DocumentStatus, DocumentData
+
+
+# Type alias for alphanumeric + underscore string
+UniqueName = constr(pattern=r"^[a-zA-Z0-9_]+$")
 
 
 class DocumentBase(BaseModel):
@@ -12,6 +21,18 @@ class DocumentBase(BaseModel):
     model_config = ConfigDict(
         from_attributes=True,
         populate_by_name=True,
+        json_schema_extra={
+            "example": {
+                "name": "example.pdf",
+                "mime_type": "application/pdf",
+                "metadata": {
+                    "category": "reports",
+                    "tags": ["2024", "Q1"],
+                },
+                "unique_name": "q1_report_2024",
+                "is_public": False,
+            }
+        },
     )
 
     name: str = Field(
@@ -19,34 +40,53 @@ class DocumentBase(BaseModel):
         min_length=1,
         max_length=255,
         description="Original name of the document",
+        examples=["report.pdf", "image.jpg", "data.csv"],
     )
     mime_type: str = Field(
         ...,
         min_length=1,
         max_length=255,
-        description="MIME type of the document",
+        pattern=r"^[a-z]+/[a-z0-9\-\+\.]+$",
+        description=(
+            "MIME type of the document "
+            "(e.g., application/pdf, image/jpeg)"
+        ),
+        examples=[
+            "application/pdf",
+            "image/jpeg",
+            "text/plain",
+        ],
     )
     doc_metadata: Optional[Dict[str, Any]] = Field(
-        None,
+        default=None,
         description="Additional metadata about the document",
         alias="metadata",
+        examples=[
+            {"category": "reports", "tags": ["2024", "Q1"]},
+            {"author": "John Doe", "department": "Finance"},
+        ],
     )
-    unique_name: Optional[str] = Field(
-        None,
+    unique_name: Optional[UniqueName] = Field(
+        default=None,
         max_length=128,
-        pattern=r"^[a-zA-Z0-9_]+$",
-        description="Unique identifier for public access",
+        description=(
+            "Unique identifier for public access "
+            "(alphanumeric and underscore only)"
+        ),
+        examples=[
+            "q1_report_2024",
+            "user_manual_v1",
+            "data_2024",
+        ],
     )
     is_public: bool = Field(
-        False,
+        default=False,
         description="Whether the document is publicly accessible",
     )
 
 
 class DocumentCreate(DocumentBase):
     """Schema for document creation."""
-
-    pass
 
     def to_domain(
         self,
@@ -64,7 +104,8 @@ class DocumentCreate(DocumentBase):
             name=self.name,
             mime_type=self.mime_type,
             user_id=user_id,
-            metadata=self.doc_metadata,
+            metadata=self.doc_metadata
+            or {},  # Ensure metadata is never None
             unique_name=self.unique_name,
             is_public=self.is_public,
         )
@@ -78,32 +119,55 @@ class DocumentUpdate(BaseModel):
         populate_by_name=True,
         json_schema_extra={
             "example": {
-                "name": "Updated Document",
-                "metadata": {"key": "value"},
+                "name": "Updated Report.pdf",
+                "metadata": {
+                    "status": "reviewed",
+                    "reviewer": "Jane Smith",
+                },
                 "is_public": True,
-                "unique_name": "updated-doc",
+                "unique_name": "reviewed_report_2024",
             }
-        }
+        },
     )
 
-    name: Optional[str] = None
-    doc_metadata: Optional[Dict[str, Any]] = Field(
-        None,
-        alias="metadata",
+    name: Optional[str] = Field(
+        default=None,
+        min_length=1,
+        max_length=255,
+        description="New name for the document",
     )
-    is_public: Optional[bool] = None
-    unique_name: Optional[str] = Field(
-        None,
+    doc_metadata: Optional[Dict[str, Any]] = Field(
+        default=None,
+        alias="metadata",
+        description="Updated metadata for the document",
+    )
+    is_public: Optional[bool] = Field(
+        default=None,
+        description="Whether to make the document public",
+    )
+    unique_name: Optional[UniqueName] = Field(
+        default=None,
         max_length=128,
-        pattern=r"^[a-zA-Z0-9_]+$",
-        description="Unique identifier for public access",
+        description=(
+            "New unique identifier for public access "
+            "(alphanumeric and underscore only)"
+        ),
     )
 
 
 class DocumentStatusUpdate(BaseModel):
     """Document status update schema."""
 
-    status: DocumentStatus
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {"status": "ARCHIVED"}
+        }
+    )
+
+    status: DocumentStatus = Field(
+        ...,
+        description="New status for the document",
+    )
 
 
 class DocumentResponse(DocumentBase):
@@ -112,27 +176,50 @@ class DocumentResponse(DocumentBase):
     model_config = ConfigDict(
         from_attributes=True,
         populate_by_name=True,
+        json_schema_extra={
+            "example": {
+                "id": 1,
+                "user_id": "user123",
+                "name": "report.pdf",
+                "mime_type": "application/pdf",
+                "storage_url": "s3://bucket/user123/doc1.pdf",
+                "size_bytes": 1048576,
+                "status": "ACTIVE",
+                "created_at": "2024-01-25T12:00:00Z",
+                "updated_at": "2024-01-25T12:00:00Z",
+                "metadata": {"category": "reports"},
+                "unique_name": "report_2024",
+                "is_public": False,
+            }
+        },
     )
 
-    id: int
-    user_id: str
-    storage_url: str
-    size_bytes: int
-    status: DocumentStatus
-    created_at: datetime
-    updated_at: Optional[datetime] = None
-    unique_name: Optional[str] = Field(
-        None,
-        max_length=128,
-        pattern=r"^[a-zA-Z0-9_]+$",
-        description="Unique identifier for public access",
+    id: int = Field(
+        ...,
+        description="Unique identifier for the document",
     )
-    is_public: bool = Field(
-        False,
-        description="Whether the document is publicly accessible",
+    user_id: str = Field(
+        ...,
+        description="ID of the document owner",
     )
-    doc_metadata: Optional[Dict[str, Any]] = Field(
+    storage_url: str = Field(
+        ...,
+        description="URL where the document is stored",
+    )
+    size_bytes: int = Field(
+        ...,
+        ge=0,
+        description="Size of the document in bytes",
+    )
+    status: DocumentStatus = Field(
+        ...,
+        description="Current status of the document",
+    )
+    created_at: datetime = Field(
+        ...,
+        description="When the document was created",
+    )
+    updated_at: Optional[datetime] = Field(
         None,
-        description="Additional metadata about the document",
-        alias="metadata",
+        description="When the document was last updated",
     )
