@@ -45,7 +45,7 @@ PYTHONPATH=$PYTHONPATH:. rq worker note_enrichment activity_schema --url redis:/
 
 # for mac include this
 export OBJC_DISABLE_INITIALIZE_FORK_SAFETY=YES
-# here is the command to run the worker
+# here is the full command to run the worker
 OBJC_DISABLE_INITIALIZE_FORK_SAFETY=YES PYTHONPATH=$PYTHONPATH:. rq worker note_enrichment activity_schema --url redis://localhost:6379
 
 # Start dedicated workers for each queue

@@ -363,3 +363,14 @@ class TaskPriority(str, Enum):
     def default(cls) -> "TaskPriority":
         """Get the default task priority."""
         return cls.MEDIUM
+
+
+class DocumentStatus(str, Enum):
+    """Document status enum."""
+
+    PENDING = "pending"  # Document is being uploaded
+    ACTIVE = "active"  # Document is available
+    ARCHIVED = (
+        "archived"  # Document is archived (soft-deleted)
+    )
+    ERROR = "error"  # Error in document processing

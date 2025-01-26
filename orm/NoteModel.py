@@ -1,7 +1,7 @@
 """Note ORM model."""
 
 from datetime import datetime
-from typing import Dict, Any, TYPE_CHECKING, List
+from typing import Dict, Any, TYPE_CHECKING, List, Optional
 from sqlalchemy import (
     Column,
     Integer,
@@ -12,9 +12,9 @@ from sqlalchemy import (
     Enum as SQLEnum,
 )
 from sqlalchemy.orm import relationship, Mapped
-
+from orm.DocumentModel import Document  # noqa: F401
 from domain.values import ProcessingStatus
-from .BaseModel import Base
+from .BaseModel import EntityMeta
 
 if TYPE_CHECKING:
     from orm.UserModel import User
@@ -22,7 +22,7 @@ if TYPE_CHECKING:
     from orm.TaskModel import Task
 
 
-class Note(Base):
+class Note(EntityMeta):
     """Note ORM model.
 
     Attributes:
@@ -42,28 +42,34 @@ class Note(Base):
 
     __tablename__ = "notes"
 
-    id = Column(Integer, primary_key=True)
-    content = Column(String(4096), nullable=False)
-    user_id = Column(
+    id: Mapped[int] = Column(Integer, primary_key=True)
+    content: Mapped[str] = Column(
+        String(4096), nullable=False
+    )
+    user_id: Mapped[str] = Column(
         String(36), ForeignKey("users.id"), nullable=False
     )
-    attachments = Column(JSON, nullable=False, default=list)
-    processing_status = Column(
+    attachments: Mapped[List[Any]] = Column(
+        JSON, nullable=False, default=list
+    )
+    processing_status: Mapped[ProcessingStatus] = Column(
         SQLEnum(ProcessingStatus),
         nullable=False,
         default=ProcessingStatus.PENDING,
         server_default=ProcessingStatus.PENDING.value,
     )
-    enrichment_data = Column(
-        JSON, nullable=True, default=None
+    enrichment_data: Mapped[
+        Optional[Dict[str, Any]]
+    ] = Column(JSON, nullable=True, default=None)
+    processed_at: Mapped[Optional[datetime]] = Column(
+        DateTime, nullable=True
     )
-    processed_at = Column(DateTime, nullable=True)
-    created_at = Column(
+    created_at: Mapped[datetime] = Column(
         DateTime,
         nullable=False,
         default=datetime.utcnow,
     )
-    updated_at = Column(
+    updated_at: Mapped[Optional[datetime]] = Column(
         DateTime,
         nullable=True,
         onupdate=datetime.utcnow,

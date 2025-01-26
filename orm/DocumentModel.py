@@ -13,9 +13,9 @@ from sqlalchemy import (
     event,
 )
 from sqlalchemy.orm import relationship, Mapped
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional, Dict, Any
 
-from domain.document import DocumentStatus, DocumentData
+from domain.values import DocumentStatus
 from .BaseModel import EntityMeta
 
 if TYPE_CHECKING:
@@ -45,44 +45,52 @@ class Document(EntityMeta):
         is_public: Whether the document is publicly accessible
     """
 
+    __tablename__ = "documents"
+
     # Primary key
-    id = Column(Integer, primary_key=True)
+    id: Mapped[int] = Column(Integer, primary_key=True)
 
     # Basic document metadata
-    name = Column(String(255), nullable=False)
-    mime_type = Column(String(255), nullable=False)
-    storage_url = Column(String(1024), nullable=True)
-    doc_metadata = Column(
+    name: Mapped[str] = Column(String(255), nullable=False)
+    mime_type: Mapped[str] = Column(
+        String(255), nullable=False
+    )
+    storage_url: Mapped[Optional[str]] = Column(
+        String(1024), nullable=True
+    )
+    doc_metadata: Mapped[Optional[Dict[str, Any]]] = Column(
         JSON, nullable=True
     )  # Renamed from metadata to avoid conflict
 
     # Document status
-    status = Column(
+    status: Mapped[DocumentStatus] = Column(
         Enum(DocumentStatus),
         nullable=False,
         default=DocumentStatus.ACTIVE,
+        server_default=DocumentStatus.ACTIVE.value,
     )
 
     # Foreign keys and relationships
-    user_id = Column(
+    user_id: Mapped[str] = Column(
         String(36),
         ForeignKey("users.id", ondelete="CASCADE"),
         nullable=False,
     )
     owner: Mapped["User"] = relationship(
-        "User", back_populates="documents"
+        "User",
+        back_populates="documents",
     )
 
     # File size
-    size_bytes = Column(Integer, default=0)
+    size_bytes: Mapped[int] = Column(Integer, default=0)
 
     # Timestamps
-    created_at = Column(
+    created_at: Mapped[datetime] = Column(
         DateTime(timezone=True),
         nullable=False,
         default=lambda: datetime.now(UTC),
     )
-    updated_at = Column(
+    updated_at: Mapped[datetime] = Column(
         DateTime(timezone=True),
         nullable=False,
         default=lambda: datetime.now(UTC),
@@ -90,57 +98,69 @@ class Document(EntityMeta):
     )
 
     # Public access fields
-    unique_name = Column(
+    unique_name: Mapped[Optional[str]] = Column(
         String(128), nullable=True, unique=True
     )
-    is_public = Column(
+    is_public: Mapped[bool] = Column(
         Boolean, nullable=False, default=False
     )
 
-    def to_domain(self) -> DocumentData:
-        """Convert ORM model to domain model.
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert document to dictionary.
 
         Returns:
-            DocumentData: Domain model instance
+            Dict[str, Any]: Dictionary representation
         """
-        return DocumentData(
-            id=str(self.id),
-            name=self.name,
-            mime_type=self.mime_type,
-            size_bytes=self.size_bytes,
-            user_id=str(self.user_id),
-            status=self.status,
-            metadata=self.doc_metadata,
-            created_at=self.created_at,
-            updated_at=self.updated_at,
-            unique_name=self.unique_name,
-            is_public=self.is_public,
-        )
+        return {
+            "id": self.id,
+            "name": self.name,
+            "mime_type": self.mime_type,
+            "size_bytes": self.size_bytes,
+            "user_id": self.user_id,
+            "status": self.status,
+            "metadata": self.doc_metadata,
+            "created_at": self.created_at,
+            "updated_at": self.updated_at,
+            "storage_url": self.storage_url,
+            "unique_name": self.unique_name,
+            "is_public": self.is_public,
+        }
 
     @classmethod
-    def from_domain(
-        cls, domain: DocumentData
-    ) -> "Document":
-        """Create ORM model from domain model.
+    def from_dict(cls, data: Dict[str, Any]) -> "Document":
+        """Create document from dictionary.
 
         Args:
-            domain: Domain model instance
+            data: Dictionary containing document data
 
         Returns:
-            Document: New ORM model instance
+            Document: New document instance
         """
+        # Convert string status to enum if needed
+        status = data.get("status")
+        if isinstance(status, str):
+            status = DocumentStatus(status)
+        elif status is None:
+            status = DocumentStatus.PENDING
+
+        # Handle metadata field name difference
+        metadata = data.get("metadata", {})
+        if metadata is None:
+            metadata = {}
+
         return cls(
-            id=int(domain.id) if domain.id else None,
-            name=domain.name,
-            mime_type=domain.mime_type,
-            size_bytes=domain.size_bytes,
-            user_id=domain.user_id,
-            status=domain.status,
-            doc_metadata=domain.metadata,
-            created_at=domain.created_at,
-            updated_at=domain.updated_at,
-            unique_name=domain.unique_name,
-            is_public=domain.is_public,
+            id=data.get("id"),
+            name=data["name"],
+            mime_type=data["mime_type"],
+            size_bytes=data.get("size_bytes"),
+            user_id=data["user_id"],
+            status=status,
+            doc_metadata=metadata,
+            created_at=data.get("created_at"),
+            updated_at=data.get("updated_at"),
+            storage_url=data.get("storage_url"),
+            unique_name=data.get("unique_name"),
+            is_public=data.get("is_public", False),
         )
 
 

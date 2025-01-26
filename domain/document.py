@@ -6,22 +6,14 @@ management in the system.
 
 from dataclasses import dataclass, field
 from datetime import datetime
-from enum import Enum
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, TYPE_CHECKING
 from datetime import timezone
 
 from domain.exceptions import DocumentValidationError
+from domain.values import DocumentStatus
 
-
-class DocumentStatus(str, Enum):
-    """Document status enum."""
-
-    PENDING = "pending"  # Document is being uploaded
-    ACTIVE = "active"  # Document is available
-    ARCHIVED = (
-        "archived"  # Document is archived (soft-deleted)
-    )
-    ERROR = "error"  # Error in document processing
+if TYPE_CHECKING:
+    from orm.DocumentModel import Document  # noqa: F401
 
 
 @dataclass
@@ -127,35 +119,33 @@ class DocumentData:
                 "metadata must be a dictionary"
             )
 
-    def can_access(self, user_id: Optional[str]) -> bool:
+    def can_access(self, user_id: str) -> bool:
         """Check if a user can access this document.
 
         Args:
-            user_id: ID of the user requesting access, or None for public
+            user_id: ID of the user attempting access
 
         Returns:
-            bool: True if the user can access the document
+            bool: True if user can access, False otherwise
         """
-        return self.is_public or (
-            user_id and user_id == self.user_id
-        )
+        return self.user_id == user_id or self.is_public
 
     def can_modify(self, user_id: str) -> bool:
         """Check if a user can modify this document.
 
         Args:
-            user_id: ID of the user requesting modification
+            user_id: ID of the user attempting modification
 
         Returns:
-            bool: True if the user can modify the document
+            bool: True if user can modify, False otherwise
         """
-        return user_id == self.user_id
+        return self.user_id == user_id
 
     def to_dict(self) -> Dict[str, Any]:
-        """Convert to dictionary for repository operations.
+        """Convert to dictionary.
 
         Returns:
-            dict: Dictionary representation of the document
+            Dict[str, Any]: Dictionary representation
         """
         return {
             "id": self.id,
@@ -164,7 +154,7 @@ class DocumentData:
             "mime_type": self.mime_type,
             "size_bytes": self.size_bytes,
             "user_id": self.user_id,
-            "status": self.status.value,
+            "status": self.status,
             "metadata": self.metadata,
             "created_at": self.created_at,
             "updated_at": self.updated_at,
@@ -230,7 +220,7 @@ class DocumentData:
             size_bytes=orm_model.size_bytes,
             user_id=str(orm_model.user_id),
             status=DocumentStatus(orm_model.status),
-            metadata=orm_model.metadata,
+            metadata=orm_model.doc_metadata,
             created_at=orm_model.created_at,
             updated_at=orm_model.updated_at,
             unique_name=orm_model.unique_name,

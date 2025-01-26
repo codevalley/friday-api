@@ -1,15 +1,17 @@
+"""User ORM model."""
+
 from sqlalchemy import (
     Column,
     String,
     DateTime,
 )
-from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship, Mapped
 from uuid import uuid4
 from typing import List, TYPE_CHECKING, Optional
 import re
+from datetime import datetime, UTC
 
-from orm.BaseModel import EntityMeta
+from .BaseModel import EntityMeta
 
 if TYPE_CHECKING:
     from orm.ActivityModel import Activity
@@ -60,33 +62,32 @@ class User(EntityMeta):
 
     # Authentication fields
     username: Mapped[str] = Column(
-        String(50),  # Max length of 50 characters
+        String(255),  # Max length of 255 characters
         unique=True,
         index=True,
         nullable=False,
     )
     key_id: Mapped[str] = Column(
-        String(36),  # UUID length is 36 characters
+        String(255),  # Max length of 255 characters
         unique=True,
         index=True,
         nullable=False,
     )
     user_secret: Mapped[str] = Column(
-        String(64),  # Length for secure secret
+        String(255),  # Max length of 255 characters
         nullable=False,
     )
 
     # Timestamps
-    created_at: Mapped[DateTime] = Column(
+    created_at: Mapped[datetime] = Column(
         DateTime(timezone=True),
-        server_default=func.now(),
         nullable=False,
+        default=lambda: datetime.now(UTC),
     )
-    updated_at: Mapped[DateTime] = Column(
+    updated_at: Mapped[Optional[datetime]] = Column(
         DateTime(timezone=True),
-        server_default=func.now(),
-        onupdate=func.now(),
-        nullable=False,
+        nullable=True,
+        onupdate=lambda: datetime.now(UTC),
     )
 
     # Relationships

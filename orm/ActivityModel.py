@@ -29,7 +29,7 @@ from sqlalchemy.orm import (
 )
 from sqlalchemy.dialects.mysql import JSON
 
-from orm.BaseModel import Base
+from .BaseModel import EntityMeta
 from domain.activity import ProcessingStatus
 
 if TYPE_CHECKING:
@@ -37,7 +37,7 @@ if TYPE_CHECKING:
 from orm.MomentModel import Moment
 
 
-class Activity(Base):
+class Activity(EntityMeta):
     """Activity Model represents different types of activities
     that can be logged.
 
