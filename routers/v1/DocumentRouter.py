@@ -1,6 +1,5 @@
 """Router for document-related operations."""
 
-from typing import Optional, List
 from fastapi import (
     APIRouter,
     Depends,
@@ -16,13 +15,9 @@ from fastapi.responses import StreamingResponse
 from fastapi import HTTPException
 from services.DocumentService import DocumentService
 from schemas.pydantic.DocumentSchema import (
-    DocumentCreate,
     DocumentUpdate,
     DocumentResponse,
     DocumentStatusUpdate,
-)
-from schemas.pydantic.PaginationSchema import (
-    PaginationParams,
 )
 from schemas.pydantic.CommonSchema import (
     GenericResponse,
@@ -31,7 +26,6 @@ from schemas.pydantic.CommonSchema import (
 from schemas.pydantic.StorageSchema import (
     StorageUsageResponse,
 )
-from domain.document import DocumentStatus
 from dependencies import get_current_user
 from orm.UserModel import User
 from utils.error_handlers import handle_exceptions
@@ -42,7 +36,6 @@ from repositories.DocumentRepository import (
 )
 from infrastructure.storage.factory import StorageFactory
 import json
-from io import BytesIO
 
 # Use our custom bearer that returns 401 for invalid tokens
 auth_scheme = CustomHTTPBearer()
@@ -95,8 +88,8 @@ async def upload_document(
     ),
 ) -> GenericResponse[DocumentResponse]:
     """Upload a document."""
-    # Read file content
-    file_content = await file.read()
+    # Read file content synchronously
+    file_content = file.file.read()
 
     # Parse metadata
     metadata_dict = json.loads(metadata) if metadata else {}
@@ -313,7 +306,8 @@ async def download_public_document(
         file_stream,
         media_type=document_response.mime_type,
         headers={
-            "Content-Disposition": f'attachment; filename="{document_response.name}"'
+            "Content-Disposition": f"attachment;"
+            f'filename="{document_response.name}"'
         },
     )
 

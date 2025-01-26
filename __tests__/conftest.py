@@ -176,9 +176,9 @@ def test_client(test_db_session):
         finally:
             test_db_session.close()
 
-    app.dependency_overrides[get_db_connection] = (
-        override_get_db
-    )
+    app.dependency_overrides[
+        get_db_connection
+    ] = override_get_db
     return TestClient(app)
 
 
@@ -382,25 +382,17 @@ def activity_service(test_db_session, queue_service):
 @pytest.fixture
 def storage_service(mocker):
     """Mock storage service for testing."""
-
-    async def mock_store(
-        file_data: bytes,
-        file_id: str,
-        user_id: str,
-        mime_type: str,
-    ):
-        return StoredFile(
-            id=file_id,
-            path=f"/test/{file_id}",
-            mime_type=mime_type,
-            size_bytes=len(file_data),
-            user_id=user_id,
-            status="ACTIVE",
-            created_at=datetime.now(),
-        )
-
     mock_storage = mocker.Mock()
-    mock_storage.store = mock_store
+    stored_file = StoredFile(
+        id="test-file-id",
+        path="/test/path",
+        mime_type="text/plain",
+        size_bytes=100,
+        user_id="test-user",
+        status="ACTIVE",
+        created_at=datetime.now(),
+    )
+    mock_storage.store = Mock(return_value=stored_file)
     return mock_storage
 
 

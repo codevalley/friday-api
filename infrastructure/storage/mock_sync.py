@@ -23,9 +23,9 @@ class MockStorageService(IStorageService):
     def __init__(self):
         """Initialize mock storage."""
         # Dict mapping file keys to (content, metadata) tuples
-        self._files: Dict[str, Tuple[bytes, StoredFile]] = (
-            {}
-        )
+        self._files: Dict[
+            str, Tuple[bytes, StoredFile]
+        ] = {}
 
     def _get_file_key(
         self, user_id: str, file_id: str

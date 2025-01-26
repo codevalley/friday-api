@@ -343,7 +343,7 @@ class TestDocumentRepository:
                 unique_name="test_doc",
             )
         )
-
+        print(doc1.created_at)
         # Try to create second document with same unique name
         with pytest.raises(HTTPException) as exc_info:
             document_repository.create(

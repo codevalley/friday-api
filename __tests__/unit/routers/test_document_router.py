@@ -1,13 +1,8 @@
 """Unit tests for DocumentRouter."""
 
 import pytest
-from fastapi import FastAPI, APIRouter
+from fastapi import FastAPI
 from starlette.testclient import TestClient
-from starlette.datastructures import (
-    UploadFile as StarletteUploadFile,
-)
-from fastapi import UploadFile as FastAPIUploadFile
-from datetime import datetime
 import json
 from io import BytesIO
 from fastapi.security import HTTPAuthorizationCredentials
@@ -17,19 +12,8 @@ from routers.v1.DocumentRouter import (
     get_document_service,
     auth_scheme,
 )
-from services.DocumentService import DocumentService
-from schemas.pydantic.DocumentSchema import (
-    DocumentCreate,
-    DocumentUpdate,
-    DocumentResponse,
-)
 from domain.document import DocumentStatus
 from dependencies import get_current_user
-from auth.bearer import CustomHTTPBearer
-from orm.UserModel import User
-from schemas.pydantic.StorageSchema import (
-    StorageUsageResponse,
-)
 
 
 @pytest.fixture
@@ -44,16 +28,16 @@ def app(test_db_session, document_service, sample_user):
     def override_get_current_user():
         return sample_user
 
-    app.dependency_overrides[get_document_service] = (
-        override_get_document_service
-    )
-    app.dependency_overrides[get_current_user] = (
-        override_get_current_user
-    )
-    app.dependency_overrides[auth_scheme] = (
-        lambda: HTTPAuthorizationCredentials(
-            scheme="Bearer", credentials="test-token"
-        )
+    app.dependency_overrides[
+        get_document_service
+    ] = override_get_document_service
+    app.dependency_overrides[
+        get_current_user
+    ] = override_get_current_user
+    app.dependency_overrides[
+        auth_scheme
+    ] = lambda: HTTPAuthorizationCredentials(
+        scheme="Bearer", credentials="test-token"
     )
 
     return TestClient(app)

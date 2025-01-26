@@ -9,7 +9,6 @@ from sqlalchemy import (
     DateTime,
     JSON,
     Enum,
-    BigInteger,
     Boolean,
     event,
 )

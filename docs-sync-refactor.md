@@ -28,14 +28,14 @@ This document outlines the plan for converting the storage and document features
 
 ## Implementation Progress
 
-### Phase 1: Storage Layer 
+### Phase 1: Storage Layer
 
-1. Update Storage Interface 
+1. Update Storage Interface
    - Converted `IStorageService` methods to sync
    - Changed `AsyncIterator[bytes]` to `BinaryIO`
    - Updated method signatures and docstrings
 
-2. Update Local Storage Implementation 
+2. Update Local Storage Implementation
    - Removed `aiofiles` dependency
    - Implemented sync file operations with chunked reading
    - Maintained efficient large file handling using `BytesIO`
@@ -48,8 +48,8 @@ This document outlines the plan for converting the storage and document features
    - Implemented proper cleanup of metadata files during deletion
    - All unit tests passing including permission checks and error cases
 
-3. Update Storage Implementations 
-   - S3 Storage 
+3. Update Storage Implementations
+   - S3 Storage
      - Created new sync implementation using boto3
      - Implemented user directory structure for file isolation
      - Added metadata file handling for ownership and permissions
@@ -60,13 +60,13 @@ This document outlines the plan for converting the storage and document features
      - Improved error handling for metadata file operations
      - Added consistent error messages across implementations
      - All unit tests passing with good coverage
-   - Mock Storage 
+   - Mock Storage
      - Created new sync implementation
      - Added proper permission checks matching other implementations
      - Enhanced error simulation capabilities
      - Improved file search in get_metadata
      - Added efficient file streaming with BytesIO
-   - Unit Tests 
+   - Unit Tests
      - Added tests for S3 storage implementation:
        - File operations (store, retrieve, delete)
        - Permission handling and access control
@@ -80,7 +80,7 @@ This document outlines the plan for converting the storage and document features
        - Metadata validation
      - All tests passing and providing good coverage
 
-4. Additional Tasks 
+4. Additional Tasks
    - Added performance considerations section
    - Documented memory handling for large files
    - Added examples of sync usage in docstrings
@@ -88,99 +88,99 @@ This document outlines the plan for converting the storage and document features
    - Fixed all linting issues (flake8)
    - Improved code organization and readability
 
-### Phase 2: Repository Layer 
+### Phase 2: Repository Layer
 
-1. Document Repository 
+1. Document Repository
    - Repository layer was already synchronous
    - All methods use standard SQLAlchemy operations
    - Proper transaction handling in place
    - Consistent error handling with storage layer
    - All repository tests passing
 
-2. Integration with Storage 
+2. Integration with Storage
    - Converted DocumentService to use sync storage operations
    - Removed all async/await keywords
    - Simplified file upload logic to use sync operations
    - Maintained proper error handling and transaction management
    - Improved code organization and readability
 
-3. Testing Requirements 
+3. Testing Requirements
    - Repository tests already in place and passing
    - Storage integration tests passing
    - Error handling tests in place
    - Transaction rollback tests working
 
-4. Documentation Updates 
+4. Documentation Updates
    - Updated implementation progress
    - Documented sync operations
    - Added examples of repository usage
    - Documented transaction handling
 
-### Phase 3: Service Layer 
+### Phase 3: Service Layer
 
-1. Document Service 
+1. Document Service
    - Converted all async methods to sync
    - Updated service-repository interaction
    - Simplified file handling operations
    - Maintained proper error handling
 
-2. Activity Service 
+2. Activity Service
    - Reviewed async operations
    - QueueService interface already synchronous
    - No changes needed
 
-3. Note Service 
+3. Note Service
    - Reviewed async operations
    - QueueService interface already synchronous
    - No changes needed
 
-4. OpenAI Service 
+4. OpenAI Service
    - Reviewed client operations
    - OpenAI client already synchronous
    - No changes needed
 
-5. Service Tests 
+5. Service Tests
    - All tests passing with sync operations
    - Error propagation verified
    - Transaction handling confirmed
 
-### Phase 4: API Layer 
+### Phase 4: API Layer
 
-1. Router Design 
+1. Router Design
    - Keep FastAPI endpoints async for better performance
    - Maintain consistency with other routers (NoteRouter, TaskRouter)
    - Service layer remains synchronous
    - No changes needed to router implementations
 
-2. Integration Points 
+2. Integration Points
    - Service layer calls are sync
    - FastAPI dependency injection working correctly
    - Error handling preserved
    - Transaction management working
 
-3. Documentation Updates 
+3. Documentation Updates
    - Added notes about async/sync architecture
    - Documented service layer changes
    - Updated API documentation
    - Added examples of router usage
 
-### Implementation Complete 
+### Implementation Complete
 
 The sync refactoring project is now complete with all phases implemented:
 
-1. Phase 1: Storage Layer 
+1. Phase 1: Storage Layer
    - Converted S3 operations to sync
    - Updated mock storage implementation
    - Added comprehensive tests
    - Improved error handling
 
-2. Phase 2: Repository Layer 
+2. Phase 2: Repository Layer
    - Repository layer already synchronous
    - Added proper transaction handling
    - Updated documentation
    - All tests passing
 
-3. Phase 3: Service Layer 
+3. Phase 3: Service Layer
    - Converted document service to sync
    - Other services already synchronous
    - Updated error handling
@@ -188,7 +188,7 @@ The sync refactoring project is now complete with all phases implemented:
    - Added missing count_documents method
    - Fixed validation for unique_name field
 
-4. Phase 4: API Layer 
+4. Phase 4: API Layer
    - Kept FastAPI endpoints async
    - Service layer fully synchronous
    - Consistent with other routers

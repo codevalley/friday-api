@@ -11,7 +11,6 @@ from repositories.DocumentRepository import (
     DocumentRepository,
 )
 from schemas.pydantic.DocumentSchema import (
-    DocumentCreate,
     DocumentResponse,
     DocumentUpdate,
 )
@@ -184,45 +183,54 @@ class DocumentService:
                 detail=msg,
             )
 
-        # Create document in database
-        document = DocumentModel(
-            name=name,
-            mime_type=mime_type,
-            size_bytes=file_size,
-            doc_metadata=metadata or {},
-            is_public=is_public,
-            unique_name=unique_name,
-            user_id=user_id,
-            status=DocumentStatus.ACTIVE,
-        )
-        document = self.repository.create(document)
-
-        # Store file content and get storage URL
         try:
-            stored_file = self.storage.store(
-                file_content,
-                str(document.id),
-                user_id,
-                mime_type,
+            # Create document in database first
+            document = DocumentModel(
+                name=name,
+                mime_type=mime_type,
+                size_bytes=file_size,
+                doc_metadata=metadata or {},
+                is_public=is_public,
+                unique_name=unique_name,
+                user_id=user_id,
+                status=DocumentStatus.ACTIVE,
+                storage_url="",  # Will be updated after storage
             )
-        except StorageError as e:
-            # Clean up the document if storage fails
-            self.repository.delete(document.id, user_id)
-            self.repository.db.commit()
+            document = self.repository.create(document)
+
+            try:
+                # Store file with final document ID
+                stored_file = self.storage.store(
+                    file_content,
+                    str(document.id),
+                    user_id,
+                    mime_type,
+                )
+
+                # Update storage URL
+                document.storage_url = stored_file.path
+                self.repository.update(
+                    document.id,
+                    {"storage_url": stored_file.path},
+                )
+                self.repository.db.commit()
+            except StorageError as e:
+                # Clean up if storage fails
+                self.repository.delete(document.id, user_id)
+                self.repository.db.commit()
+                msg = "Failed to store document: " + str(e)
+                raise HTTPException(
+                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    detail=msg,
+                ) from e
+
+            return self._prepare_document_response(document)
+        except Exception as e:
+            msg = "Failed to create document: " + str(e)
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=f"Failed to store document: {str(e)}",
+                detail=msg,
             ) from e
-
-        # Update storage URL
-        document.storage_url = stored_file.path
-        self.repository.update(
-            document.id,
-            {"storage_url": stored_file.path},
-        )
-        self.repository.db.commit()
-
-        return self._prepare_document_response(document)
 
     def get_document(
         self, document_id: int, user_id: str
@@ -450,26 +458,24 @@ class DocumentService:
                     detail="Not authorized to delete this document",
                 )
 
-            # Delete from storage first
+            # Delete from database first
+            self.repository.delete(document_id, user_id)
+            self.repository.db.commit()
+
+            # Then try to delete from storage
             try:
                 self.storage.delete(
                     str(document_id), user_id
                 )
-            except FileNotFoundError:
-                # If file doesn't exist in storage, just log and continue
+            except (FileNotFoundError, StorageError):
+                # Log the error but continue since the database record
+                # is deleted
+                # The file might have been already deleted or will be
+                # cleaned up later
                 pass
-            except StorageError as e:
-                raise HTTPException(
-                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                    detail=f"Failed to delete document from storage: {str(e)}",
-                ) from e
 
-            # Then delete from database
-            self.repository.delete(document_id, user_id)
-            self.repository.db.commit()
-        except HTTPException as e:
-            # Re-raise HTTP exceptions directly
-            raise e
+        except HTTPException:
+            raise
         except Exception as e:
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,

@@ -76,7 +76,7 @@ def mock_repository(sample_document):
 def mock_storage():
     """Create a mock storage service."""
     mock_storage = Mock(spec=IStorageService)
-    mock_storage.store.return_value = StoredFile(
+    stored_file = StoredFile(
         id="test-file-id",
         user_id="test-user-id",
         path="/test/path/file.pdf",
@@ -86,7 +86,7 @@ def mock_storage():
         created_at=datetime.now(),
         updated_at=datetime.now(),
     )
-
+    mock_storage.store = Mock(return_value=stored_file)
     mock_storage.retrieve.return_value = BytesIO(
         b"test content"
     )

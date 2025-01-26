@@ -9,7 +9,6 @@ from datetime import datetime
 from enum import Enum
 from typing import Optional, Dict, Any
 from datetime import timezone
-import re
 
 from domain.exceptions import DocumentValidationError
 
@@ -86,30 +85,11 @@ class DocumentData:
 
         self.validate()
 
-    def validate(
-        self, require_user_id: bool = True
-    ) -> None:
-        """Validate document data.
-
-        Args:
-            require_user_id: Whether to require user_id to be set
-
-        Raises:
-            DocumentValidationError: If validation fails
-        """
+    def validate(self) -> None:
+        """Validate document data."""
         if not self.name:
             raise DocumentValidationError(
                 "name cannot be empty"
-            )
-
-        if not self.mime_type:
-            raise DocumentValidationError(
-                "mime_type cannot be empty"
-            )
-
-        if require_user_id and not self.user_id:
-            raise DocumentValidationError(
-                "user_id cannot be empty"
             )
 
         if (
@@ -128,44 +108,23 @@ class DocumentData:
                 "size_bytes must be positive"
             )
 
-        if (
-            self.size_bytes is not None
-            and self.size_bytes > self.MAX_DOCUMENT_SIZE
-        ):
-            raise DocumentValidationError(
-                f"Document size ({self.size_bytes} bytes) exceeds maximum "
-                f"allowed size ({self.MAX_DOCUMENT_SIZE} bytes)"
-            )
-
-        if not isinstance(self.status, DocumentStatus):
-            raise DocumentValidationError(
-                f"invalid status: {self.status}"
-            )
-
-        if self.metadata is not None and not isinstance(
-            self.metadata, dict
-        ):
-            raise DocumentValidationError(
-                "metadata must be a dictionary"
-            )
-
-        if self.unique_name is not None:
-            if len(self.unique_name) > 128:
-                raise DocumentValidationError(
-                    "unique_name must be 128 characters or less"
-                )
-            if not re.match(
-                r"^[a-zA-Z0-9_]+$", self.unique_name
+        if self.unique_name:
+            if not all(
+                c.isalnum() or c == "_"
+                for c in self.unique_name
             ):
-                msg = (
-                    "unique_name must contain only "
-                    "alphanumeric characters and underscores"
+                raise DocumentValidationError(
+                    "unique_name must be alphanumeric"
                 )
-                raise DocumentValidationError(msg)
 
         if self.is_public and not self.unique_name:
             raise DocumentValidationError(
                 "Public documents must have a unique name"
+            )
+
+        if not isinstance(self.metadata, dict):
+            raise DocumentValidationError(
+                "metadata must be a dictionary"
             )
 
     def can_access(self, user_id: Optional[str]) -> bool:
