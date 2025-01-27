@@ -10,7 +10,11 @@ from uuid import uuid4
 from dependencies import get_current_user
 from routers.v1.TaskRouter import router
 from services.TaskService import TaskService
-from domain.values import TaskStatus, TaskPriority
+from domain.values import (
+    TaskStatus,
+    TaskPriority,
+    ProcessingStatus,
+)
 from domain.exceptions import TaskValidationError
 from schemas.pydantic.TaskSchema import (
     TaskUpdate,
@@ -49,6 +53,8 @@ def mock_service(mocker):
     service = mocker.Mock(spec=TaskService)
     service.attach_note = mocker.Mock()
     service.detach_note = mocker.Mock()
+    service.get_task_processing_status = mocker.Mock()
+    service.reprocess_task = mocker.Mock()
     return service
 
 
@@ -72,15 +78,38 @@ def mock_task(mock_user):
     current_time = datetime.now(timezone.utc)
     return TaskResponse(
         id=1,
-        title="Test Task",
-        description="Test Description",
+        content="Test task content with details",
         status=TaskStatus.TODO,
         priority=TaskPriority.MEDIUM,
         due_date=current_time,
-        user_id=mock_user.id,  # Use the mock user's ID
+        user_id=mock_user.id,
         parent_id=None,
+        processing_status=ProcessingStatus.PENDING,
+        enrichment_data=None,
+        processed_at=None,
         created_at=current_time,
         updated_at=current_time,
+    )
+
+
+@pytest.fixture
+def mock_processed_task(mock_task):
+    """Create a mock processed task response."""
+    return TaskResponse(
+        **{
+            **mock_task.dict(),
+            "processing_status": ProcessingStatus.COMPLETED,
+            "enrichment_data": {
+                "title": "Test task",
+                "formatted": "Test task content with details",
+                "tokens_used": 10,
+                "model_name": "gpt-3.5-turbo",
+                "created_at": mock_task.created_at.isoformat(),
+                "metadata": {},
+            },
+            "processed_at": mock_task.created_at
+            + timedelta(seconds=5),
+        }
     )
 
 
@@ -98,12 +127,11 @@ def sample_task_data():
     """Create sample task data."""
     now = datetime.now(timezone.utc)
     return {
-        "title": "Test Task",
-        "description": "Test Description",
-        "status": "todo",
-        "priority": "medium",
+        "content": "Test task content with details",
+        "status": TaskStatus.TODO,
+        "priority": TaskPriority.MEDIUM,
+        "due_date": now.isoformat(),
         "tags": ["test", "sample"],
-        "due_date": (now + timedelta(days=30)).isoformat(),
     }
 
 
@@ -117,35 +145,92 @@ class TestTaskRouter:
         mock_user,
         mock_task,
         mock_auth_credentials,
-        mocker,
     ):
         """Test creating a task successfully."""
         mock_service.create_task.return_value = mock_task
-
-        # Create task data with ISO formatted date
-        task_data = {
-            "title": "Test Task",
-            "description": "Test Description",
-            "status": TaskStatus.TODO.value,
-            "priority": TaskPriority.MEDIUM.value,
-            "due_date": datetime.now(
-                timezone.utc
-            ).isoformat(),
-        }
-
         response = client.post(
             "/api/v1/tasks",
-            json=task_data,
+            json={
+                "content": "Test task content",
+                "status": TaskStatus.TODO.value,
+                "priority": TaskPriority.MEDIUM.value,
+            },
             headers={
                 "Authorization": f"Bearer {mock_auth_credentials.credentials}"
             },
         )
-
         assert response.status_code == 201
+        data = response.json()
         assert (
-            response.json()["data"]["title"] == "Test Task"
+            data["message"]
+            == "Task created successfully and queued for processing"
         )
-        mock_service.create_task.assert_called_once()
+        assert data["data"]["content"] == mock_task.content
+        assert (
+            data["data"]["processing_status"]
+            == ProcessingStatus.PENDING.value
+        )
+
+    def test_get_task_processing_status_success(
+        self,
+        client,
+        mock_service,
+        mock_user,
+        mock_processed_task,
+        mock_auth_credentials,
+    ):
+        """Test getting task processing status successfully."""
+        mock_service.get_task_processing_status.return_value = (
+            mock_processed_task
+        )
+        response = client.get(
+            "/api/v1/tasks/processing/1",
+            headers={
+                "Authorization": f"Bearer {mock_auth_credentials.credentials}"
+            },
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert (
+            data["message"]
+            == "Retrieved task processing status"
+        )
+        assert (
+            data["data"]["processing_status"]
+            == ProcessingStatus.COMPLETED.value
+        )
+        assert "enrichment_data" in data["data"]
+        assert (
+            data["data"]["enrichment_data"]["title"]
+            == "Test task"
+        )
+
+    def test_reprocess_task_success(
+        self,
+        client,
+        mock_service,
+        mock_user,
+        mock_auth_credentials,
+    ):
+        """Test requesting task reprocessing successfully."""
+        response = client.post(
+            "/api/v1/tasks/1/reprocess",
+            headers={
+                "Authorization": f"Bearer {mock_auth_credentials.credentials}"
+            },
+        )
+        assert response.status_code == 202
+        data = response.json()
+        assert (
+            data["message"] == "Task reprocessing requested"
+        )
+        assert (
+            data["data"]["message"]
+            == "Task queued for reprocessing"
+        )
+        mock_service.reprocess_task.assert_called_once_with(
+            1, mock_user.id
+        )
 
     def test_create_task_validation_error(
         self,
@@ -161,8 +246,7 @@ class TestTaskRouter:
 
         # Send invalid task data directly as dict
         task_data = {
-            "title": "",  # Empty title should fail validation
-            "description": "Test Description",
+            "content": "",  # Empty content should fail validation
             "status": TaskStatus.TODO.value,
             "priority": TaskPriority.MEDIUM.value,
             "due_date": datetime.now(
@@ -188,8 +272,7 @@ class TestTaskRouter:
         """Test task creation without authentication."""
         # Send task data directly as dict
         task_data = {
-            "title": "Test Task",
-            "description": "Test Description",
+            "content": "Test task content",
             "status": TaskStatus.TODO.value,
             "priority": TaskPriority.MEDIUM.value,
             "due_date": datetime.now(
@@ -389,8 +472,8 @@ class TestTaskRouter:
         )
 
         task_data = TaskUpdate(
-            title="Updated Task",
-            description="Updated Description",
+            content="Updated task content",
+            status=TaskStatus.IN_PROGRESS,
         )
 
         response = client.put(
@@ -461,7 +544,7 @@ class TestTaskRouter:
         self,
         client,
         sample_task_data,
-        sample_user,
+        mock_user,
         mock_auth_credentials,
         mock_service,
     ):
@@ -470,18 +553,19 @@ class TestTaskRouter:
         now = datetime.now(timezone.utc)
         mock_response = TaskResponse(
             id=1,
-            title=sample_task_data["title"],
-            description=sample_task_data["description"],
+            content=sample_task_data["content"],
             status=sample_task_data["status"],
             priority=sample_task_data["priority"],
-            tags=sample_task_data["tags"],
             due_date=datetime.fromisoformat(
                 sample_task_data["due_date"]
             ),
-            user_id=sample_user.id,
+            user_id=mock_user.id,
             created_at=now,
             updated_at=None,
             parent_id=None,
+            processing_status=ProcessingStatus.PENDING,
+            enrichment_data=None,
+            processed_at=None,
         )
         mock_service.create_task.return_value = (
             mock_response
@@ -500,11 +584,8 @@ class TestTaskRouter:
         # Verify response matches TaskResponse schema
         task_response = TaskResponse.model_validate(data)
         assert (
-            task_response.title == sample_task_data["title"]
-        )
-        assert (
-            task_response.description
-            == sample_task_data["description"]
+            task_response.content
+            == sample_task_data["content"]
         )
         assert (
             task_response.status

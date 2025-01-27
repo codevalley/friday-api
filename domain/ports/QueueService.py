@@ -34,6 +34,23 @@ class QueueService(ABC):
         pass
 
     @abstractmethod
+    def enqueue_task(
+        self,
+        task_type: str,
+        task_data: Dict[str, Any],
+    ) -> Optional[str]:
+        """Enqueue a task for processing.
+
+        Args:
+            task_type: Type of task to enqueue
+            task_data: Data for the task
+
+        Returns:
+            Optional[str]: Job ID if enqueued successfully, None otherwise
+        """
+        pass
+
+    @abstractmethod
     def get_job_status(self, job_id: str) -> Dict[str, Any]:
         """Get status of a job.
 

@@ -8,6 +8,7 @@ from schemas.pydantic.TaskSchema import (
     TaskCreate,
     TaskUpdate,
     TaskResponse,
+    TaskProcessingResponse,
 )
 from schemas.pydantic.PaginationSchema import (
     PaginationParams,
@@ -16,7 +17,10 @@ from schemas.pydantic.CommonSchema import (
     MessageResponse,
     GenericResponse,
 )
-from domain.values import TaskStatus, TaskPriority
+from domain.values import (
+    TaskStatus,
+    TaskPriority,
+)
 from dependencies import get_current_user
 from orm.UserModel import User
 from utils.error_handlers import handle_exceptions
@@ -43,11 +47,15 @@ async def create_task(
     service: TaskService = Depends(),
     current_user: User = Depends(get_current_user),
 ) -> GenericResponse[TaskResponse]:
-    """Create a new task."""
-    result = service.create_task(task, current_user.id)
+    """Create a new task.
+
+    The task will be created with PENDING processing status and will be
+    queued for enrichment processing.
+    """
+    result = service.create_task(current_user.id, task)
     return GenericResponse(
         data=result,
-        message="Task created successfully",
+        message="Task created successfully and queued for processing",
     )
 
 
@@ -111,16 +119,14 @@ async def get_task(
 )
 @handle_exceptions
 async def update_task(
-    task_id: int,
+    task_id: str,
     task: TaskUpdate,
     service: TaskService = Depends(),
     current_user: User = Depends(get_current_user),
 ) -> GenericResponse[TaskResponse]:
     """Update a specific task by ID."""
     result = service.update_task(
-        task_id,
-        current_user.id,
-        task,
+        int(task_id), task, current_user.id
     )
     return GenericResponse(
         data=result,
@@ -290,4 +296,49 @@ async def list_tasks_by_topic(
     return GenericResponse(
         data=result,
         message=f"Retrieved {result['total']} tasks for topic",
+    )
+
+
+@router.get(
+    "/processing/{task_id}",
+    response_model=GenericResponse[TaskProcessingResponse],
+)
+@handle_exceptions
+async def get_task_processing_status(
+    task_id: int,
+    service: TaskService = Depends(),
+    current_user: User = Depends(get_current_user),
+) -> GenericResponse[TaskProcessingResponse]:
+    """Get the processing status and enrichment data for a task."""
+    result = service.get_task_processing_status(
+        task_id, current_user.id
+    )
+    return GenericResponse(
+        data=result,
+        message="Retrieved task processing status",
+    )
+
+
+@router.post(
+    "/{task_id}/reprocess",
+    response_model=GenericResponse[MessageResponse],
+    status_code=status.HTTP_202_ACCEPTED,
+)
+@handle_exceptions
+async def reprocess_task(
+    task_id: int,
+    service: TaskService = Depends(),
+    current_user: User = Depends(get_current_user),
+) -> GenericResponse[MessageResponse]:
+    """Request reprocessing of a task's content.
+
+    This will reset the processing status to PENDING and queue the task
+    for enrichment processing again.
+    """
+    service.reprocess_task(task_id, current_user.id)
+    return GenericResponse(
+        data=MessageResponse(
+            message="Task queued for reprocessing"
+        ),
+        message="Task reprocessing requested",
     )

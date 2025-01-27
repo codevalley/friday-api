@@ -229,16 +229,14 @@ def test_note_tasks_relationship(
 
     # Create tasks associated with the note
     task1 = Task(
-        title="Task 1",
-        description="First task",
+        content="Task 1: First task",
         user_id=sample_user.id,
         note_id=note.id,
         status=TaskStatus.TODO,
         priority=TaskPriority.MEDIUM,
     )
     task2 = Task(
-        title="Task 2",
-        description="Second task",
+        content="Task 2: Second task",
         user_id=sample_user.id,
         note_id=note.id,
         status=TaskStatus.TODO,
@@ -256,9 +254,9 @@ def test_note_tasks_relationship(
     assert task2 in note.tasks
 
     # Verify task attributes
-    tasks = sorted(note.tasks, key=lambda t: t.title)
-    assert tasks[0].title == "Task 1"
-    assert tasks[1].title == "Task 2"
+    tasks = sorted(note.tasks, key=lambda t: t.content)
+    assert tasks[0].content == "Task 1: First task"
+    assert tasks[1].content == "Task 2: Second task"
 
     # Remove a task's association
     task1.note_id = None

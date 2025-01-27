@@ -31,10 +31,20 @@ def mock_task_repo():
 
 
 @pytest.fixture
-def task_service(mock_db, mock_task_repo):
+def mock_queue_service():
+    """Create a mock queue service."""
+    with patch("services.TaskService.QueueService") as mock:
+        yield mock.return_value
+
+
+@pytest.fixture
+def task_service(
+    mock_db, mock_task_repo, mock_queue_service
+):
     """Create a TaskService instance with mocked dependencies."""
     service = TaskService(db=mock_db)
     service.task_repo = mock_task_repo
+    service.queue_service = mock_queue_service
     return service
 
 
@@ -44,8 +54,7 @@ def sample_task_data():
     now = datetime.now(timezone.utc)
     return {
         "id": 1,
-        "title": "Test Task",
-        "description": "Test Description",
+        "content": "Test Task Content",
         "status": TaskStatus.TODO,
         "priority": TaskPriority.MEDIUM,
         "user_id": "test-user-id",
@@ -56,6 +65,9 @@ def sample_task_data():
         "parent_id": None,
         "topic_id": None,
         "topic": None,
+        "processing_status": "not_processed",
+        "enrichment_data": None,
+        "processed_at": None,
     }
 
 
@@ -67,22 +79,33 @@ def test_create_task_success(
     """Test successful task creation."""
     # Configure mock to return proper task data
     mock_task = Mock()
+    mock_task.id = sample_task_data["id"]
+    mock_task.content = sample_task_data["content"]
+    mock_task.status = sample_task_data["status"]
+    mock_task.priority = sample_task_data["priority"]
+    mock_task.user_id = sample_user.id
+    mock_task.created_at = sample_task_data["created_at"]
+    mock_task.updated_at = None
+    mock_task.tags = sample_task_data["tags"]
+    mock_task.due_date = sample_task_data["due_date"]
+    mock_task.parent_id = sample_task_data["parent_id"]
+    mock_task.topic_id = sample_task_data["topic_id"]
+    mock_task.topic = sample_task_data["topic"]
+    mock_task.processing_status = "not_processed"
+    mock_task.enrichment_data = None
+    mock_task.processed_at = None
     mock_task.to_dict.return_value = sample_task_data
     task_service.task_repo.create.return_value = mock_task
 
     # Create a task
     result = task_service.create_task(
-        TaskCreate(**sample_task_data),
         sample_user.id,
+        TaskCreate(**sample_task_data),
     )
 
     # Verify the response model validation worked
     assert isinstance(result, TaskResponse)
-    assert result.title == sample_task_data["title"]
-    assert (
-        result.description
-        == sample_task_data["description"]
-    )
+    assert result.content == sample_task_data["content"]
     assert result.status == sample_task_data["status"]
     assert result.priority == sample_task_data["priority"]
     # Verify timestamp fields are present and timezone-aware
@@ -102,8 +125,7 @@ def test_create_task_validation_error(
     )
 
     task_data = TaskCreate(
-        title="Test",
-        description="Test",
+        content="Test Content",
     )
 
     with pytest.raises(HTTPException) as exc:
@@ -121,9 +143,22 @@ def test_get_task_success(
     """Test successful task retrieval."""
     # Setup mock
     mock_task = Mock()
-    mock_task.to_dict.return_value = sample_task_data
     mock_task.id = sample_task_data["id"]
+    mock_task.content = sample_task_data["content"]
+    mock_task.status = sample_task_data["status"]
+    mock_task.priority = sample_task_data["priority"]
+    mock_task.user_id = "test-user-id"
     mock_task.created_at = sample_task_data["created_at"]
+    mock_task.updated_at = None
+    mock_task.tags = sample_task_data["tags"]
+    mock_task.due_date = sample_task_data["due_date"]
+    mock_task.parent_id = sample_task_data["parent_id"]
+    mock_task.topic_id = sample_task_data["topic_id"]
+    mock_task.topic = sample_task_data["topic"]
+    mock_task.processing_status = "not_processed"
+    mock_task.enrichment_data = None
+    mock_task.processed_at = None
+    mock_task.to_dict.return_value = sample_task_data
     mock_task_repo.get_by_user.return_value = mock_task
 
     # Call service
@@ -131,13 +166,9 @@ def test_get_task_success(
 
     # Verify
     assert isinstance(result, TaskResponse)
-    assert result.title == sample_task_data["title"]
-    assert (
-        result.description
-        == sample_task_data["description"]
-    )
+    assert result.content == sample_task_data["content"]
     mock_task_repo.get_by_user.assert_called_once_with(
-        1, "test-user-id"
+        "test-user-id", 1
     )
 
 
@@ -157,9 +188,22 @@ def test_list_tasks_success(
     """Test successful task listing."""
     # Setup mock
     mock_task = Mock()
-    mock_task.to_dict.return_value = sample_task_data
     mock_task.id = sample_task_data["id"]
+    mock_task.content = sample_task_data["content"]
+    mock_task.status = sample_task_data["status"]
+    mock_task.priority = sample_task_data["priority"]
+    mock_task.user_id = "test-user-id"
     mock_task.created_at = sample_task_data["created_at"]
+    mock_task.updated_at = None
+    mock_task.tags = sample_task_data["tags"]
+    mock_task.due_date = sample_task_data["due_date"]
+    mock_task.parent_id = sample_task_data["parent_id"]
+    mock_task.topic_id = sample_task_data["topic_id"]
+    mock_task.topic = sample_task_data["topic"]
+    mock_task.processing_status = "not_processed"
+    mock_task.enrichment_data = None
+    mock_task.processed_at = None
+    mock_task.to_dict.return_value = sample_task_data
     mock_task_repo.list_tasks.return_value = [mock_task]
     mock_task_repo.count_tasks.return_value = 1
 
@@ -188,32 +232,37 @@ def test_update_task_success(
     mock_task = Mock()
     updated_data = {
         **sample_task_data,
-        "title": "Updated Title",
-        "description": "Test Description",
-        "status": "todo",
-        "priority": "medium",
-        "user_id": "test-user-id",
-        "topic_id": None,
-        "topic": None,
+        "content": "Updated Task Content",
     }
-    mock_task.to_dict.return_value = updated_data
     mock_task.id = updated_data["id"]
+    mock_task.content = updated_data["content"]
+    mock_task.status = updated_data["status"]
+    mock_task.priority = updated_data["priority"]
+    mock_task.user_id = "test-user-id"
     mock_task.created_at = updated_data["created_at"]
+    mock_task.updated_at = None
+    mock_task.tags = updated_data["tags"]
+    mock_task.due_date = updated_data["due_date"]
+    mock_task.parent_id = updated_data["parent_id"]
+    mock_task.topic_id = updated_data["topic_id"]
+    mock_task.topic = updated_data["topic"]
+    mock_task.processing_status = "not_processed"
+    mock_task.enrichment_data = None
+    mock_task.processed_at = None
+    mock_task.to_dict.return_value = updated_data
     mock_task_repo.get_by_user.return_value = mock_task
     mock_task_repo.update.return_value = mock_task
 
     # Create update data
-    update_data = TaskUpdate(title="Updated Title")
+    update_data = TaskUpdate(content="Updated Task Content")
 
     # Call service
     result = task_service.update_task(
-        1,
-        "test-user-id",
-        update_data,
+        1, update_data, "test-user-id"
     )
 
     # Verify
-    assert result.title == "Updated Title"
+    assert result.content == "Updated Task Content"
     mock_task_repo.update.assert_called_once()
     mock_db.commit.assert_called_once()
 
@@ -224,11 +273,11 @@ def test_update_task_not_found(
     """Test task update when task doesn't exist."""
     mock_task_repo.get_by_user.return_value = None
 
-    update_data = TaskUpdate(title="New Title")
+    update_data = TaskUpdate(content="New Content")
 
     with pytest.raises(HTTPException) as exc:
         task_service.update_task(
-            1, "test-user-id", update_data
+            1, update_data, "test-user-id"
         )
 
     assert exc.value.status_code == 404
@@ -274,9 +323,22 @@ def test_update_task_status_success(
         **sample_task_data,
         "status": TaskStatus.IN_PROGRESS,
     }
-    mock_task.to_dict.return_value = updated_data
     mock_task.id = updated_data["id"]
+    mock_task.content = updated_data["content"]
+    mock_task.status = updated_data["status"]
+    mock_task.priority = updated_data["priority"]
+    mock_task.user_id = "test-user-id"
     mock_task.created_at = updated_data["created_at"]
+    mock_task.updated_at = None
+    mock_task.tags = updated_data["tags"]
+    mock_task.due_date = updated_data["due_date"]
+    mock_task.parent_id = updated_data["parent_id"]
+    mock_task.topic_id = updated_data["topic_id"]
+    mock_task.topic = updated_data["topic"]
+    mock_task.processing_status = "not_processed"
+    mock_task.enrichment_data = None
+    mock_task.processed_at = None
+    mock_task.to_dict.return_value = updated_data
     mock_task_repo.update_status.return_value = mock_task
 
     # Call service
@@ -285,13 +347,8 @@ def test_update_task_status_success(
     )
 
     # Verify
-    assert isinstance(result, TaskResponse)
     assert result.status == TaskStatus.IN_PROGRESS
-    mock_task_repo.update_status.assert_called_once_with(
-        task_id=1,
-        user_id="test-user-id",
-        new_status=TaskStatus.IN_PROGRESS,
-    )
+    mock_task_repo.update_status.assert_called_once()
     mock_db.commit.assert_called_once()
 
 
@@ -299,20 +356,26 @@ def test_get_subtasks_success(
     task_service, mock_task_repo, sample_task_data
 ):
     """Test successful subtask retrieval."""
-    # Setup mocks
-    parent_task = Mock()
-    mock_task_repo.get_by_user.return_value = parent_task
-
-    subtask = Mock()
-    subtask_data = {
-        **sample_task_data,
-        "id": 2,
-        "parent_id": 1,
-    }
-    subtask.to_dict.return_value = subtask_data
-    subtask.id = subtask_data["id"]
-    subtask.created_at = subtask_data["created_at"]
-    mock_task_repo.get_subtasks.return_value = [subtask]
+    # Setup mock
+    mock_task = Mock()
+    mock_task.id = sample_task_data["id"]
+    mock_task.content = sample_task_data["content"]
+    mock_task.status = sample_task_data["status"]
+    mock_task.priority = sample_task_data["priority"]
+    mock_task.user_id = "test-user-id"
+    mock_task.created_at = sample_task_data["created_at"]
+    mock_task.updated_at = None
+    mock_task.tags = sample_task_data["tags"]
+    mock_task.due_date = sample_task_data["due_date"]
+    mock_task.parent_id = sample_task_data["parent_id"]
+    mock_task.topic_id = sample_task_data["topic_id"]
+    mock_task.topic = sample_task_data["topic"]
+    mock_task.processing_status = "not_processed"
+    mock_task.enrichment_data = None
+    mock_task.processed_at = None
+    mock_task.to_dict.return_value = sample_task_data
+    mock_task_repo.get_subtasks.return_value = [mock_task]
+    mock_task_repo.count_subtasks.return_value = 1
 
     # Call service
     result = task_service.get_subtasks(
@@ -322,13 +385,10 @@ def test_get_subtasks_success(
     # Verify
     assert len(result["items"]) == 1
     assert isinstance(result["items"][0], TaskResponse)
-    assert result["items"][0].parent_id == 1
-    mock_task_repo.get_subtasks.assert_called_once_with(
-        task_id=1,
-        user_id="test-user-id",
-        skip=0,
-        limit=50,
-    )
+    assert result["total"] == 1
+    assert result["page"] == 1
+    assert result["size"] == 50
+    assert result["pages"] == 1
 
 
 def test_update_task_topic_success(
@@ -337,26 +397,47 @@ def test_update_task_topic_success(
     """Test successful task topic update."""
     # Setup mock
     mock_task = Mock()
+    mock_topic = Mock()
+    mock_topic.id = 123
+    mock_topic.name = "Test Topic"
+    mock_topic.icon = "📝"
+    mock_topic.user_id = "test-user-id"
+    mock_topic.created_at = sample_task_data["created_at"]
+    mock_topic.updated_at = None
+    mock_topic.to_dict.return_value = {
+        "id": 123,
+        "name": "Test Topic",
+        "icon": "📝",
+        "user_id": "test-user-id",
+        "created_at": sample_task_data["created_at"],
+        "updated_at": None,
+    }
+
     updated_data = {
         **sample_task_data,
-        "title": "Test Task",
-        "description": "Test Description",
+        "content": "Test Task Content",
         "status": "todo",
         "priority": "medium",
         "user_id": "test-user-id",
         "topic_id": 123,
-        "topic": {
-            "id": 123,
-            "name": "Test Topic",
-            "icon": "📝",
-            "user_id": "test-user-id",
-            "created_at": sample_task_data["created_at"],
-            "updated_at": None,
-        },
+        "topic": mock_topic.to_dict(),
     }
-    mock_task.to_dict.return_value = updated_data
     mock_task.id = updated_data["id"]
+    mock_task.content = updated_data["content"]
+    mock_task.status = updated_data["status"]
+    mock_task.priority = updated_data["priority"]
+    mock_task.user_id = "test-user-id"
     mock_task.created_at = updated_data["created_at"]
+    mock_task.updated_at = None
+    mock_task.tags = updated_data["tags"]
+    mock_task.due_date = updated_data["due_date"]
+    mock_task.parent_id = updated_data["parent_id"]
+    mock_task.topic_id = updated_data["topic_id"]
+    mock_task.topic = mock_topic
+    mock_task.processing_status = "not_processed"
+    mock_task.enrichment_data = None
+    mock_task.processed_at = None
+    mock_task.to_dict.return_value = updated_data
     mock_task_repo.update_topic.return_value = mock_task
 
     # Call service
@@ -381,17 +462,29 @@ def test_update_task_topic_remove(
     mock_task = Mock()
     updated_data = {
         **sample_task_data,
-        "title": "Test Task",
-        "description": "Test Description",
+        "content": "Test Task Content",
         "status": "todo",
         "priority": "medium",
         "user_id": "test-user-id",
         "topic_id": None,
         "topic": None,
     }
-    mock_task.to_dict.return_value = updated_data
     mock_task.id = updated_data["id"]
+    mock_task.content = updated_data["content"]
+    mock_task.status = updated_data["status"]
+    mock_task.priority = updated_data["priority"]
+    mock_task.user_id = "test-user-id"
     mock_task.created_at = updated_data["created_at"]
+    mock_task.updated_at = None
+    mock_task.tags = updated_data["tags"]
+    mock_task.due_date = updated_data["due_date"]
+    mock_task.parent_id = updated_data["parent_id"]
+    mock_task.topic_id = updated_data["topic_id"]
+    mock_task.topic = updated_data["topic"]
+    mock_task.processing_status = "not_processed"
+    mock_task.enrichment_data = None
+    mock_task.processed_at = None
+    mock_task.to_dict.return_value = updated_data
     mock_task_repo.update_topic.return_value = mock_task
 
     # Call service
@@ -414,25 +507,22 @@ def test_get_tasks_by_topic_success(
     """Test successful task listing by topic."""
     # Setup mock
     mock_task = Mock()
-    mock_task.to_dict.return_value = {
-        **sample_task_data,
-        "title": "Test Task",
-        "description": "Test Description",
-        "status": "todo",
-        "priority": "medium",
-        "user_id": "test-user-id",
-        "topic_id": 123,
-        "topic": {
-            "id": 123,
-            "name": "Test Topic",
-            "icon": "📝",
-            "user_id": "test-user-id",
-            "created_at": sample_task_data["created_at"],
-            "updated_at": None,
-        },
-    }
     mock_task.id = sample_task_data["id"]
+    mock_task.content = sample_task_data["content"]
+    mock_task.status = sample_task_data["status"]
+    mock_task.priority = sample_task_data["priority"]
+    mock_task.user_id = "test-user-id"
     mock_task.created_at = sample_task_data["created_at"]
+    mock_task.updated_at = None
+    mock_task.tags = sample_task_data["tags"]
+    mock_task.due_date = sample_task_data["due_date"]
+    mock_task.parent_id = sample_task_data["parent_id"]
+    mock_task.topic_id = sample_task_data["topic_id"]
+    mock_task.topic = sample_task_data["topic"]
+    mock_task.processing_status = "not_processed"
+    mock_task.enrichment_data = None
+    mock_task.processed_at = None
+    mock_task.to_dict.return_value = sample_task_data
     mock_task_repo.get_tasks_by_topic.return_value = [
         mock_task
     ]

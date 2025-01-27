@@ -34,7 +34,7 @@ def mock_task():
     """Create a mock task."""
     task = MagicMock(spec=Task)
     task.id = 1
-    task.title = "Test Task"
+    task.content = "Test Task"
     task.description = "Test Description"
     task.user_id = "test-user-id"
     task.status = TaskStatus.TODO
@@ -72,8 +72,7 @@ class TestTaskRepository:
     ):
         """Test creating a task with a topic."""
         # Arrange
-        title = "Test Task"
-        description = "Test Description"
+        content = "Test Task"
         user_id = "test-user-id"
         topic_id = mock_topic.id
 
@@ -84,15 +83,15 @@ class TestTaskRepository:
 
         # Act
         task = task_repo.create(
-            title=title,
-            description=description,
-            user_id=user_id,
-            topic_id=topic_id,
+            {
+                "content": content,
+                "user_id": user_id,
+                "topic_id": topic_id,
+            }
         )
 
         # Assert
-        assert task.title == title
-        assert task.description == description
+        assert task.content == content
         assert task.user_id == user_id
         assert task.topic_id == topic_id
         mock_db.add.assert_called_once()
@@ -277,8 +276,7 @@ class TestTaskRepository:
     ):
         """Test creating a task with an invalid topic ID."""
         # Arrange
-        title = "Test Task"
-        description = "Test Description"
+        content = "Test Task"
         user_id = "test-user-id"
         topic_id = 999  # Non-existent topic ID
 
@@ -292,10 +290,11 @@ class TestTaskRepository:
         # Act & Assert
         with pytest.raises(TaskValidationError) as exc:
             task_repo.create(
-                title=title,
-                description=description,
-                user_id=user_id,
-                topic_id=topic_id,
+                {
+                    "content": content,
+                    "user_id": user_id,
+                    "topic_id": topic_id,
+                }
             )
         assert "Invalid topic" in str(exc.value)
         mock_db.rollback.assert_called_once()

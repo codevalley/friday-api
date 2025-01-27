@@ -51,8 +51,7 @@ class TestTaskModel:
         """Create a mock task."""
         task = Task()
         task.id = 1
-        task.title = "Test Task"
-        task.description = "Test Description"
+        task.content = "Test Task Content"
         task.user_id = mock_user.id
         task.status = "todo"
         task.priority = "medium"
@@ -105,8 +104,7 @@ class TestTaskModel:
         """Test creating task from dictionary with topic data."""
         task_dict = {
             "id": 1,
-            "title": "Test Task",
-            "description": "Test Description",
+            "content": "Test Task Content",
             "user_id": mock_task.user_id,
             "status": "todo",
             "priority": "medium",
@@ -118,8 +116,9 @@ class TestTaskModel:
         task = Task.from_dict(task_dict)
 
         assert task.topic_id == mock_topic.id
-        assert task.title == task_dict["title"]
-        assert task.description == task_dict["description"]
+        assert task.content == task_dict["content"]
+        assert task.status == task_dict["status"]
+        assert task.priority == task_dict["priority"]
 
     def test_task_topic_cascade_on_delete(
         self,

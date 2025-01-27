@@ -209,8 +209,10 @@ class BaseRepository(
             if not instance:
                 return None
 
+            # Only update fields that are present in data
             for key, value in data.items():
-                setattr(instance, key, value)
+                if hasattr(instance, key):
+                    setattr(instance, key, value)
 
             self.db.commit()
             logger.debug("Committed update")

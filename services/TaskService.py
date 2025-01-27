@@ -8,7 +8,11 @@ from sqlalchemy.orm import Session
 from configs.Database import get_db_connection
 from repositories.TaskRepository import TaskRepository
 from repositories.TopicRepository import TopicRepository
-from domain.values import TaskStatus, TaskPriority
+from domain.values import (
+    TaskStatus,
+    TaskPriority,
+    ProcessingStatus,
+)
 from domain.exceptions import (
     TaskValidationError,
     TaskStatusError,
@@ -20,6 +24,8 @@ from schemas.pydantic.TaskSchema import (
     TaskUpdate,
     TaskResponse,
 )
+from domain.ports.QueueService import QueueService
+from dependencies import get_queue
 
 import logging
 
@@ -36,42 +42,42 @@ class TaskService:
         db: Database session
         task_repo: Repository for task operations
         topic_repo: Repository for topic operations
+        queue_service: Queue service for task processing
     """
 
     def __init__(
         self,
         db: Session = Depends(get_db_connection),
+        queue_service: QueueService = Depends(get_queue),
     ):
         """Initialize the task service.
 
         Args:
             db: Database session from dependency injection
+            queue_service: Queue service for task processing
         """
         self.db = db
         self.task_repo = TaskRepository(db)
         self.topic_repo = TopicRepository(db)
+        self.queue_service = queue_service
 
     def _validate_topic(
-        self, topic_id: Optional[int], user_id: str
+        self, topic_id: int, user_id: str
     ) -> None:
-        """Validate that a topic exists and belongs to the user.
+        """Validate that a topic exists and belongs to user.
 
         Args:
-            topic_id: ID of the topic to validate
-            user_id: ID of the user who should own the topic
+            topic_id: Topic ID to validate
+            user_id: Owner's user ID
 
         Raises:
-            TaskReferenceError: If topic doesn't exist or wrong user
+            TaskReferenceError: If topic not found or doesn't belong to user
         """
-        if topic_id is not None:
-            topic = self.topic_repo.get_by_user(
-                topic_id, user_id
-            )
-            if topic is None:
-                raise TaskReferenceError(
-                    "Topic not found or belongs to "
-                    "another user"
-                )
+        topic = self.topic_repo.get_by_owner(
+            topic_id, user_id
+        )
+        if topic is None:
+            raise TaskReferenceError("Topic not found")
 
     def _handle_task_error(self, error: Exception) -> None:
         """Map domain exceptions to HTTP exceptions."""
@@ -102,73 +108,46 @@ class TaskService:
         raise error
 
     def create_task(
-        self,
-        task_data: TaskCreate,
-        user_id: str,
+        self, user_id: str, task_data: TaskCreate
     ) -> TaskResponse:
-        """Create a new task.
+        """Create a new task and enqueue it for processing.
 
         Args:
-            task_data: Task creation data
             user_id: ID of the user creating the task
+            task_data: Task creation data
 
         Returns:
             TaskResponse: Created task data
 
         Raises:
-            HTTPException: If task creation fails
+            HTTPException: If validation fails
         """
         try:
             # Convert to domain model
-            domain_data = task_data.to_domain(user_id)
+            task = task_data.to_domain(user_id)
 
             # Validate topic if provided
-            self._validate_topic(
-                domain_data.topic_id, user_id
+            if task.topic_id is not None:
+                self._validate_topic(task.topic_id, user_id)
+
+            # Save to database
+            task = self.task_repo.create(task)
+
+            # Enqueue for processing
+            self.queue_service.enqueue_task(
+                "process_task",
+                {"task_id": task.id},
             )
 
-            # Validate before saving
-            domain_data.validate_for_save()
+            # Return response
+            return TaskResponse.from_domain(task)
 
-            # Create task - only pass fields that repository expects
-            task = self.task_repo.create(
-                title=domain_data.title,
-                description=domain_data.description,
-                user_id=domain_data.user_id,
-                status=domain_data.status,
-                priority=domain_data.priority,
-                due_date=domain_data.due_date,
-                tags=domain_data.tags,
-                parent_id=domain_data.parent_id,
-                topic_id=domain_data.topic_id,
-            )
-            self.db.commit()
-
-            # Ensure task was created successfully
-            if task.id is None:
-                raise ValueError(
-                    "Task creation failed - no ID returned"
-                )
-
-            return TaskResponse.model_validate(
-                task.to_dict()
-            )
-
-        except (
-            TaskValidationError,
-            TaskStatusError,
-            TaskReferenceError,
-        ) as e:
-            self._handle_task_error(e)
-            raise
         except Exception as e:
             logger.error(
-                f"Unexpected error creating task: {str(e)}"
+                f"Error creating task: {str(e)}",
+                exc_info=True,
             )
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Failed to create task",
-            )
+            self._handle_task_error(e)
 
     def get_task(
         self, task_id: int, user_id: str
@@ -185,7 +164,7 @@ class TaskService:
         Raises:
             HTTPException: If task not found or access denied
         """
-        task = self.task_repo.get_by_user(task_id, user_id)
+        task = self.task_repo.get_by_user(user_id, task_id)
         if not task:
             raise HTTPException(
                 status_code=404, detail="Task not found"
@@ -195,7 +174,7 @@ class TaskService:
         if task.id is None:
             raise ValueError("Task missing ID")
 
-        return TaskResponse.model_validate(task.to_dict())
+        return TaskResponse.from_domain(task)
 
     def list_tasks(
         self,
@@ -232,7 +211,8 @@ class TaskService:
         skip = (page - 1) * size
 
         # Validate topic if provided
-        self._validate_topic(topic_id, user_id)
+        if topic_id is not None:
+            self._validate_topic(topic_id, user_id)
 
         tasks = self.task_repo.list_tasks(
             user_id=user_id,
@@ -254,7 +234,7 @@ class TaskService:
 
         return {
             "items": [
-                TaskResponse.model_validate(task.to_dict())
+                TaskResponse.from_domain(task)
                 for task in tasks
             ],
             "total": total,
@@ -266,72 +246,77 @@ class TaskService:
     def update_task(
         self,
         task_id: int,
+        task_update: TaskUpdate,
         user_id: str,
-        update_data: TaskUpdate,
     ) -> TaskResponse:
-        """Update a specific task.
+        """Update an existing task.
 
         Args:
-            task_id: ID of the task to update
-            user_id: ID of the user requesting the update
-            update_data: Data to update
+            task_id: ID of task to update
+            task_update: Update data
+            user_id: ID of user making update
 
         Returns:
             TaskResponse: Updated task data
 
         Raises:
-            HTTPException: If task not found or update fails
+            HTTPException: If task not found or validation fails
         """
-        task = self.task_repo.get_by_user(task_id, user_id)
-        if not task:
-            raise HTTPException(
-                status_code=404, detail="Task not found"
-            )
-
         try:
+            # Get existing task
+            task = self.task_repo.get_by_user(
+                user_id, task_id
+            )
+            if task is None:
+                raise TaskReferenceError("Task not found")
+
             # Validate topic if being updated
-            if update_data.topic_id is not None:
+            if task_update.topic_id is not None:
                 self._validate_topic(
-                    update_data.topic_id, user_id
+                    task_update.topic_id, user_id
                 )
 
             # Update task with only non-None fields
-            update_dict = {
-                k: v
-                for k, v in update_data.model_dump().items()
-                if v is not None
-            }
-            updated_task = self.task_repo.update(
-                task_id, update_dict
-            )
-            if not updated_task:
-                raise HTTPException(
-                    status_code=404,
-                    detail="Failed to update task",
+            update_dict = {}
+            for field, value in task_update.model_dump(
+                exclude_unset=True
+            ).items():
+                if value is not None:
+                    update_dict[field] = value
+
+            # If content changed, reset processing
+            if "content" in update_dict:
+                update_dict[
+                    "processing_status"
+                ] = ProcessingStatus.PENDING
+                update_dict["enrichment_data"] = None
+                update_dict["processed_at"] = None
+
+                # Re-enqueue for processing
+                self.queue_service.enqueue_task(
+                    "process_task",
+                    {"task_id": task_id},
                 )
 
-            self.db.commit()
-            return TaskResponse.model_validate(
-                updated_task.to_dict()
+            task = self.task_repo.update(
+                task_id, update_dict
             )
 
-        except TaskReferenceError as e:
-            self._handle_task_error(e)
-            raise
+            self.db.commit()
+            return TaskResponse.from_domain(task)
+
         except Exception as e:
             logger.error(
-                f"Unexpected error updating task: {str(e)}"
+                f"Error updating task {task_id}: {str(e)}",
+                exc_info=True,
             )
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Failed to update task",
-            )
+            self._handle_task_error(e)
 
     def update_task_topic(
         self,
         task_id: int,
         user_id: str,
-        topic_id: Optional[int],
+        topic_id: Optional[int] = None,
     ) -> TaskResponse:
         """Update a task's topic.
 
@@ -348,11 +333,14 @@ class TaskService:
         """
         try:
             # Validate topic if being set
-            self._validate_topic(topic_id, user_id)
+            if topic_id is not None:
+                self._validate_topic(topic_id, user_id)
 
             # Update task's topic
             updated_task = self.task_repo.update_topic(
-                task_id, user_id, topic_id
+                task_id=task_id,
+                user_id=user_id,
+                topic_id=topic_id,
             )
             if not updated_task:
                 raise HTTPException(
@@ -361,9 +349,8 @@ class TaskService:
                 )
 
             self.db.commit()
-            return TaskResponse.model_validate(
-                updated_task.to_dict()
-            )
+            self.db.refresh(updated_task)
+            return TaskResponse.from_domain(updated_task)
 
         except TaskReferenceError as e:
             self._handle_task_error(e)
@@ -419,9 +406,7 @@ class TaskService:
 
             return {
                 "items": [
-                    TaskResponse.model_validate(
-                        task.to_dict()
-                    )
+                    TaskResponse.from_domain(task)
                     for task in tasks
                 ],
                 "total": total,
@@ -460,7 +445,7 @@ class TaskService:
         Raises:
             HTTPException: If task not found or deletion fails
         """
-        task = self.task_repo.get_by_user(task_id, user_id)
+        task = self.task_repo.get_by_user(user_id, task_id)
         if not task:
             raise HTTPException(
                 status_code=404, detail="Task not found"
@@ -517,9 +502,7 @@ class TaskService:
             if task.id is None:
                 raise ValueError("Updated task missing ID")
 
-            return TaskResponse.model_validate(
-                task.to_dict()
-            )
+            return TaskResponse.from_domain(task)
 
         except TaskStatusError as e:
             self._handle_task_error(e)
@@ -555,7 +538,7 @@ class TaskService:
         """
         # First verify parent task exists and belongs to user
         parent = self.task_repo.get_by_user(
-            task_id, user_id
+            user_id, task_id
         )
         if not parent:
             raise HTTPException(
@@ -575,7 +558,7 @@ class TaskService:
 
         return {
             "items": [
-                TaskResponse.model_validate(task.to_dict())
+                TaskResponse.from_domain(task)
                 for task in subtasks
             ],
             "total": len(

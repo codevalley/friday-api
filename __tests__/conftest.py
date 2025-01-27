@@ -326,7 +326,7 @@ def mock_user():
 def queue_service():
     """Mock queue service for testing."""
     mock_queue = Mock()
-    mock_queue.enqueue.return_value = None
+    mock_queue.enqueue_task.return_value = None
     return mock_queue
 
 

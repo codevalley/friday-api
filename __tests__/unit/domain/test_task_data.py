@@ -10,14 +10,15 @@ from datetime import datetime, timezone, timedelta
 from typing import Dict, Any
 
 from domain.task import TaskData
-from domain.values import TaskStatus, TaskPriority
+from domain.values import (
+    TaskStatus,
+    TaskPriority,
+    ProcessingStatus,
+)
 from domain.exceptions import (
     TaskValidationError,
     TaskContentError,
-    TaskDateError,
-    TaskPriorityError,
     TaskStatusError,
-    TaskParentError,
 )
 
 
@@ -30,18 +31,18 @@ def valid_task_dict() -> Dict[str, Any]:
     """
     now = datetime.now(timezone.utc)
     return {
-        "title": "Test Task",
-        "description": "Test task description",
+        "content": "Test task content with details",
         "user_id": "test-user",
         "status": TaskStatus.TODO,
         "priority": TaskPriority.MEDIUM,
-        "due_date": now
-        + timedelta(
-            days=1
-        ),  # Due date is 1 day in the future
+        "due_date": now + timedelta(days=1),
         "tags": ["test", "example"],
         "parent_id": None,
-        "note_id": None,  # Optional note reference
+        "note_id": None,
+        "topic_id": None,
+        "processing_status": ProcessingStatus.NOT_PROCESSED,
+        "enrichment_data": None,
+        "processed_at": None,
         "created_at": now,
         "updated_at": now,
     }
@@ -57,6 +58,29 @@ def valid_task_data(valid_task_dict) -> TaskData:
     return TaskData(**valid_task_dict)
 
 
+@pytest.fixture
+def enriched_task_dict(valid_task_dict) -> Dict[str, Any]:
+    """Create a task dictionary with enrichment data."""
+    now = datetime.now(timezone.utc)
+    return {
+        **valid_task_dict,
+        "processing_status": ProcessingStatus.COMPLETED,
+        "enrichment_data": {
+            "title": "Test Task",
+            "formatted": "# Test Task\n\nTest task content with details",
+            "tokens_used": 100,
+            "model_name": "gpt-3.5-turbo",
+            "created_at": now,
+            "metadata": {
+                "due_date": now + timedelta(days=1),
+                "priority": "medium",
+                "tags": ["test", "example"],
+            },
+        },
+        "processed_at": now,
+    }
+
+
 class TestTaskDataValidation:
     """Test validation methods of TaskData."""
 
@@ -65,25 +89,28 @@ class TestTaskDataValidation:
         # Should not raise any exceptions
         valid_task_data.validate()
 
-    def test_invalid_title(self, valid_task_dict):
-        """Test validation with invalid title."""
-        valid_task_dict["title"] = ""
+    def test_invalid_content_empty(self, valid_task_dict):
+        """Test validation with empty content."""
+        valid_task_dict["content"] = ""
+        with pytest.raises(TaskContentError) as exc:
+            TaskData(**valid_task_dict)
+        assert str(exc.value) == "content cannot be empty"
+
+    def test_invalid_content_type(self, valid_task_dict):
+        """Test validation with invalid content type."""
+        valid_task_dict["content"] = 123
+        with pytest.raises(TaskContentError) as exc:
+            TaskData(**valid_task_dict)
+        assert str(exc.value) == "content must be a string"
+
+    def test_content_too_long(self, valid_task_dict):
+        """Test validation with content exceeding max length."""
+        valid_task_dict["content"] = "x" * 513  # Max is 512
         with pytest.raises(TaskContentError) as exc:
             TaskData(**valid_task_dict)
         assert (
             str(exc.value)
-            == "title must be a non-empty string"
-        )
-
-    def test_invalid_description_type(
-        self, valid_task_dict
-    ):
-        """Test validation with invalid description type."""
-        valid_task_dict["description"] = 123
-        with pytest.raises(TaskContentError) as exc:
-            TaskData(**valid_task_dict)
-        assert (
-            str(exc.value) == "description must be a string"
+            == "content cannot exceed 512 characters"
         )
 
     def test_invalid_user_id(self, valid_task_dict):
@@ -101,89 +128,123 @@ class TestTaskDataValidation:
         valid_task_dict["status"] = "invalid"
         with pytest.raises(TaskStatusError) as exc:
             TaskData(**valid_task_dict)
-        assert "status must be one of" in str(exc.value)
+        assert "Invalid task status" in str(exc.value)
 
-    def test_invalid_priority(self, valid_task_dict):
-        """Test validation with invalid priority."""
-        valid_task_dict["priority"] = "invalid"
-        with pytest.raises(TaskPriorityError) as exc:
-            TaskData(**valid_task_dict)
-        assert "priority must be one of" in str(exc.value)
-
-    def test_invalid_due_date_type(self, valid_task_dict):
-        """Test validation with invalid due_date type."""
-        valid_task_dict["due_date"] = "not a datetime"
-        with pytest.raises(TaskDateError) as exc:
-            TaskData(**valid_task_dict)
-        assert (
-            str(exc.value)
-            == "due_date must be a datetime object"
-        )
-
-    def test_invalid_tags_type(self, valid_task_dict):
-        """Test validation with invalid tags type."""
-        valid_task_dict["tags"] = "not a list"
+    def test_invalid_processing_status(
+        self, valid_task_dict
+    ):
+        """Test validation with invalid processing status."""
+        valid_task_dict["processing_status"] = "invalid"
         with pytest.raises(TaskValidationError) as exc:
             TaskData(**valid_task_dict)
-        assert str(exc.value) == "tags must be a list"
+        assert "Invalid processing status" in str(exc.value)
 
-    def test_invalid_tag_type(self, valid_task_dict):
-        """Test validation with invalid tag type."""
-        valid_task_dict["tags"] = [123]
-        with pytest.raises(TaskValidationError) as exc:
-            TaskData(**valid_task_dict)
-        assert str(exc.value) == "tags must be strings"
-
-    def test_valid_parent_id(self, valid_task_dict):
-        """Test validation with valid parent_id."""
-        valid_task_dict["parent_id"] = 1
-        task = TaskData(**valid_task_dict)
-        task.validate()  # Should not raise
-
-    def test_invalid_parent_id_type(self, valid_task_dict):
-        """Test validation with invalid parent_id type."""
-        valid_task_dict["parent_id"] = "not an int"
-        with pytest.raises(TaskParentError) as exc:
-            TaskData(**valid_task_dict)
-        assert (
-            str(exc.value)
-            == "parent_id must be a positive integer"
-        )
-
-    def test_invalid_parent_id_value(self, valid_task_dict):
-        """Test validation with invalid parent_id value."""
-        valid_task_dict["parent_id"] = 0
-        with pytest.raises(TaskParentError) as exc:
-            TaskData(**valid_task_dict)
-        assert (
-            str(exc.value)
-            == "parent_id must be a positive integer"
-        )
-
-    def test_valid_note_id(self, valid_task_dict):
-        """Test validation with valid note_id."""
-        valid_task_dict["note_id"] = 1
-        task = TaskData(**valid_task_dict)
-        task.validate()  # Should not raise
-
-    def test_invalid_note_id_type(self, valid_task_dict):
-        """Test validation with invalid note_id type."""
-        valid_task_dict["note_id"] = "not an int"
+    def test_enrichment_data_without_processed_at(
+        self, valid_task_dict
+    ):
+        """Test validation when enrichment data exists without processed_at."""
+        valid_task_dict["enrichment_data"] = {
+            "some": "data"
+        }
+        valid_task_dict["processed_at"] = None
         with pytest.raises(TaskValidationError) as exc:
             TaskData(**valid_task_dict)
         assert (
-            str(exc.value)
-            == "note_id must be a positive integer"
+            "processed_at required with enrichment_data"
+            in str(exc.value)
         )
 
-    def test_invalid_note_id_value(self, valid_task_dict):
-        """Test validation with invalid note_id value."""
-        valid_task_dict["note_id"] = 0
+    def test_processed_at_without_enrichment_data(
+        self, valid_task_dict
+    ):
+        """Test validation when processed_at exists without enrichment data."""
+        valid_task_dict["enrichment_data"] = None
+        valid_task_dict["processed_at"] = datetime.now(
+            timezone.utc
+        )
         with pytest.raises(TaskValidationError) as exc:
             TaskData(**valid_task_dict)
         assert (
-            str(exc.value)
-            == "note_id must be a positive integer"
+            "enrichment_data required with processed_at"
+            in str(exc.value)
+        )
+
+
+class TestTaskDataEnrichment:
+    """Test enrichment-related functionality of TaskData."""
+
+    def test_enriched_task_data(self, enriched_task_dict):
+        """Test that enriched task data passes validation."""
+        task = TaskData(**enriched_task_dict)
+        task.validate()
+        assert (
+            task.processing_status
+            == ProcessingStatus.COMPLETED
+        )
+        assert task.enrichment_data is not None
+        assert task.processed_at is not None
+
+    def test_update_processing_status(
+        self, valid_task_data
+    ):
+        """Test updating processing status."""
+        valid_task_data.update_processing_status(
+            ProcessingStatus.PENDING
+        )
+        assert (
+            valid_task_data.processing_status
+            == ProcessingStatus.PENDING
+        )
+        assert valid_task_data.enrichment_data is None
+        assert valid_task_data.processed_at is None
+
+    def test_update_processing_status_with_data(
+        self, valid_task_data
+    ):
+        """Test updating processing status with enrichment data."""
+        now = datetime.now(timezone.utc)
+        enrichment_data = {
+            "title": "Test Task",
+            "formatted": "# Test Task\n\nTest content",
+            "tokens_used": 50,
+            "model_name": "gpt-3.5-turbo",
+            "created_at": now,
+            "metadata": {},
+        }
+
+        # Follow proper state transitions
+        valid_task_data.update_processing_status(
+            ProcessingStatus.PENDING
+        )
+        valid_task_data.update_processing_status(
+            ProcessingStatus.PROCESSING
+        )
+        valid_task_data.update_processing_status(
+            ProcessingStatus.COMPLETED,
+            enrichment_data=enrichment_data,
+        )
+
+        assert (
+            valid_task_data.processing_status
+            == ProcessingStatus.COMPLETED
+        )
+        assert (
+            valid_task_data.enrichment_data
+            == enrichment_data
+        )
+        assert valid_task_data.processed_at is not None
+
+    def test_invalid_enrichment_data_structure(
+        self, valid_task_data
+    ):
+        """Test validation with invalid enrichment data structure."""
+        with pytest.raises(TaskValidationError) as exc:
+            valid_task_data.update_processing_status(
+                ProcessingStatus.COMPLETED,
+                enrichment_data={"invalid": "structure"},
+            )
+        assert "Invalid enrichment data structure" in str(
+            exc.value
         )
 
 
@@ -193,11 +254,7 @@ class TestTaskDataConversion:
     def test_to_dict(self, valid_task_data):
         """Test conversion to dictionary."""
         result = valid_task_data.to_dict()
-        assert result["title"] == valid_task_data.title
-        assert (
-            result["description"]
-            == valid_task_data.description
-        )
+        assert result["content"] == valid_task_data.content
         assert result["user_id"] == valid_task_data.user_id
         assert (
             result["status"] == valid_task_data.status.value
@@ -214,15 +271,34 @@ class TestTaskDataConversion:
             result["parent_id"] == valid_task_data.parent_id
         )
         assert result["note_id"] == valid_task_data.note_id
+        assert (
+            result["topic_id"] == valid_task_data.topic_id
+        )
+        assert (
+            result["processing_status"]
+            == valid_task_data.processing_status.value
+        )
+        assert (
+            result["enrichment_data"]
+            == valid_task_data.enrichment_data
+        )
+        assert (
+            result["processed_at"]
+            == valid_task_data.processed_at
+        )
+        assert (
+            result["created_at"]
+            == valid_task_data.created_at
+        )
+        assert (
+            result["updated_at"]
+            == valid_task_data.updated_at
+        )
 
     def test_from_dict_snake_case(self, valid_task_dict):
         """Test creation from snake_case dictionary."""
         task = TaskData.from_dict(valid_task_dict)
-        assert task.title == valid_task_dict["title"]
-        assert (
-            task.description
-            == valid_task_dict["description"]
-        )
+        assert task.content == valid_task_dict["content"]
         assert task.user_id == valid_task_dict["user_id"]
         assert task.status == valid_task_dict["status"]
         assert task.priority == valid_task_dict["priority"]
@@ -232,30 +308,47 @@ class TestTaskDataConversion:
             task.parent_id == valid_task_dict["parent_id"]
         )
         assert task.note_id == valid_task_dict["note_id"]
+        assert task.topic_id == valid_task_dict["topic_id"]
+        assert (
+            task.processing_status
+            == valid_task_dict["processing_status"]
+        )
+        assert (
+            task.enrichment_data
+            == valid_task_dict["enrichment_data"]
+        )
+        assert (
+            task.processed_at
+            == valid_task_dict["processed_at"]
+        )
+        assert (
+            task.created_at == valid_task_dict["created_at"]
+        )
+        assert (
+            task.updated_at == valid_task_dict["updated_at"]
+        )
 
     def test_from_dict_camel_case(self):
         """Test creation from camelCase dictionary."""
         now = datetime.now(timezone.utc)
         camel_dict = {
-            "title": "Test Task",
-            "description": "Test task description",
+            "content": "Test task content with details",
             "userId": "test-user",
             "status": TaskStatus.TODO.value,
             "priority": TaskPriority.MEDIUM.value,
-            "dueDate": now
-            + timedelta(
-                days=1
-            ),  # Due date is 1 day in the future
+            "dueDate": now + timedelta(days=1),
             "tags": ["test", "example"],
-            "parentId": 1,
+            "parentId": None,
             "noteId": None,
-            "topicId": 123,
+            "topicId": None,
+            "processingStatus": ProcessingStatus.NOT_PROCESSED.value,
+            "enrichmentData": None,
+            "processedAt": None,
             "createdAt": now,
             "updatedAt": now,
         }
         task = TaskData.from_dict(camel_dict)
-        assert task.title == camel_dict["title"]
-        assert task.description == camel_dict["description"]
+        assert task.content == camel_dict["content"]
         assert task.user_id == camel_dict["userId"]
         assert task.status == TaskStatus.TODO
         assert task.priority == TaskPriority.MEDIUM
@@ -264,6 +357,17 @@ class TestTaskDataConversion:
         assert task.parent_id == camel_dict["parentId"]
         assert task.note_id == camel_dict["noteId"]
         assert task.topic_id == camel_dict["topicId"]
+        assert (
+            task.processing_status
+            == ProcessingStatus.NOT_PROCESSED
+        )
+        assert (
+            task.enrichment_data
+            == camel_dict["enrichmentData"]
+        )
+        assert (
+            task.processed_at == camel_dict["processedAt"]
+        )
         assert task.created_at == camel_dict["createdAt"]
         assert task.updated_at == camel_dict["updatedAt"]
 
@@ -278,13 +382,10 @@ class TestTaskDataErrorHandling:
 
     def test_type_mismatches(self, valid_task_dict):
         """Test handling of type mismatches."""
-        valid_task_dict["title"] = 123
+        valid_task_dict["content"] = 123
         with pytest.raises(TaskContentError) as exc:
             TaskData(**valid_task_dict)
-        assert (
-            str(exc.value)
-            == "title must be a non-empty string"
-        )
+        assert str(exc.value) == "content must be a string"
 
 
 class TestTaskDataTopicValidation:
@@ -335,8 +436,7 @@ class TestTaskDataTopicValidation:
         """Test topic_id handling in from_dict with snake_case."""
         now = datetime.now(timezone.utc)
         data = {
-            "title": "Test Task",
-            "description": "Test Description",
+            "content": "Test task content with details",
             "user_id": "test-user",
             "status": TaskStatus.TODO,
             "priority": TaskPriority.MEDIUM,

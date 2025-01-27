@@ -1,6 +1,6 @@
 """Repository for managing tasks in the database."""
 
-from typing import List, Optional
+from typing import List, Optional, Union, Dict, Any
 from datetime import datetime
 from sqlalchemy.orm import Session
 from sqlalchemy import desc, asc
@@ -9,11 +9,12 @@ from fastapi import HTTPException
 
 from domain.values import TaskStatus, TaskPriority
 from orm.TaskModel import Task
-from .BaseRepository import BaseRepository
+from repositories.BaseRepository import BaseRepository
 from domain.exceptions import (
     TaskReferenceError,
     TaskValidationError,
 )
+from domain.task import TaskData
 
 
 class TaskRepository(BaseRepository[Task, int]):
@@ -32,20 +33,31 @@ class TaskRepository(BaseRepository[Task, int]):
         """
         super().__init__(db, Task)
 
-    def create(self, **kwargs) -> Task:
+    def create(
+        self,
+        task_or_kwargs: Union[TaskData, Dict[str, Any]],
+    ) -> TaskData:
         """Create a new task.
 
         Args:
-            **kwargs: Task attributes
+            task_or_kwargs: Either a TaskData instance
+            or a dict of task attributes
 
         Returns:
-            Task: Created task instance
+            TaskData instance with database ID populated
 
         Raises:
-            TaskValidationError: If task creation fails due to invalid data
+            TaskValidationError: If validation fails
         """
-        task = Task(**kwargs)
         try:
+            # Convert TaskData to dict if needed
+            if isinstance(task_or_kwargs, TaskData):
+                task_dict = task_or_kwargs.__dict__
+            else:
+                task_dict = task_or_kwargs
+
+            # Create ORM instance
+            task = Task(**task_dict)
             return super().create(task)
         except HTTPException as e:
             if e.status_code == 409:
@@ -191,7 +203,7 @@ class TaskRepository(BaseRepository[Task, int]):
             TaskReferenceError: If task not found or doesn't belong to user
             TaskValidationError: If topic_id is invalid
         """
-        task = self.get_by_user(task_id, user_id)
+        task = self.get_by_user(user_id, task_id)
         if task is None:
             raise TaskReferenceError(
                 f"Task {task_id} not found or doesn't belong to user"
@@ -242,6 +254,20 @@ class TaskRepository(BaseRepository[Task, int]):
             .all()
         )
 
+    def get_by_user(
+        self, user_id: str, task_id: int
+    ) -> Optional[Task]:
+        """Get a task by ID for a specific user.
+
+        Args:
+            user_id: User ID
+            task_id: Task ID
+
+        Returns:
+            Task if found and belongs to user, None otherwise
+        """
+        return self.get_by_owner(task_id, user_id)
+
     def update_status(
         self,
         task_id: int,
@@ -264,7 +290,7 @@ class TaskRepository(BaseRepository[Task, int]):
         Raises:
             ValueError: If the status transition is invalid
         """
-        task = self.get_by_user(task_id, user_id)
+        task = self.get_by_user(user_id, task_id)
         if task is None:
             return None
 

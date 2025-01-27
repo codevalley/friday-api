@@ -10,7 +10,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
-from dependencies import get_current_user
+from dependencies import get_current_user, get_queue
 from routers.v1 import TaskRouter, TopicRouter
 from services.TaskService import TaskService
 from services.TopicService import TopicService
@@ -22,6 +22,7 @@ from schemas.pydantic.TaskSchema import (
     TaskCreate,
     TaskUpdate,
 )
+from typing import Dict, Any, Optional
 
 
 @pytest.fixture(scope="session")
@@ -49,14 +50,48 @@ def test_db_session(test_db):
 
 
 @pytest.fixture
-def app(test_db_session):
+def queue_service():
+    """Mock queue service for testing."""
+
+    class MockQueueService:
+        def enqueue_task(
+            self, task_type: str, task_data: Dict[str, Any]
+        ) -> Optional[str]:
+            return "mock-job-id"
+
+        def enqueue_note(
+            self, note_id: int
+        ) -> Optional[str]:
+            return "mock-job-id"
+
+        def enqueue_activity(
+            self, activity_id: int
+        ) -> Optional[str]:
+            return "mock-job-id"
+
+        def get_job_status(
+            self, job_id: str
+        ) -> Dict[str, Any]:
+            return {"status": "completed"}
+
+        def get_queue_health(self) -> Dict[str, Any]:
+            return {"status": "healthy"}
+
+    return MockQueueService()
+
+
+@pytest.fixture
+def app(test_db_session, queue_service):
     """Create a test FastAPI application with real services."""
     app = FastAPI()
 
-    # Use real services with test database
+    # Use real services with test database and mock queue
+    app.dependency_overrides[
+        get_queue
+    ] = lambda: queue_service
     app.dependency_overrides[
         TaskService
-    ] = lambda: TaskService(test_db_session)
+    ] = lambda: TaskService(test_db_session, queue_service)
     app.dependency_overrides[
         TopicService
     ] = lambda: TopicService(test_db_session)
@@ -109,8 +144,7 @@ def test_task_topic_lifecycle(client, test_user):
 
     # 2. Create a task with the topic
     task_data = TaskCreate(
-        title="Complete Project",
-        description="Finish the integration tests",
+        content="Complete Project: Finish the integration tests",
         status=TaskStatus.TODO,
         priority=TaskPriority.HIGH,
         topic_id=topic_id,
@@ -183,8 +217,7 @@ def test_topic_deletion_impact(client, test_user):
     tasks = []
     for i in range(3):
         task_data = TaskCreate(
-            title=f"Task {i}",
-            description="Test task",
+            content=f"Test task {i}: This is a test task",
             status=TaskStatus.TODO,
             priority=TaskPriority.MEDIUM,
             topic_id=topic_id,
@@ -229,8 +262,7 @@ def test_task_topic_filtering(client, test_user):
     # 2. Create tasks for each topic
     for i in range(5):
         task_data = TaskCreate(
-            title=f"Work Task {i}",
-            description="Work related",
+            content=f"Work Task {i}: Work related task",
             status=TaskStatus.TODO,
             priority=TaskPriority.HIGH,
             topic_id=topic1_id,
@@ -240,8 +272,7 @@ def test_task_topic_filtering(client, test_user):
         )
 
         task_data = TaskCreate(
-            title=f"Personal Task {i}",
-            description="Personal stuff",
+            content=f"Personal Task {i}: Personal stuff",
             status=TaskStatus.TODO,
             priority=TaskPriority.LOW,
             topic_id=topic2_id,
@@ -274,8 +305,7 @@ def test_task_topic_error_handling(client, test_user):
     """Test error handling in task-topic operations."""
     # 1. Try to create task with non-existent topic
     task_data = TaskCreate(
-        title="Invalid Topic Task",
-        description="This should fail",
+        content="Invalid Topic Task: This should fail",
         status=TaskStatus.TODO,
         priority=TaskPriority.MEDIUM,
         topic_id=99999,  # Non-existent topic ID

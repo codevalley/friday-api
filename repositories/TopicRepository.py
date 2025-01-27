@@ -143,7 +143,7 @@ class TopicRepository(BaseRepository[Topic, int]):
             TopicNameError: If new name already exists for user
             TopicValidationError: If update fails
         """
-        topic = self.get_by_user(topic_id, user_id)
+        topic = self.get_by_owner(topic_id, user_id)
         if topic is None:
             return None
 

@@ -6,7 +6,6 @@ from sqlalchemy import (
     Column,
     Integer,
     String,
-    Text,
     ForeignKey,
     DateTime,
     JSON,
@@ -16,7 +15,11 @@ from sqlalchemy import (
 from sqlalchemy.orm import relationship, Mapped
 from typing import TYPE_CHECKING
 
-from domain.values import TaskStatus, TaskPriority
+from domain.values import (
+    TaskStatus,
+    TaskPriority,
+    ProcessingStatus,
+)
 from .BaseModel import EntityMeta
 
 if TYPE_CHECKING:
@@ -34,17 +37,20 @@ class Task(EntityMeta):
 
     Attributes:
         id: Unique identifier
-        title: Task title (non-empty string)
-        description: Detailed task description
+        content: Task content in markdown format
         user_id: ID of the task owner
-        status: Current task status (TODO, IN_PROGRESS, etc.)
+        status: Task progress status (TODO, IN_PROGRESS, DONE)
         priority: Task priority level (LOW, MEDIUM, HIGH)
         due_date: Optional deadline for the task
         tags: List of tags for categorization
         parent_id: Optional ID of parent task
         note_id: Optional ID of associated note
-        created_at: Timestamp of task creation
-        updated_at: Timestamp of last update
+        topic_id: Optional ID of associated topic
+        processing_status: Status of content processing
+        enrichment_data: Data from content processing
+        processed_at: When the content was processed
+        created_at: When the task was created
+        updated_at: When the task was last updated
         owner: User who owns the task
         parent: Parent task if this is a subtask
         subtasks: List of child tasks
@@ -60,8 +66,11 @@ class Task(EntityMeta):
     )
 
     # Basic fields
-    title: Mapped[str] = Column(String(255), nullable=False)
-    description: Mapped[str] = Column(Text, nullable=False)
+    content: Mapped[str] = Column(
+        String(512),
+        nullable=False,
+        doc="Task content in markdown format (max 512 chars)",
+    )
 
     # Foreign keys
     user_id: Mapped[str] = Column(
@@ -97,6 +106,18 @@ class Task(EntityMeta):
         nullable=False,
         default=TaskPriority.MEDIUM,
         server_default=TaskPriority.MEDIUM.value,
+    )
+    processing_status: Mapped[ProcessingStatus] = Column(
+        Enum(ProcessingStatus),
+        nullable=False,
+        default=ProcessingStatus.PENDING,
+        server_default=ProcessingStatus.PENDING.value,
+    )
+    enrichment_data: Mapped[
+        Optional[Dict[str, Any]]
+    ] = Column(JSON, nullable=True, default=None)
+    processed_at: Mapped[Optional[datetime]] = Column(
+        DateTime(timezone=True), nullable=True
     )
     due_date: Mapped[Optional[datetime]] = Column(
         DateTime(timezone=True), nullable=True
@@ -146,12 +167,8 @@ class Task(EntityMeta):
     # Constraints
     __table_args__ = (
         CheckConstraint(
-            "title != ''",
-            name="check_title_not_empty",
-        ),
-        CheckConstraint(
-            "description != ''",
-            name="check_description_not_empty",
+            "content != ''",
+            name="check_content_not_empty",
         ),
     )
 
@@ -161,6 +178,10 @@ class Task(EntityMeta):
             kwargs["status"] = TaskStatus.TODO
         if "priority" not in kwargs:
             kwargs["priority"] = TaskPriority.MEDIUM
+        if "processing_status" not in kwargs:
+            kwargs[
+                "processing_status"
+            ] = ProcessingStatus.PENDING
         if "tags" not in kwargs:
             kwargs["tags"] = []
         super().__init__(**kwargs)
@@ -173,14 +194,16 @@ class Task(EntityMeta):
         """
         result = {
             "id": self.id,
-            "title": self.title,
-            "description": self.description,
+            "content": self.content,
             "user_id": self.user_id,
             "parent_id": self.parent_id,
             "note_id": self.note_id,
             "topic_id": self.topic_id,
             "status": self.status,
             "priority": self.priority,
+            "processing_status": self.processing_status,
+            "enrichment_data": self.enrichment_data,
+            "processed_at": self.processed_at,
             "due_date": self.due_date,
             "tags": self.tags or [],
             "created_at": self.created_at,
