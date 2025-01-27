@@ -16,6 +16,9 @@ from infrastructure.queue.activity_worker import (
 from infrastructure.queue.note_worker import (
     process_note_job,
 )
+from infrastructure.queue.task_worker import (
+    process_task_job,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -35,6 +38,12 @@ class RQNoteQueue(QueueService):
         logger.debug("Creating activity_schema queue")
         self.activity_queue = Queue(
             "activity_schema",
+            connection=queue.connection,
+        )
+        # Get task queue from same connection
+        logger.debug("Creating task_enrichment queue")
+        self.task_queue = Queue(
+            "task_enrichment",
             connection=queue.connection,
         )
         # Initialize robo_service in parent process
@@ -79,10 +88,11 @@ class RQNoteQueue(QueueService):
             Dict containing job status information
         """
         try:
-            # Try both queues
+            # Try all queues
             for queue in [
                 self.note_queue,
                 self.activity_queue,
+                self.task_queue,
             ]:
                 try:
                     job = Job.fetch(
@@ -110,7 +120,7 @@ class RQNoteQueue(QueueService):
             return {"status": "not_found"}
 
     def get_queue_health(self) -> Dict[str, Any]:
-        """Get health metrics for both queues."""
+        """Get health metrics for all queues."""
         note_queue_health = {
             "total_jobs": self.note_queue.count,
             "is_empty": self.note_queue.is_empty,
@@ -125,9 +135,17 @@ class RQNoteQueue(QueueService):
                 Worker.all(queue=self.activity_queue)
             ),
         }
+        task_queue_health = {
+            "total_jobs": self.task_queue.count,
+            "is_empty": self.task_queue.is_empty,
+            "worker_count": len(
+                Worker.all(queue=self.task_queue)
+            ),
+        }
         return {
             "note_enrichment": note_queue_health,
             "activity_schema": activity_queue_health,
+            "task_enrichment": task_queue_health,
         }
 
     def enqueue_activity(
@@ -183,36 +201,52 @@ class RQNoteQueue(QueueService):
             )
             return None
 
-    def enqueue_task(self, task_id: int) -> Optional[str]:
+    def enqueue_task(
+        self,
+        task_type: str,
+        task_id: int,
+    ) -> Optional[str]:
         """Enqueue a task for processing.
 
         Args:
+            task_type: Type of task to enqueue
             task_id: ID of the task to process
 
         Returns:
             Optional[str]: Job ID if enqueued successfully, None otherwise
         """
         try:
-            from infrastructure.queue.task_worker import (
-                process_task_job,
-            )
-
             logger.debug(
                 f"Enqueueing task {task_id} for processing"
             )
-            job = self.note_queue.enqueue(
+            job = self.task_queue.enqueue(
                 process_task_job,
                 args=(task_id,),
                 job_timeout="10m",
                 result_ttl=24 * 60 * 60,  # 24 hours
-                meta={"task_id": task_id},
+                meta={
+                    "task_id": task_id,
+                    "task_type": task_type,
+                    "queued_at": datetime.now(
+                        UTC
+                    ).isoformat(),
+                },
             )
-            logger.debug(
-                f"Task {task_id} enqueued with job ID {job.id}"
-            )
-            return job.id
+            if job:
+                logger.info(
+                    f"Successfully enqueued task {task_id}"
+                    f" with job ID {job.id}"
+                )
+                return job.id
+            else:
+                logger.error(
+                    f"Failed to enqueue task {task_id}"
+                    f" - job is None"
+                )
+                return None
         except Exception as e:
             logger.error(
-                f"Error enqueueing task {task_id}: {str(e)}"
+                f"Error enqueueing task {task_id}: {str(e)}",
+                exc_info=True,
             )
             return None

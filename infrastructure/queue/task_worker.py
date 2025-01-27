@@ -64,7 +64,7 @@ def process_task_job(
         logger.debug(
             f"Fetching task {task_id} from database"
         )
-        task = task_repository.get_by_id(task_id)
+        task = task_repository.get(task_id)
         if not task:
             raise ValueError(f"Task {task_id} not found")
 
@@ -103,17 +103,23 @@ def process_task_job(
                     context={
                         "type": "task_enrichment",
                         # Add any task-specific context
-                        "priority": task.priority
-                        if hasattr(task, "priority")
-                        else None,
-                        "due_date": task.due_date.isoformat()
-                        if hasattr(task, "due_date")
-                        and task.due_date
-                        else None,
-                        "parent_task": task.parent.content
-                        if hasattr(task, "parent")
-                        and task.parent
-                        else None,
+                        "priority": (
+                            task.priority
+                            if hasattr(task, "priority")
+                            else None
+                        ),
+                        "due_date": (
+                            task.due_date.isoformat()
+                            if hasattr(task, "due_date")
+                            and task.due_date
+                            else None
+                        ),
+                        "parent_task": (
+                            task.parent.content
+                            if hasattr(task, "parent")
+                            and task.parent
+                            else None
+                        ),
                     },
                 )
                 logger.info(

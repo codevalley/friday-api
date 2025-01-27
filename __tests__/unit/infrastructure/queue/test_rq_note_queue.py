@@ -114,9 +114,15 @@ def test_get_queue_health(mock_worker, queue_service):
     mock_activity_queue.count = 0
     queue_service.activity_queue = mock_activity_queue
 
+    mock_task_queue = Mock()
+    mock_task_queue.is_empty = True
+    mock_task_queue.count = 0
+    queue_service.task_queue = mock_task_queue
+
     mock_worker.all.side_effect = [
         [Mock(), Mock()],  # 2 workers for note queue
         [Mock()],  # 1 worker for activity queue
+        [Mock()],  # 1 worker for task queue
     ]
 
     # Execute
@@ -131,10 +137,15 @@ def test_get_queue_health(mock_worker, queue_service):
     assert health["activity_schema"]["is_empty"] is True
     assert health["activity_schema"]["worker_count"] == 1
 
+    assert health["task_enrichment"]["total_jobs"] == 0
+    assert health["task_enrichment"]["is_empty"] is True
+    assert health["task_enrichment"]["worker_count"] == 1
+
     # Verify Worker.all was called correctly
     mock_worker.all.assert_has_calls(
         [
             call(queue=mock_note_queue),
             call(queue=mock_activity_queue),
+            call(queue=mock_task_queue),
         ]
     )

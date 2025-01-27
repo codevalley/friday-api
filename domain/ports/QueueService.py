@@ -37,13 +37,13 @@ class QueueService(ABC):
     def enqueue_task(
         self,
         task_type: str,
-        task_data: Dict[str, Any],
+        task_id: int,
     ) -> Optional[str]:
         """Enqueue a task for processing.
 
         Args:
             task_type: Type of task to enqueue
-            task_data: Data for the task
+            task_id: ID of the task to process
 
         Returns:
             Optional[str]: Job ID if enqueued successfully, None otherwise

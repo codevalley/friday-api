@@ -136,7 +136,7 @@ class TaskService:
             # Enqueue for processing
             self.queue_service.enqueue_task(
                 "process_task",
-                {"task_id": task.id},
+                task.id,
             )
 
             # Return response
@@ -295,7 +295,7 @@ class TaskService:
                 # Re-enqueue for processing
                 self.queue_service.enqueue_task(
                     "process_task",
-                    {"task_id": task_id},
+                    task_id,
                 )
 
             task = self.task_repo.update(
