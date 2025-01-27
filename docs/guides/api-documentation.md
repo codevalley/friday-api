@@ -1,4 +1,4 @@
-Below is a comprehensive API guide extracted from the **Friday API** codebase and the test script you provided. It covers routes for **User Auth**, **Activities**, **Moments**, **Notes**, **Tasks**, and **Topics**, including the request and response formats. This document is intended for your frontend developer so they can integrate with each endpoint effectively.
+Below is a comprehensive API guide extracted from the **Friday API** codebase and the test script you provided. It covers routes for **User Auth**, **Activities**, **Moments**, **Notes**, **Tasks**, **Topics**, and **Documents**, including the request and response formats. This document is intended for your frontend developer so they can integrate with each endpoint effectively.
 
 ---
 
@@ -9,21 +9,31 @@ Below is a comprehensive API guide extracted from the **Friday API** codebase an
    - [Obtain Token](#obtain-token)
    - [Get Current User Info](#get-current-user-info)
 
-2. [Topics](#topics)
+2. [Documents](#documents)
+   - [Upload Document](#upload-document)
+   - [List Documents](#list-documents)
+   - [Get Document](#get-document)
+   - [Get Document Content](#get-document-content)
+   - [Update Document](#update-document)
+   - [Delete Document](#delete-document)
+   - [Get Storage Usage](#get-storage-usage)
+   - [Get Public Document](#get-public-document)
+
+3. [Topics](#topics)
    - [Create Topic](#create-topic)
    - [List Topics](#list-topics)
    - [Get Topic by ID](#get-topic-by-id)
    - [Update Topic](#update-topic)
    - [Delete Topic](#delete-topic)
 
-3. [Activities](#activities)
+4. [Activities](#activities)
    - [Create Activity](#create-activity)
    - [List Activities](#list-activities)
    - [Get Activity by ID](#get-activity-by-id)
    - [Update Activity](#update-activity)
    - [Delete Activity](#delete-activity)
 
-4. [Moments](#moments)
+5. [Moments](#moments)
    - [Create Moment](#create-moment)
    - [List Moments](#list-moments)
    - [Get Moment by ID](#get-moment-by-id)
@@ -32,14 +42,14 @@ Below is a comprehensive API guide extracted from the **Friday API** codebase an
    - [Attach / Detach Note from Moment](#attach--detach-note-from-moment)
      *(Optional if exposed in your code—some references exist)*
 
-5. [Notes](#notes)
+6. [Notes](#notes)
    - [Create Note](#create-note)
    - [List Notes](#list-notes)
    - [Get Note by ID](#get-note-by-id)
    - [Update Note](#update-note)
    - [Delete Note](#delete-note)
 
-6. [Tasks](#tasks)
+7. [Tasks](#tasks)
    - [Create Task](#create-task)
    - [List Tasks](#list-tasks)
    - [Get Task by ID](#get-task-by-id)
@@ -49,7 +59,7 @@ Below is a comprehensive API guide extracted from the **Friday API** codebase an
    - [Get Subtasks](#get-subtasks)
    - [Attach / Detach Note from Task](#attach--detach-note-from-task)
 
-7. [Common Response Formats](#common-response-formats)
+8. [Common Response Formats](#common-response-formats)
 
 ---
 
@@ -87,7 +97,7 @@ Below is a comprehensive API guide extracted from the **Friday API** codebase an
 
 ### Obtain Token
 **Endpoint**: `POST /v1/auth/token`
-**Description**: Exchanges the user’s `user_secret` for a JWT `access_token`.
+**Description**: Exchanges the user's `user_secret` for a JWT `access_token`.
 
 **Request Body**:
 ```json
@@ -115,7 +125,7 @@ Below is a comprehensive API guide extracted from the **Friday API** codebase an
 
 ### Get Current User Info
 **Endpoint**: `GET /v1/auth/me`
-*(This route exists in `AuthRouter.py` but the test script might not show it. If you have it enabled, here’s the pattern.)*
+*(This route exists in `AuthRouter.py` but the test script might not show it. If you have it enabled, here's the pattern.)*
 
 **Description**: Returns info about the currently authenticated user.
 
@@ -140,7 +150,213 @@ Authorization: Bearer <access_token>
 
 ---
 
-## 2. Topics
+## 2. Documents
+
+### Upload Document
+**Endpoint**: `POST /v1/docs/upload`
+**Description**: Uploads a new document with metadata and privacy settings.
+
+**Request**:
+- Content-Type: `multipart/form-data`
+- Authorization: Bearer token required
+
+**Form Fields**:
+```
+file: File (required) - The document file to upload
+name: string (required) - Display name for the document
+mime_type: string (required) - MIME type of the file
+metadata: JSON string (optional) - Additional metadata about the document
+is_public: boolean (default: false) - Whether the document is publicly accessible
+unique_name: string (optional) - Unique identifier for public access
+```
+
+**Response** (201 Created):
+```json
+{
+  "data": {
+    "id": "string (UUID)",
+    "name": "string",
+    "mime_type": "string",
+    "metadata": {
+      "category": "string",
+      "type": "string",
+      ...
+    },
+    "is_public": boolean,
+    "unique_name": "string",
+    "user_id": "string (UUID)",
+    "created_at": "ISO datetime",
+    "updated_at": null
+  },
+  "message": "Document uploaded successfully"
+}
+```
+
+---
+
+### List Documents
+**Endpoint**: `GET /v1/docs?skip={skip}&limit={limit}`
+**Description**: Lists all documents belonging to the current user. Supports pagination.
+
+**Query Parameters**:
+- `skip` (optional, default=0): Number of items to skip
+- `limit` (optional, default=10): Maximum number of items to return
+
+**Response**:
+```json
+{
+  "data": {
+    "items": [
+      {
+        "id": "string (UUID)",
+        "name": "string",
+        "mime_type": "string",
+        "metadata": object,
+        "is_public": boolean,
+        "unique_name": "string",
+        "user_id": "string (UUID)",
+        "created_at": "ISO datetime",
+        "updated_at": "ISO datetime"
+      }
+    ],
+    "total": integer,
+    "page": integer,
+    "size": integer,
+    "pages": integer
+  },
+  "message": "Retrieved N documents"
+}
+```
+
+---
+
+### Get Document
+**Endpoint**: `GET /v1/docs/{document_id}`
+**Description**: Retrieves document metadata by ID.
+
+**Response**:
+```json
+{
+  "data": {
+    "id": "string (UUID)",
+    "name": "string",
+    "mime_type": "string",
+    "metadata": object,
+    "is_public": boolean,
+    "unique_name": "string",
+    "user_id": "string (UUID)",
+    "created_at": "ISO datetime",
+    "updated_at": "ISO datetime"
+  }
+}
+```
+
+---
+
+### Get Document Content
+**Endpoint**: `GET /v1/docs/{document_id}/content`
+**Description**: Retrieves the actual content of a document.
+
+**Response**:
+- Content-Type: Based on document's mime_type
+- Body: Raw document content
+
+---
+
+### Update Document
+**Endpoint**: `PUT /v1/docs/{document_id}`
+**Description**: Updates document metadata.
+
+**Request Body**:
+```json
+{
+  "name": "string (optional)",
+  "metadata": object (optional),
+  "is_public": boolean (optional),
+  "unique_name": "string (optional)"
+}
+```
+
+**Response**:
+```json
+{
+  "data": {
+    "id": "string (UUID)",
+    "name": "string",
+    "mime_type": "string",
+    "metadata": object,
+    "is_public": boolean,
+    "unique_name": "string",
+    "user_id": "string (UUID)",
+    "created_at": "ISO datetime",
+    "updated_at": "ISO datetime"
+  },
+  "message": "Document updated successfully"
+}
+```
+
+---
+
+### Delete Document
+**Endpoint**: `DELETE /v1/docs/{document_id}`
+**Description**: Deletes a document and its content.
+
+**Response**:
+```json
+{
+  "data": null,
+  "message": "Document deleted successfully"
+}
+```
+
+---
+
+### Get Storage Usage
+**Endpoint**: `GET /v1/docs/storage/usage`
+**Description**: Returns the current storage usage for the authenticated user.
+
+**Response**:
+```json
+{
+  "data": {
+    "used_bytes": integer,
+    "total_bytes": integer
+  },
+  "message": "Storage usage retrieved successfully"
+}
+```
+
+---
+
+### Get Public Document
+**Endpoint**: `GET /v1/docs/public/{unique_name}`
+**Description**: Retrieves a public document by its unique name. No authentication required.
+
+**Response**:
+```json
+{
+  "data": {
+    "id": "string (UUID)",
+    "name": "string",
+    "mime_type": "string",
+    "metadata": object,
+    "is_public": true,
+    "unique_name": "string",
+    "user_id": "string (UUID)",
+    "created_at": "ISO datetime",
+    "updated_at": "ISO datetime"
+  }
+}
+```
+
+**Error Responses**:
+- `404 Not Found`: Document doesn't exist or isn't public
+- `401 Unauthorized`: When trying to access private documents without authentication
+- `403 Forbidden`: When trying to access another user's private documents
+
+---
+
+## 3. Topics
 
 ### Create Topic
 **Endpoint**: `POST /v1/topics`
@@ -282,7 +498,7 @@ Content-Type: application/json
 
 ---
 
-## 3. Activities
+## 4. Activities
 
 ### Create Activity
 **Endpoint**: `POST /v1/activities`
@@ -459,7 +675,7 @@ Content-Type: application/json
 
 ---
 
-## 4. Moments
+## 5. Moments
 
 ### Create Moment
 **Endpoint**: `POST /v1/moments`
@@ -554,7 +770,7 @@ Authorization: Bearer <token>
 
 ### Update Moment
 **Endpoint**: `PUT /v1/moments/{moment_id}`
-**Description**: Updates a moment’s data or timestamp.
+**Description**: Updates a moment's data or timestamp.
 
 **Request Body** (partial or full):
 ```json
@@ -610,7 +826,7 @@ They return updated Moment data upon success.
 
 ---
 
-## 5. Notes
+## 6. Notes
 
 ### Create Note
 **Endpoint**: `POST /v1/notes`
@@ -672,7 +888,7 @@ They return updated Moment data upon success.
 
 ### List Notes
 **Endpoint**: `GET /v1/notes?page={page}&size={size}`
-**Description**: Lists user’s notes with pagination.
+**Description**: Lists user's notes with pagination.
 
 **Response** (example):
 ```json
@@ -728,7 +944,7 @@ They return updated Moment data upon success.
 
 ### Update Note
 **Endpoint**: `PUT /v1/notes/{note_id}`
-**Description**: Updates note’s content, attachments, or processing status.
+**Description**: Updates note's content, attachments, or processing status.
 
 **Request Body** (partial or full):
 ```json
@@ -782,7 +998,7 @@ They return updated Moment data upon success.
 
 ---
 
-## 6. Tasks
+## 7. Tasks
 
 ### Create Task
 **Endpoint**: `POST /v1/tasks`
@@ -985,7 +1201,7 @@ They return updated Moment data upon success.
 
 ---
 
-## 7. Common Response Formats
+## 8. Common Response Formats
 
 You may notice three main response patterns:
 
@@ -1028,11 +1244,4 @@ You may notice three main response patterns:
 
 - **Authorization**: All protected endpoints require an `Authorization: Bearer <token>` header.
 - **Pagination**: Many listing endpoints (activities, moments, notes, tasks) accept `page` and `size` query parameters.
-- **Ownership**: Each entity (activity, moment, note, task) is tied to a single user. Attempting to access or modify another user’s entity will result in a `404 Not Found` or `401/403` depending on the code path.
-- **Data Validation**:
-  - Activities hold a `activity_schema` used to validate `moments.data`.
-  - Tasks, notes, etc. have their own constraints.
-
----
-
-**That should cover the end-to-end overview of the Friday API**. Your frontend developer can reference these endpoints, payloads, and response formats to implement the UI. The attached test script provides real-world usage examples that map to these documented endpoints. If you have any questions or need clarifications on an endpoint or data field, feel free to let me know!
+- **Ownership**: Each entity (activity, moment, note, task) is tied to a single user. Attempting to access or modify another user's entity will result in a `404 Not Found` or `

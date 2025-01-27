@@ -96,12 +96,15 @@ def test_list_documents(app, document_service, sample_user):
 
     assert response.status_code == 200
     result = response.json()
-    assert "items" in result
-    assert isinstance(result["items"], list)
-    assert "total" in result
-    assert "page" in result
-    assert "size" in result
-    assert "pages" in result
+    assert "data" in result
+    assert "items" in result["data"]
+    assert isinstance(result["data"]["items"], list)
+    assert "total" in result["data"]
+    assert "page" in result["data"]
+    assert "size" in result["data"]
+    assert "pages" in result["data"]
+    assert "message" in result
+    assert result["error"] is None
 
 
 def test_get_document(

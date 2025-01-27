@@ -109,7 +109,9 @@ async def upload_document(
 
 @protected_router.get(
     "/",
-    response_model=PaginatedResponse[DocumentResponse],
+    response_model=GenericResponse[
+        PaginatedResponse[DocumentResponse]
+    ],
 )
 @handle_exceptions
 async def list_documents(
@@ -119,7 +121,7 @@ async def list_documents(
         get_document_service
     ),
     current_user: User = Depends(get_current_user),
-) -> PaginatedResponse[DocumentResponse]:
+) -> GenericResponse[PaginatedResponse[DocumentResponse]]:
     """List documents."""
     result = service.list_documents(
         user_id=current_user.id,
@@ -128,13 +130,16 @@ async def list_documents(
     )
     total = service.count_documents(user_id=current_user.id)
     pages = (total + limit - 1) // limit
-    return PaginatedResponse(
+    paginated_response = PaginatedResponse(
         items=result,
         total=total,
         page=(skip // limit) + 1,
         size=limit,
         pages=pages,
-        message="Documents retrieved successfully",
+    )
+    return GenericResponse(
+        data=paginated_response,
+        message=f"Retrieved {total} documents",
     )
 
 
@@ -356,7 +361,9 @@ protected_router.post(
 
 protected_router.get(
     "/",
-    response_model=PaginatedResponse[DocumentResponse],
+    response_model=GenericResponse[
+        PaginatedResponse[DocumentResponse]
+    ],
 )(list_documents)
 
 protected_router.get(

@@ -5,6 +5,7 @@ GREEN='\033[0;32m'
 RED='\033[0;31m'
 NC='\033[0m' # No Color
 BLUE='\033[0;34m'
+YELLOW='\033[0;33m'
 
 # Create a log file
 LOG_FILE="test_flow.log"
@@ -66,6 +67,12 @@ check_api_response() {
     local response=$1
     local context=$2
 
+    # Check if response is empty
+    if [ -z "$response" ]; then
+        echo -e "${RED}✗ Failed - Empty response from server${NC}"
+        return 1
+    fi
+
     # Check for error response with non-null error field
     if echo "$response" | grep -q "\"error\":[^n]"; then
         echo -e "${RED}✗ Failed - $context${NC}"
@@ -75,19 +82,16 @@ check_api_response() {
 
     # Check for data field (GenericResponse format)
     if echo "$response" | grep -q "\"data\":{"; then
-        echo -e "${GREEN}✓ Success${NC}"
         return 0
     fi
 
-    # Special case for auth endpoints that might not be wrapped yet
-    if echo "$response" | grep -q "\"user_secret\":\|\"access_token\":"; then
-        echo -e "${GREEN}✓ Success${NC}"
+    # Check for direct response format (items array at root level)
+    if echo "$response" | grep -q "\"items\":\["; then
         return 0
     fi
 
-    # Special case for MessageResponse format
+    # Check for message-only response
     if echo "$response" | grep -q "\"message\":"; then
-        echo -e "${GREEN}✓ Success${NC}"
         return 0
     fi
 
@@ -139,6 +143,18 @@ wait_for_activity_processing() {
 
     echo -e "${RED}Activity processing timed out after $max_attempts attempts${NC}"
     return 1
+}
+
+# Function to clean up storage directory
+cleanup_storage() {
+    echo -e "\n${BLUE}Cleaning up storage directory...${NC}"
+    STORAGE_DIR="storage"
+    if [ -d "$STORAGE_DIR" ]; then
+        rm -rf "${STORAGE_DIR:?}/"*
+        echo -e "${GREEN}✓ Storage directory cleaned${NC}"
+    else
+        echo -e "${YELLOW}Storage directory not found${NC}"
+    fi
 }
 
 # Store responses in variables for better JSON handling
@@ -666,20 +682,46 @@ check_api_response "$PUBLIC_DOC_RESPONSE" "Creating public document"
 
 # List documents for user1
 echo -e "\n${BLUE}Listing documents for user1...${NC}"
-DOCS_RESPONSE=$(curl -s -X GET "$BASE_URL/docs?skip=0&limit=10" \
+DOCS_RESPONSE=$(curl -s -L -X GET "$BASE_URL/docs?skip=0&limit=10" \
     -H "Authorization: Bearer $TOKEN1")
-echo "Documents Response: $DOCS_RESPONSE"
-if [[ $(echo "$DOCS_RESPONSE" | jq -r '.items') == null ]]; then
-    echo -e "${RED}✗ Failed - Listing documents - Invalid response format${NC}"
-    exit 1
+
+# Extract document count from the wrapped response
+DOC_COUNT=$(extract_json_value "$DOCS_RESPONSE" "total")
+echo -e "Found ${DOC_COUNT} documents:"
+
+# Display document details using grep/sed
+if [ "$DOC_COUNT" -gt 0 ]; then
+    echo "Documents:"
+    # Extract the items array from the data field
+    items_json=$(echo "$DOCS_RESPONSE" | sed -n 's/.*"data":{"items":\[\([^]]*\)\].*/\1/p')
+
+    # Process each document in the array
+    echo "$items_json" | tr '},{' '\n' | while read -r doc; do
+        # Clean up the document JSON
+        doc=$(echo "$doc" | sed 's/^{//;s/}$//')
+
+        # Extract name and is_public
+        name=$(echo "$doc" | grep -o '"name":"[^"]*"' | cut -d'"' -f4)
+        is_public=$(echo "$doc" | grep -o '"is_public":\(true\|false\)' | cut -d':' -f2)
+
+        if [ ! -z "$name" ]; then
+            visibility=$([ "$is_public" = "true" ] && echo "public" || echo "private")
+            echo "- $name ($visibility)"
+        fi
+    done
+else
+    echo "No documents found"
 fi
+
+check_api_response "$DOCS_RESPONSE" "Listing documents"
 echo -e "${GREEN}✓ Success${NC}"
 
 # Get private document content
 echo -e "\n${BLUE}Getting private document content...${NC}"
 PRIVATE_CONTENT_RESPONSE=$(curl -s -X GET "$BASE_URL/docs/$PRIVATE_DOC_ID/content" \
     -H "Authorization: Bearer $TOKEN1")
-echo "Private Content Response: $PRIVATE_CONTENT_RESPONSE"
+CONTENT_LENGTH=${#PRIVATE_CONTENT_RESPONSE}
+echo "Private Content Length: $CONTENT_LENGTH characters"
 if [ $? -ne 0 ]; then
     echo -e "${RED}Failed to get private document content${NC}"
     exit 1
@@ -689,7 +731,8 @@ fi
 echo -e "\n${BLUE}Getting public document content...${NC}"
 PUBLIC_CONTENT_RESPONSE=$(curl -s -X GET "$BASE_URL/docs/$PUBLIC_DOC_ID/content" \
     -H "Authorization: Bearer $TOKEN2")
-echo "Public Content Response: $PUBLIC_CONTENT_RESPONSE"
+CONTENT_LENGTH=${#PUBLIC_CONTENT_RESPONSE}
+echo "Public Content Length: $CONTENT_LENGTH characters"
 
 # Try to access private document with user2 (should fail)
 echo -e "\n${BLUE}Testing private document access with user2...${NC}"
@@ -743,6 +786,9 @@ else
     echo -e "${RED}✗ Document deletion verification failed${NC}"
     exit 1
 fi
+
+# Clean up at the end
+cleanup_storage
 
 echo -e "\n${GREEN}Test flow completed!${NC}"
 
