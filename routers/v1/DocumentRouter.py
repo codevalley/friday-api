@@ -9,7 +9,6 @@ from fastapi import (
     status,
     Body,
     Form,
-    Response,
 )
 from fastapi.responses import StreamingResponse
 from fastapi import HTTPException
@@ -42,7 +41,7 @@ auth_scheme = CustomHTTPBearer()
 
 # Create routers
 router = APIRouter(
-    prefix="/docs",
+    prefix="/v1/docs",
     tags=["documents"],
 )
 
@@ -230,10 +229,44 @@ async def update_document_status(
     )
 
 
+@protected_router.get(
+    "/{document_id}/content",
+    response_class=StreamingResponse,
+)
+@handle_exceptions
+async def get_document_content(
+    document_id: int,
+    service: DocumentService = Depends(
+        get_document_service
+    ),
+    current_user: User = Depends(get_current_user),
+) -> StreamingResponse:
+    """Get document content.
+
+    Returns the actual file content of the document.
+    """
+    # First get document metadata to get mime_type
+    doc = service.get_document(
+        document_id=document_id,
+        user_id=current_user.id,
+    )
+
+    # Then get the content
+    content = service.get_document_content(
+        document_id=document_id,
+        user_id=current_user.id,
+        owner_id=doc.user_id,  # Pass the document owner's ID
+    )
+
+    return StreamingResponse(
+        iter([content.getvalue()]),
+        media_type=doc.mime_type,
+    )
+
+
 @protected_router.delete(
     "/{document_id}",
-    status_code=status.HTTP_204_NO_CONTENT,
-    response_class=Response,
+    response_model=GenericResponse[None],
 )
 @handle_exceptions
 async def delete_document(
@@ -242,11 +275,14 @@ async def delete_document(
         get_document_service
     ),
     current_user: User = Depends(get_current_user),
-) -> None:
+) -> GenericResponse[None]:
     """Delete a document."""
     service.delete_document(
         document_id=document_id,
         user_id=current_user.id,
+    )
+    return GenericResponse(
+        data=None, message="Document deleted successfully"
     )
 
 
@@ -287,27 +323,26 @@ async def download_public_document(
     ),
 ) -> StreamingResponse:
     """Download a public document."""
-    document_response = service.get_public_document(
-        unique_name
-    )
-    if not document_response:
+    # First get document metadata
+    doc = service.get_public_document(unique_name)
+    if not doc:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Document not found or not public",
+            detail="Document not found",
         )
 
-    # Get file content from storage
-    file_stream = service.get_document_content(
-        document_id=document_response.id,
-        user_id=document_response.user_id,
+    # Then get the content
+    content = service.get_document_content(
+        document_id=doc.id,
+        user_id=doc.user_id,  # Use document owner's ID as the requesting user
+        owner_id=doc.user_id,  # Pass the document owner's ID
     )
 
     return StreamingResponse(
-        file_stream,
-        media_type=document_response.mime_type,
+        iter([content.getvalue()]),
+        media_type=doc.mime_type,
         headers={
-            "Content-Disposition": f"attachment;"
-            f'filename="{document_response.name}"'
+            "Content-Disposition": f'attachment; filename="{doc.name}"'
         },
     )
 
@@ -334,6 +369,11 @@ protected_router.get(
     response_model=GenericResponse[DocumentResponse],
 )(get_document)
 
+protected_router.get(
+    "/{document_id}/content",
+    response_class=StreamingResponse,
+)(get_document_content)
+
 protected_router.put(
     "/{document_id}",
     response_model=GenericResponse[DocumentResponse],
@@ -346,8 +386,7 @@ protected_router.put(
 
 protected_router.delete(
     "/{document_id}",
-    status_code=status.HTTP_204_NO_CONTENT,
-    response_class=Response,
+    response_model=GenericResponse[None],
 )(delete_document)
 
 # Add routes to public router

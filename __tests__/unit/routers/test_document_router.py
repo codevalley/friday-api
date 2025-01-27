@@ -20,7 +20,9 @@ from dependencies import get_current_user
 def app(test_db_session, document_service, sample_user):
     """Create FastAPI test application with real database session."""
     app = FastAPI()
-    app.include_router(router, prefix="/api/v1")
+    app.include_router(
+        router
+    )  # Router already has /v1/docs prefix
 
     def override_get_document_service():
         return document_service
@@ -66,7 +68,7 @@ def test_upload_document(
 
     # Make request with auth header
     response = app.post(
-        "/api/v1/docs/upload",
+        "/v1/docs/upload",  # Updated path
         files=files,
         data=data,
         headers={"Authorization": "Bearer test-token"},
@@ -87,9 +89,8 @@ def test_upload_document(
 
 def test_list_documents(app, document_service, sample_user):
     """Test document listing endpoint."""
-    # Create a test document first
     response = app.get(
-        "/api/v1/docs/",
+        "/v1/docs/",  # Updated path
         headers={"Authorization": "Bearer test-token"},
     )
 
@@ -108,7 +109,7 @@ def test_get_document(
 ):
     """Test get document endpoint."""
     response = app.get(
-        f"/api/v1/docs/{sample_document.id}",
+        f"/v1/docs/{sample_document.id}",  # Updated path
         headers={"Authorization": "Bearer test-token"},
     )
 
@@ -130,7 +131,7 @@ def test_update_document(
     }
 
     response = app.put(
-        f"/api/v1/docs/{sample_document.id}",
+        f"/v1/docs/{sample_document.id}",  # Updated path
         json=data,
         headers={"Authorization": "Bearer test-token"},
     )
@@ -150,7 +151,7 @@ def test_update_document_status(
     data = {"status": DocumentStatus.ACTIVE.value}
 
     response = app.put(
-        f"/api/v1/docs/{sample_document.id}/status",
+        f"/v1/docs/{sample_document.id}/status",  # Updated path
         json=data,
         headers={"Authorization": "Bearer test-token"},
     )
@@ -168,11 +169,16 @@ def test_delete_document(
 ):
     """Test delete document endpoint."""
     response = app.delete(
-        f"/api/v1/docs/{sample_document.id}",
+        f"/v1/docs/{sample_document.id}",  # Updated path
         headers={"Authorization": "Bearer test-token"},
     )
 
-    assert response.status_code == 204
+    assert response.status_code == 200
+    result = response.json()
+    assert result["data"] is None
+    assert (
+        result["message"] == "Document deleted successfully"
+    )
 
 
 def test_get_storage_usage(
@@ -180,7 +186,7 @@ def test_get_storage_usage(
 ):
     """Test get storage usage endpoint."""
     response = app.get(
-        "/api/v1/docs/storage/usage",
+        "/v1/docs/storage/usage",  # Updated path
         headers={"Authorization": "Bearer test-token"},
     )
 
@@ -195,7 +201,7 @@ def test_get_public_document(
 ):
     """Test get public document endpoint."""
     response = app.get(
-        f"/api/v1/docs/public/{sample_public_document.unique_name}"
+        f"/v1/docs/public/{sample_public_document.unique_name}"  # Updated path
     )
 
     assert response.status_code == 200

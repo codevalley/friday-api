@@ -315,13 +315,17 @@ class DocumentService:
             ) from e
 
     def get_document_content(
-        self, document_id: int, user_id: str
+        self,
+        document_id: int,
+        user_id: str,
+        owner_id: Optional[str] = None,
     ) -> BytesIO:
         """Get document file content.
 
         Args:
             document_id: ID of the document
             user_id: ID of the user making the request
+            owner_id: Optional ID of the document owner
 
         Returns:
             BytesIO: Document file content
@@ -329,38 +333,52 @@ class DocumentService:
         Raises:
             HTTPException: If document not found or user not authorized
         """
-        document = self._get_document_for_user(
-            document_id, user_id
-        )
-        if not document:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Document not found",
-            )
-
         try:
-            # Get file content from storage
-            content = self.storage.retrieve(
-                file_id=str(document_id), user_id=user_id
+            document = self._get_document_internal(
+                document_id
             )
-            if not isinstance(content, BytesIO):
-                content = BytesIO(content)
-            content.seek(0)
-            return content
-        except FileNotFoundError as e:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Document content not found: {str(e)}",
-            ) from e
-        except StorageError as e:
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=f"Failed to get document content: {str(e)}",
-            ) from e
+            if not document:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="Document not found",
+                )
+
+            # Check authorization
+            if (
+                document.user_id != user_id
+                and not document.is_public
+            ):
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="Not authorized to access this document",
+                )
+
+            try:
+                # For public documents or when the user is the owner,
+                # we use the document owner's ID for storage access
+                effective_owner_id = document.user_id
+
+                return self.storage.retrieve(
+                    str(document_id),
+                    (
+                        user_id
+                        if user_id == document.user_id
+                        else effective_owner_id
+                    ),
+                    owner_id=effective_owner_id,
+                )
+            except (FileNotFoundError, StorageError) as e:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail=f"Document content not found: {str(e)}",
+                ) from e
+
+        except HTTPException:
+            raise
         except Exception as e:
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=f"Failed to get document content: {str(e)}",
+                detail=f"Failed to retrieve document content: {str(e)}",
             ) from e
 
     def update_document(

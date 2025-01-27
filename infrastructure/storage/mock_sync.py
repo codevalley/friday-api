@@ -3,6 +3,7 @@
 from datetime import datetime, UTC
 from io import BytesIO
 from typing import Dict, Optional, Tuple
+from unittest.mock import MagicMock
 
 from domain.storage import (
     IStorageService,
@@ -296,3 +297,45 @@ class MockStorageService(IStorageService):
         raise FileNotFoundError(
             "The specified key does not exist."
         )
+
+
+def mock_store(
+    file_data: bytes,
+    file_id: str,
+    user_id: str,
+    mime_type: str,
+) -> StoredFile:
+    """Mock storing a file.
+    Args:
+        file_data: File data to store
+        file_id: ID of the file
+        user_id: ID of the user
+        mime_type: MIME type of the file
+    Returns:
+        StoredFile: Stored file metadata
+    """
+    # Store content for retrieval
+    stored_content[file_id] = file_data
+
+    return StoredFile(
+        id=file_id,
+        user_id=user_id,
+        path=f"/mock/storage/{file_id}",
+        size_bytes=len(file_data),
+        mime_type=mime_type,
+        status=StorageStatus.ACTIVE,
+        created_at=datetime.now(UTC),
+    )
+
+
+def mock_retrieve(file_id: str) -> bytes:
+    """Mock retrieve implementation."""
+    return stored_content.get(file_id, b"test content")
+
+
+# Initialize storage
+stored_content = {}
+
+# Set up mock methods
+store = MagicMock(side_effect=mock_store)
+retrieve = MagicMock(side_effect=mock_retrieve)

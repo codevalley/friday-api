@@ -4,6 +4,7 @@ import os
 import json
 from datetime import datetime
 from typing import BinaryIO, Optional
+from io import BytesIO
 
 from domain.storage import (
     StorageStatus,
@@ -61,13 +62,16 @@ class LocalStorageService:
         file_id: str,
         user_id: str,
         owner_id: Optional[str] = None,
-    ) -> None:
+    ) -> str:
         """Check if user has permission to access file.
 
         Args:
             file_id: File ID
             user_id: User ID attempting access
             owner_id: Optional owner ID for public files
+
+        Returns:
+            The ID of the file owner
 
         Raises:
             FileNotFoundError: If file doesn't exist
@@ -87,14 +91,15 @@ class LocalStorageService:
                 f"File {file_id} not found"
             )
 
-        if user_id != file_owner and (
-            owner_id is None or owner_id != file_owner
-        ):
-            msg = (
-                f"User {user_id} does not have permission "
-                f"to access file {file_id}"
+        # Allow access if:
+        # 1. User is the file owner OR
+        # 2. There's an owner_id specified (public document)
+        if user_id != file_owner and owner_id is None:
+            raise StoragePermissionError(
+                "Not authorized to access this document"
             )
-            raise StoragePermissionError(msg)
+
+        return file_owner
 
     def store(
         self,
@@ -173,19 +178,21 @@ class LocalStorageService:
             StoragePermissionError: If user doesn't have permission
             StorageError: If file cannot be retrieved
         """
-        self._check_permission(file_id, user_id, owner_id)
+        # Check permissions and get file owner
+        file_owner = self._check_permission(
+            file_id, user_id, owner_id
+        )
+
         try:
-            file_owner = next(
-                d
-                for d in os.listdir(self.base_dir)
-                if os.path.exists(
-                    os.path.join(self.base_dir, d, file_id)
-                )
-            )
+            # Use the owner's directory to get the file
             file_path = self._get_file_path(
                 file_id, file_owner
             )
-            return open(file_path, "rb")
+
+            # Read file content and return as BytesIO
+            with open(file_path, "rb") as f:
+                content = f.read()
+            return BytesIO(content)
         except OSError as e:
             raise StorageError(
                 f"Failed to retrieve file: {str(e)}"
@@ -196,13 +203,16 @@ class LocalStorageService:
         file_id: str,
         user_id: str,
         owner_id: Optional[str] = None,
-    ) -> None:
+    ) -> dict:
         """Delete a file.
 
         Args:
             file_id: File ID
             user_id: User ID
             owner_id: Optional owner ID for public files
+
+        Returns:
+            dict: Success response
 
         Raises:
             FileNotFoundError: If file doesn't exist
@@ -234,6 +244,12 @@ class LocalStorageService:
             user_dir = os.path.dirname(file_path)
             if not os.listdir(user_dir):
                 os.rmdir(user_dir)
+
+            return {
+                "status": "success",
+                "message": "File deleted successfully",
+            }
+
         except OSError as e:
             raise StorageError(
                 f"Failed to delete file: {str(e)}"

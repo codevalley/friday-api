@@ -18,7 +18,7 @@ from services.DocumentService import DocumentService
 from orm.UserModel import User
 from uuid import uuid4
 from sqlalchemy.orm import Session
-from typing import Generator
+from typing import Generator, Optional
 from datetime import datetime, UTC
 
 
@@ -26,8 +26,6 @@ def create_test_file(
     content: bytes = b"test content",
 ) -> UploadFile:
     """Create a test file for upload."""
-    file = BytesIO(content)
-    file.seek(0)  # Reset file pointer to beginning
 
     # Create a custom file-like object that simulates a real file upload
     class FileWithLen(BytesIO):
@@ -48,20 +46,47 @@ def create_test_file(
 def storage_service() -> IStorageService:
     """Create a mock storage service."""
     mock_service = MockStorageService()
-    mock_service.store = MagicMock(
-        return_value=StoredFile(
-            id="1",
-            user_id="test_user",
-            path="/test/1",
-            size_bytes=12,
-            mime_type="text/plain",
+
+    # Store the actual content that was passed in
+    stored_content = {}
+
+    def mock_store(
+        file_data: bytes,
+        file_id: str,
+        user_id: str,
+        mime_type: str,
+    ) -> StoredFile:
+        stored_content[file_id] = file_data
+        return StoredFile(
+            id=file_id,
+            user_id=user_id,
+            path=f"/test/{file_id}",
+            size_bytes=len(file_data),
+            mime_type=mime_type,
             status=StorageStatus.ACTIVE,
             created_at=datetime.now(UTC),
         )
-    )
-    mock_service.retrieve = MagicMock(
-        return_value=BytesIO(b"test content")
-    )
+
+    def mock_retrieve(
+        file_id: str,
+        user_id: str,
+        owner_id: Optional[str] = None,
+    ) -> BytesIO:
+        """Mock retrieve implementation."""
+        content = stored_content.get(
+            file_id, b"test content"
+        )
+        return BytesIO(content)
+
+    # Initialize storage
+    stored_content = {}
+
+    # Set up mock methods
+    store = MagicMock(side_effect=mock_store)
+    retrieve = MagicMock(side_effect=mock_retrieve)
+
+    mock_service.store = store
+    mock_service.retrieve = retrieve
     return mock_service
 
 
@@ -330,3 +355,112 @@ class TestDocumentIntegration:
             exc.value.status_code
             == status.HTTP_413_REQUEST_ENTITY_TOO_LARGE
         )
+
+    def test_get_document_content(
+        self,
+        document_service: DocumentService,
+        sample_user,
+        storage_service: IStorageService,
+    ):
+        """Test getting document content."""
+        # Create test document
+        content = b"test content"
+        test_file = create_test_file(content)
+        doc = document_service.create_document(
+            name=test_file.filename,
+            mime_type="text/plain",
+            file_content=content,
+            file_size=len(content),
+            user_id=sample_user.id,
+        )
+
+        # Get document content
+        result = document_service.get_document_content(
+            document_id=doc.id,
+            user_id=sample_user.id,
+        )
+        assert result.getvalue() == content
+
+    def test_get_document_content_not_found(
+        self,
+        document_service: DocumentService,
+        sample_user,
+    ):
+        """Test getting content of non-existent document."""
+        with pytest.raises(HTTPException) as exc_info:
+            document_service.get_document_content(
+                document_id=999,
+                user_id=sample_user.id,
+            )
+        assert (
+            exc_info.value.status_code
+            == status.HTTP_404_NOT_FOUND
+        )
+
+    def test_get_document_content_unauthorized(
+        self,
+        document_service: DocumentService,
+        sample_user,
+        another_user,
+        storage_service: IStorageService,
+    ):
+        """Test getting document content without authorization."""
+        # Create document for sample_user
+        content = b"Test document content"
+        test_file = create_test_file(content)
+        doc = document_service.create_document(
+            name=test_file.filename,
+            mime_type="text/plain",
+            file_content=content,
+            file_size=len(content),
+            user_id=sample_user.id,
+        )
+
+        # Try to get document content as another_user
+        with pytest.raises(HTTPException) as exc_info:
+            document_service.get_document_content(
+                document_id=doc.id,
+                user_id=another_user.id,
+            )
+        assert (
+            exc_info.value.status_code
+            == status.HTTP_403_FORBIDDEN
+        )
+
+    def test_get_public_document_content(
+        self,
+        document_service: DocumentService,
+        sample_user,
+        another_user,
+        storage_service: IStorageService,
+    ):
+        """Test getting content of a public document."""
+        # Create public document
+        content = b"Public document content"
+        test_file = create_test_file(content=content)
+        file_content = (
+            test_file.file.read()
+        )  # Read the actual file content
+        test_file.file.seek(
+            0
+        )  # Reset file pointer for future reads
+
+        doc = document_service.create_document(
+            name=test_file.filename,
+            mime_type="text/plain",
+            file_content=file_content,  # Use the actual file content
+            file_size=len(file_content),
+            user_id=sample_user.id,
+            is_public=True,
+            unique_name="public_test",
+        )
+
+        # Get document content as another_user
+        result = document_service.get_document_content(
+            document_id=doc.id,
+            user_id=another_user.id,
+            owner_id=sample_user.id,  # Pass the owner_id for public documents
+        )
+        assert (
+            result.getvalue() == file_content
+        )  # Compare with the actual file content
