@@ -1002,19 +1002,29 @@ They return updated Moment data upon success.
 
 ### Create Task
 **Endpoint**: `POST /v1/tasks`
-**Description**: Creates a new task. A task can optionally reference a parent task or a note.
+**Description**: Creates a new task. The task content will be automatically enriched to extract a title and metadata.
 
 **Request Body**:
 ```json
 {
-  "title": "string (required)",
-  "description": "string (required)",
-  "status": "todo|in_progress|done",    // default 'todo'
-  "priority": "low|medium|high|urgent", // default 'medium'
-  "due_date": "ISO datetime (timezone-aware)",
-  "tags": ["string", ...],
-  "parent_id": 1,   // optional link to parent task
-  "note_id": 10     // optional link to note
+  "content": "string",
+  "status": "todo" | "in_progress" | "done",
+  "priority": "low" | "medium" | "high",
+  "due_date": "ISO datetime",
+  "tags": ["string"],
+  "parent_id": "number (optional)",
+  "topic_id": "number (optional)"
+}
+```
+
+**Sample**:
+```json
+{
+  "content": "Research and implement new caching strategy for the API endpoints. This involves:\n1. Analyze current bottlenecks\n2. Compare Redis vs Memcached\n3. Implement chosen solution\n4. Write documentation",
+  "status": "todo",
+  "priority": "high",
+  "due_date": "2025-02-15T00:00:00Z",
+  "tags": ["tech", "performance"]
 }
 ```
 
@@ -1022,16 +1032,24 @@ They return updated Moment data upon success.
 ```json
 {
   "data": {
-    "id": 5,
-    "title": "Task Title",
-    "description": "Task details",
+    "id": 10,
+    "content": "Research and implement new caching strategy...",
     "user_id": "UUID",
     "status": "todo",
-    "priority": "medium",
-    "due_date": "2025-01-30T12:00:00Z",
-    "tags": ["test"],
+    "priority": "high",
+    "due_date": "2025-02-15T00:00:00Z",
+    "tags": ["tech", "performance"],
     "parent_id": null,
-    "note_id": null,
+    "topic_id": null,
+    "processing_status": "NOT_PROCESSED" | "PENDING" | "COMPLETED" | "FAILED",
+    "enrichment_data": {
+      "title": "Implement API Caching Strategy",
+      "metadata": {
+        "estimated_time": "2d",
+        "complexity": "hard"
+      }
+    },
+    "processed_at": null,
     "created_at": "ISO datetime",
     "updated_at": null
   },
@@ -1039,80 +1057,93 @@ They return updated Moment data upon success.
 }
 ```
 
----
-
 ### List Tasks
-**Endpoint**: `GET /v1/tasks?page={page}&size={size}&status=&priority=&due_before=&due_after=&parent_id=`
-**Description**: Lists all tasks for the current user with optional filters (status, priority, date, etc.).
-
-**Response** (paginated):
-```json
-{
-  "data": {
-    "items": [
-      {
-        "id": 5,
-        "title": "Task Title",
-        "description": "Task details",
-        "user_id": "UUID",
-        "status": "in_progress",
-        "priority": "high",
-        "due_date": "2025-01-30T12:00:00Z",
-        "tags": ["test"],
-        "parent_id": null,
-        "note_id": null,
-        "created_at": "ISO datetime",
-        "updated_at": "ISO datetime or null"
-      },
-      ...
-    ],
-    "total": 2,
-    "page": 1,
-    "size": 50,
-    "pages": 1
-  },
-  "message": "Retrieved 2 tasks"
-}
-```
-
----
-
-### Get Task by ID
-**Endpoint**: `GET /v1/tasks/{task_id}`
-**Description**: Retrieves a specific task by numeric ID if owned by the current user.
+**Endpoint**: `GET /v1/tasks?page={page}&size={size}&topic_id={topic_id}`
+**Description**: Lists user's tasks with pagination. Optionally filter by topic.
 
 **Response**:
 ```json
 {
   "data": {
-    "id": 5,
-    "title": "Task Title",
-    "description": "Task details",
+    "items": [
+      {
+        "id": 10,
+        "content": "...",
+        "user_id": "UUID",
+        "status": "todo",
+        "priority": "high",
+        "due_date": "ISO datetime",
+        "tags": ["tech", "performance"],
+        "parent_id": null,
+        "topic_id": null,
+        "processing_status": "COMPLETED",
+        "enrichment_data": {
+          "title": "...",
+          "metadata": {
+            "estimated_time": "2d",
+            "complexity": "hard"
+          }
+        },
+        "processed_at": "ISO datetime",
+        "created_at": "ISO datetime",
+        "updated_at": null
+      },
+      ...
+    ],
+    "total": 5,
+    "page": 1,
+    "size": 50,
+    "pages": 1
+  },
+  "message": "Retrieved 5 tasks"
+}
+```
+
+### Get Task by ID
+**Endpoint**: `GET /v1/tasks/{task_id}`
+**Description**: Retrieves a single task by numeric ID if owned by the current user.
+
+**Response**:
+```json
+{
+  "data": {
+    "id": 10,
+    "content": "...",
     "user_id": "UUID",
-    "status": "in_progress",
+    "status": "todo",
     "priority": "high",
-    "due_date": "2025-01-30T12:00:00Z",
-    "tags": ["test"],
+    "due_date": "ISO datetime",
+    "tags": ["tech", "performance"],
     "parent_id": null,
-    "note_id": null,
+    "topic_id": null,
+    "processing_status": "COMPLETED",
+    "enrichment_data": {
+      "title": "...",
+      "metadata": {
+        "estimated_time": "2d",
+        "complexity": "hard"
+      }
+    },
+    "processed_at": "ISO datetime",
     "created_at": "ISO datetime",
     "updated_at": null
   }
 }
 ```
 
----
-
 ### Update Task
 **Endpoint**: `PUT /v1/tasks/{task_id}`
-**Description**: Updates any fields of the task (title, description, status, etc.).
+**Description**: Updates task's content, status, priority, due date, tags, or topic.
 
 **Request Body** (partial or full):
 ```json
 {
-  "title": "Updated Title",
+  "content": "Updated content",
   "status": "in_progress",
-  "priority": "high"
+  "priority": "medium",
+  "due_date": "ISO datetime",
+  "tags": ["updated", "tags"],
+  "topic_id": 123
 }
 ```
 
@@ -1120,16 +1151,18 @@ They return updated Moment data upon success.
 ```json
 {
   "data": {
-    "id": 5,
-    "title": "Updated Title",
-    "description": "Task details",
+    "id": 10,
+    "content": "Updated content",
     "user_id": "UUID",
     "status": "in_progress",
-    "priority": "high",
-    "due_date": "2025-01-30T12:00:00Z",
-    "tags": ["test"],
+    "priority": "medium",
+    "due_date": "ISO datetime",
+    "tags": ["updated", "tags"],
     "parent_id": null,
-    "note_id": null,
+    "topic_id": 123,
+    "processing_status": "PENDING",
+    "enrichment_data": null,
+    "processed_at": null,
     "created_at": "ISO datetime",
     "updated_at": "ISO datetime"
   },
@@ -1137,11 +1170,9 @@ They return updated Moment data upon success.
 }
 ```
 
----
-
 ### Delete Task
 **Endpoint**: `DELETE /v1/tasks/{task_id}`
-**Description**: Deletes the specified task if owned by the current user.
+**Description**: Deletes the task if owned by the current user.
 
 **Response**:
 ```json
@@ -1149,8 +1180,6 @@ They return updated Moment data upon success.
   "message": "Task deleted successfully"
 }
 ```
-
----
 
 ### Update Task Status
 **Endpoint**: `PUT /v1/tasks/{task_id}/status`
@@ -1163,8 +1192,6 @@ They return updated Moment data upon success.
 }
 ```
 **Response**: Returns the updated Task data, same shape as a normal update.
-
----
 
 ### Get Subtasks
 **Endpoint**: `GET /v1/tasks/{task_id}/subtasks?page={page}&size={size}`
@@ -1183,8 +1210,6 @@ They return updated Moment data upon success.
   "message": "Retrieved 1 subtasks"
 }
 ```
-
----
 
 ### Attach / Detach Note from Task
 **Endpoints**:
@@ -1244,4 +1269,4 @@ You may notice three main response patterns:
 
 - **Authorization**: All protected endpoints require an `Authorization: Bearer <token>` header.
 - **Pagination**: Many listing endpoints (activities, moments, notes, tasks) accept `page` and `size` query parameters.
-- **Ownership**: Each entity (activity, moment, note, task) is tied to a single user. Attempting to access or modify another user's entity will result in a `404 Not Found` or `
+- **Ownership**: Each entity (activity, moment, note, task) is tied to a single user. Attempting to access or modify another user's entity will result in a `404 Not Found` or `403 Forbidden` error.

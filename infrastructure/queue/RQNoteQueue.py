@@ -182,3 +182,37 @@ class RQNoteQueue(QueueService):
                 exc_info=True,
             )
             return None
+
+    def enqueue_task(self, task_id: int) -> Optional[str]:
+        """Enqueue a task for processing.
+
+        Args:
+            task_id: ID of the task to process
+
+        Returns:
+            Optional[str]: Job ID if enqueued successfully, None otherwise
+        """
+        try:
+            from infrastructure.queue.task_worker import (
+                process_task_job,
+            )
+
+            logger.debug(
+                f"Enqueueing task {task_id} for processing"
+            )
+            job = self.note_queue.enqueue(
+                process_task_job,
+                args=(task_id,),
+                job_timeout="10m",
+                result_ttl=24 * 60 * 60,  # 24 hours
+                meta={"task_id": task_id},
+            )
+            logger.debug(
+                f"Task {task_id} enqueued with job ID {job.id}"
+            )
+            return job.id
+        except Exception as e:
+            logger.error(
+                f"Error enqueueing task {task_id}: {str(e)}"
+            )
+            return None

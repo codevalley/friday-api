@@ -40,27 +40,32 @@ QUEUE_JOB_TTL=3600  # How long jobs can stay in queue (1 hour)
 
 1. **Starting Workers**
 ```bash
-# Start a single worker for both queues
-PYTHONPATH=$PYTHONPATH:. rq worker note_enrichment activity_schema --url redis://localhost:6379
+# Start a single worker for all queues
+PYTHONPATH=$PYTHONPATH:. rq worker note_enrichment activity_schema task_enrichment --url redis://localhost:6379
 
 # for mac include this
 export OBJC_DISABLE_INITIALIZE_FORK_SAFETY=YES
 # here is the full command to run the worker
-OBJC_DISABLE_INITIALIZE_FORK_SAFETY=YES PYTHONPATH=$PYTHONPATH:. rq worker note_enrichment activity_schema --url redis://localhost:6379
+OBJC_DISABLE_INITIALIZE_FORK_SAFETY=YES PYTHONPATH=$PYTHONPATH:. rq worker note_enrichment activity_schema task_enrichment --url redis://localhost:6379
 
 # Start dedicated workers for each queue
 rq worker note_enrichment --url redis://localhost:6379  # Note processing only
 rq worker activity_schema --url redis://localhost:6379  # Activity schema only
+rq worker task_enrichment --url redis://localhost:6379  # Task processing only
 
 # Start multiple workers
-rq worker note_enrichment activity_schema -c worker_settings --count 3
+rq worker note_enrichment activity_schema task_enrichment -c worker_settings --count 3
 ```
 
 2. **Worker Configuration**
 Create `worker_settings.py`:
 ```python
 REDIS_URL = 'redis://localhost:6379/0'
-QUEUES = ['note_enrichment', 'activity_schema']  # List all queues
+QUEUES = [
+    'note_enrichment',
+    'activity_schema',
+    'task_enrichment'
+]  # List all queues
 JOB_TIMEOUT = '10m'
 RESULT_TTL = 24 * 60 * 60  # 24 hours
 ```
@@ -88,6 +93,11 @@ health_status = get_system_health()
 #             "queue_size": 5,
 #             "failed_jobs": 0,
 #             "scheduled_jobs": 2
+#         },
+#         "task_enrichment": {
+#             "queue_size": 8,
+#             "failed_jobs": 0,
+#             "scheduled_jobs": 3
 #         }
 #     },
 #     "workers": {
@@ -118,6 +128,15 @@ The system uses structured JSON logging for better observability:
     "message": "Processing activity schema 456",
     "module": "activity_worker",
     "activity_id": 456
+}
+
+# Task processing log
+{
+    "timestamp": "2024-01-20T10:30:00Z",
+    "level": "INFO",
+    "message": "Processing task 789",
+    "module": "task_worker",
+    "task_id": 789
 }
 ```
 
@@ -163,6 +182,7 @@ tail -f rq.log
 # Filter for specific IDs
 grep "note_id=123" rq.log
 grep "activity_id=456" rq.log
+grep "task_id=789" rq.log
 ```
 
 2. **Monitor Queue Size**
@@ -171,6 +191,7 @@ grep "activity_id=456" rq.log
 redis-cli
 > LLEN rq:queue:note_enrichment
 > LLEN rq:queue:activity_schema
+> LLEN rq:queue:task_enrichment
 ```
 
 3. **Inspect Failed Jobs**
@@ -257,3 +278,45 @@ Solution: Check for memory leaks, adjust worker count
    - Monitor Redis memory usage
    - Track CPU utilization
    - Watch network connectivity
+
+## Queue-Specific Guidelines
+
+### Note Enrichment Queue
+- Used for processing and enriching notes
+- Handles markdown formatting and title extraction
+- Typical job duration: 2-5 seconds
+
+### Activity Schema Queue
+- Used for analyzing and rendering activity schemas
+- Handles schema validation and UI generation
+- Typical job duration: 1-3 seconds
+
+### Task Enrichment Queue
+- Used for processing and enriching tasks
+- Handles content formatting, title extraction, and metadata generation
+- Extracts task complexity and estimated time
+- Typical job duration: 2-5 seconds
+
+### Common Issues and Solutions
+
+1. **Job Timeouts**
+   - Default timeout is 10 minutes
+   - Increase for complex tasks:
+     ```python
+     # In worker_settings.py
+     TIMEOUTS = {
+         'note_enrichment': '5m',
+         'activity_schema': '3m',
+         'task_enrichment': '5m'
+     }
+     ```
+
+2. **Queue Backlog**
+   - Monitor queue sizes
+   - Add more workers if consistently high
+   - Consider dedicated workers per queue
+
+3. **Failed Jobs**
+   - Check logs for error patterns
+   - Implement retry logic
+   - Set up alerts for high failure rates

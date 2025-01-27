@@ -1,22 +1,21 @@
-"""OpenAI implementation of RoboService."""
+"""OpenAI service implementation."""
 
 import logging
 from datetime import datetime, UTC
-from typing import Dict, Any, List, Optional
-import json
+from typing import Dict, Any, Optional, List
 
 from openai import OpenAI
 
-from domain.exceptions import (
-    RoboAPIError,
-    RoboConfigError,
-    RoboRateLimitError,
-    RoboValidationError,
-)
 from domain.robo import (
     RoboService,
     RoboConfig,
-    RoboProcessingResult,
+    RoboResponse,
+)
+from domain.exceptions import (
+    RoboConfigError,
+    RoboValidationError,
+    RoboRateLimitError,
+    RoboAPIError,
 )
 from services.RateLimiter import RateLimiter
 from utils.retry import with_retry
@@ -24,126 +23,8 @@ from utils.retry import with_retry
 logger = logging.getLogger(__name__)
 
 
-# OpenAI function definitions
-ENRICH_NOTE_FUNCTION = {
-    "name": "enrich_note",
-    "description": (
-        "Enrich a raw note by formatting content and extracting title"
-    ),
-    "parameters": {
-        "type": "object",
-        "properties": {
-            "title": {
-                "type": "string",
-                "description": "Extracted title under 50 characters",
-            },
-            "formatted": {
-                "type": "string",
-                "description": "Well-formatted markdown content",
-            },
-        },
-        "required": ["title", "formatted"],
-    },
-}
-
-PROCESS_ACTIVITY_FUNCTION = {
-    "name": "process_activity",
-    "description": (
-        "Generate a template for displaying activity content "
-        "based on its schema"
-    ),
-    "parameters": {
-        "type": "object",
-        "properties": {
-            "title": {
-                "type": "string",
-                "description": (
-                    "A template for the activity title that can reference "
-                    "schema variables using $variable_name syntax"
-                ),
-            },
-            "formatted": {
-                "type": "string",
-                "description": (
-                    "A markdown template for the activity content that can "
-                    "reference schema variables using $variable_name syntax"
-                ),
-            },
-        },
-        "required": ["title", "formatted"],
-    },
-}
-
-ANALYZE_SCHEMA_FUNCTION = {
-    "name": "analyze_schema",
-    "description": "Analyze JSON schema and suggest rendering strategy",
-    "parameters": {
-        "type": "object",
-        "properties": {
-            "render_type": {
-                "type": "string",
-                "description": "Suggested rendering type",
-                "enum": [
-                    "form",
-                    "table",
-                    "timeline",
-                    "cards",
-                ],
-            },
-            "layout": {
-                "type": "object",
-                "properties": {
-                    "sections": {
-                        "type": "array",
-                        "items": {
-                            "type": "object",
-                            "properties": {
-                                "title": {"type": "string"},
-                                "fields": {
-                                    "type": "array",
-                                    "items": {
-                                        "type": "string"
-                                    },
-                                },
-                            },
-                        },
-                    },
-                    "suggestions": {
-                        "type": "object",
-                        "properties": {
-                            "column_count": {
-                                "type": "integer"
-                            },
-                            "responsive_breakpoints": {
-                                "type": "array",
-                                "items": {"type": "string"},
-                            },
-                        },
-                    },
-                },
-            },
-            "field_groups": {
-                "type": "array",
-                "items": {
-                    "type": "object",
-                    "properties": {
-                        "name": {"type": "string"},
-                        "fields": {
-                            "type": "array",
-                            "items": {"type": "string"},
-                        },
-                        "description": {"type": "string"},
-                    },
-                },
-            },
-        },
-        "required": ["render_type", "layout"],
-    },
-}
-
-
 class OpenAIService(RoboService):
-    """OpenAI implementation of RoboService."""
+    """OpenAI service implementation."""
 
     def __init__(self, config: RoboConfig):
         """Initialize OpenAI service.
@@ -162,76 +43,71 @@ class OpenAIService(RoboService):
         self.config = config
         self.client = OpenAI(api_key=config.api_key)
         self.rate_limiter = RateLimiter(
-            requests_per_minute=60,  # Default to 60 RPM
-            tokens_per_minute=90000,  # Default to 90K TPM
-            max_wait_seconds=60,  # Default to 60s max wait
+            requests_per_minute=60,  # OpenAI default limit
+            tokens_per_minute=90000,  # OpenAI default limit
         )
 
     @with_retry(
         max_retries=3,
-        retry_on=(RoboAPIError,),
+        retry_on=(
+            RoboAPIError,
+            RoboRateLimitError,
+        ),
         exclude_on=(
             RoboConfigError,
             RoboValidationError,
-            RoboRateLimitError,
         ),
     )
     def process_text(
         self,
         text: str,
         context: Optional[Dict[str, Any]] = None,
-    ) -> RoboProcessingResult:
+    ) -> RoboResponse:
         """Process text using OpenAI's API.
 
-        The processing type is determined by the context:
-        - context["type"] == "note_enrichment": Format note and extract title
-        - No context: Default text processing
+        This is the default text processing method.
+        For notes and tasks, use process_note and process_task respectively.
 
         Args:
             text: Text to process
             context: Optional context for processing
 
         Returns:
-            RoboProcessingResult: Processing result
+            RoboResponse: Processing result
 
         Raises:
             RoboAPIError: If API call fails
             RoboRateLimitError: If rate limit is exceeded
             RoboConfigError: If configuration is invalid
         """
+        if not text:
+            raise RoboValidationError(
+                "Text cannot be empty"
+            )
+
         try:
             # Estimate token usage (rough estimate: 4 chars ≈ 1 token)
             estimated_tokens = (
                 len(text) // 4
-            ) + 100  # Buffer for response
+            ) + self.config.max_tokens
 
-            # Wait for rate limit capacity
-            if not self.rate_limiter.wait_for_capacity(
+            # Acquire rate limit capacity
+            if not self.rate_limiter.try_acquire(
                 estimated_tokens
             ):
                 raise RoboRateLimitError(
                     "Failed to acquire capacity after retries"
                 )
 
-            # Choose processing type based on context
-            if (
-                context
-                and context.get("type") == "note_enrichment"
-            ):
-                return self._enrich_note(text)
-
             # Default text processing
             response = self.client.chat.completions.create(
                 model=self.config.model_name,
                 messages=[
-                    {
-                        "role": "system",
-                        "content": "You are a helpful assistant.",
-                    },
                     {"role": "user", "content": text},
                 ],
                 temperature=self.config.temperature,
                 max_tokens=self.config.max_tokens or 150,
+                timeout=self.config.timeout_seconds,
             )
 
             # Record actual token usage
@@ -242,13 +118,13 @@ class OpenAIService(RoboService):
                 response.usage.total_tokens,
             )
 
-            return RoboProcessingResult(
+            return RoboResponse(
                 content=response.choices[0].message.content,
                 metadata={
                     "model": response.model,
                     "usage": {
                         "prompt_tokens": response.usage.prompt_tokens,
-                        "completion_tokens": response.usage.completion_tokens,
+                        "completion_tokens": response.usage.completion_tokens,  # noqa: E501
                         "total_tokens": response.usage.total_tokens,
                     },
                 },
@@ -259,281 +135,128 @@ class OpenAIService(RoboService):
                 ),
             )
 
+        except RoboRateLimitError as e:
+            # Re-raise rate limit errors directly
+            raise e
         except Exception as e:
-            logger.error(
-                f"Error processing text with OpenAI: {str(e)}"
+            logger.error(f"Error processing text: {str(e)}")
+            raise RoboAPIError(
+                f"OpenAI API error: {str(e)}"
             )
-            if isinstance(e, RoboRateLimitError):
-                raise
-            if "rate limit" in str(e).lower():
-                raise RoboRateLimitError(
-                    "OpenAI rate limit exceeded"
-                )
-            elif "invalid api key" in str(e).lower():
-                raise RoboConfigError(
-                    "Invalid OpenAI API key"
-                )
-            elif "billing" in str(e).lower():
-                raise RoboConfigError(
-                    "OpenAI billing issue"
-                )
-            else:
-                raise RoboAPIError(
-                    f"OpenAI API error: {str(e)}"
-                )
 
-    def _enrich_note(
-        self, content: str
-    ) -> RoboProcessingResult:
-        """Internal method to enrich notes using function calling.
+    @with_retry(
+        max_retries=3,
+        retry_on=(RoboAPIError,),
+        exclude_on=(
+            RoboConfigError,
+            RoboValidationError,
+        ),
+    )
+    def analyze_activity_schema(
+        self, schema: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        """Generate display templates for an activity based on its schema.
+
+        This method analyzes a JSON Schema that defines an activity's
+        data structure and generates templates for displaying the activity's
+        title and content. The templates can use $variable_name syntax to
+        reference schema variables that will be populated dynamically.
 
         Args:
-            content: Raw note content to enrich
+            schema: JSON Schema defining activity data structure
 
         Returns:
-            RoboProcessingResult with enriched content and metadata
+            Dict containing:
+                - title: A template for the activity title (< 50 chars)
+                - formatted: A markdown template for the activity content
 
         Raises:
             RoboAPIError: If API call fails
+            RoboValidationError: If schema is invalid
         """
         try:
+            # Create prompt with schema analysis instructions
+            prompt = (
+                f"{self.config.activity_schema_prompt}\n\n"
+                f"Schema: {schema}"
+            )
+
+            # Call OpenAI API
             response = self.client.chat.completions.create(
                 model=self.config.model_name,
                 messages=[
                     {
                         "role": "system",
-                        "content": self.config.note_enrichment_prompt,
+                        "content": "You are a UI/UX expert.",
                     },
-                    {"role": "user", "content": content},
+                    {"role": "user", "content": prompt},
                 ],
-                tools=[
-                    {
-                        "type": "function",
-                        "function": ENRICH_NOTE_FUNCTION,
-                    }
-                ],
-                tool_choice={
-                    "type": "function",
-                    "function": {"name": "enrich_note"},
-                },
-                temperature=self.config.temperature,
-                max_tokens=self.config.max_tokens,
+                temperature=0.7,
+                max_tokens=500,
             )
 
-            # Extract function call results
-            if not response.choices:
-                raise RoboAPIError(
-                    "No choices in OpenAI response"
+            # Extract templates from response
+            content = response.choices[0].message.content
+
+            # Parse response into title and formatted templates
+            lines = content.strip().split("\n")
+            title = ""
+            formatted = ""
+
+            for line in lines:
+                if line.startswith("Title:"):
+                    title = line.replace(
+                        "Title:", ""
+                    ).strip()
+                elif line.startswith("Formatted:"):
+                    formatted = line.replace(
+                        "Formatted:", ""
+                    ).strip()
+
+            if not title or not formatted:
+                raise RoboValidationError(
+                    "Failed to extract templates from response"
                 )
 
-            if not response.choices[0].message.tool_calls:
-                raise RoboAPIError(
-                    "No tool calls in OpenAI response"
-                )
+            return {
+                "title": title,
+                "formatted": formatted,
+            }
 
-            tool_call = response.choices[
-                0
-            ].message.tool_calls[0]
-
-            # Log the raw arguments for debugging
-            logger.debug(
-                f"Raw function arguments: {tool_call.function.arguments}"
-            )
-
-            try:
-                result = json.loads(
-                    tool_call.function.arguments
-                )
-            except json.JSONDecodeError as e:
-                logger.error(
-                    f"Failed to parse function arguments: {str(e)}"
-                )
-                logger.error(
-                    f"Raw arguments: {tool_call.function.arguments}"
-                )
-                raise RoboAPIError(
-                    f"Invalid JSON in OpenAI response: {str(e)}"
-                )
-
-            # Validate required fields
-            if (
-                "formatted" not in result
-                or "title" not in result
-            ):
-                raise RoboAPIError(
-                    f"Missing required fields in response: {result}"
-                )
-
-            return RoboProcessingResult(
-                content=result["formatted"],
-                metadata={
-                    "title": result["title"],
-                    "model": response.model,
-                    "usage": {
-                        "prompt_tokens": response.usage.prompt_tokens,
-                        "completion_tokens": response.usage.completion_tokens,
-                        "total_tokens": response.usage.total_tokens,
-                    },
-                },
-                tokens_used=response.usage.total_tokens,
-                model_name=response.model,
-                created_at=datetime.fromtimestamp(
-                    response.created, UTC
-                ),
-            )
         except Exception as e:
-            if isinstance(e, RoboAPIError):
-                raise
-            logger.error(f"Error in _enrich_note: {str(e)}")
+            logger.error(
+                f"Error analyzing schema: {str(e)}"
+            )
             raise RoboAPIError(
-                f"Failed to enrich note: {str(e)}"
+                f"OpenAI API error: {str(e)}"
             )
 
     def extract_entities(
         self, text: str, entity_types: List[str]
     ) -> Dict[str, List[Dict[str, Any]]]:
-        """Extract entities using OpenAI's API.
+        """Extract specified entity types from text.
 
-        Args:
-            text: Text to analyze
-            entity_types: Types of entities to extract
-
-        Returns:
-            Dict mapping entity types to lists of found entities
-
-        Raises:
-            NotImplementedError: This feature is not yet implemented
+        Not implemented yet.
         """
-        raise NotImplementedError(
-            "Entity extraction not yet implemented"
-        )
+        raise NotImplementedError
 
     def validate_content(
         self, content: str, validation_rules: Dict[str, Any]
     ) -> Dict[str, Any]:
-        """Validate content using OpenAI's API.
+        """Validate content against specified rules.
 
-        Args:
-            content: Content to validate
-            validation_rules: Rules to validate against
-
-        Returns:
-            Dict with validation results
-
-        Raises:
-            NotImplementedError: This feature is not yet implemented
+        Not implemented yet.
         """
-        raise NotImplementedError(
-            "Content validation not yet implemented"
-        )
+        raise NotImplementedError
 
     def health_check(self) -> bool:
-        """Check if the service is healthy.
+        """Check if the service is operational.
 
         Returns:
-            bool: True if healthy, False otherwise
+            bool: True if service is operational, False otherwise
         """
         try:
-            response = self.client.chat.completions.create(
-                model=self.config.model_name,
-                messages=[
-                    {
-                        "role": "system",
-                        "content": "Respond with 'OK'",
-                    }
-                ],
-                max_tokens=1,
-            )
-            return (
-                response.choices[0].message.content.strip()
-                == "OK"
-            )
-        except Exception as e:
-            logger.error(f"Health check failed: {str(e)}")
+            self.process_text("OK")
+            return True
+        except Exception:
             return False
-
-    def analyze_activity_schema(
-        self, schema: Dict[str, Any]
-    ) -> Dict[str, Any]:
-        """Analyze schema using OpenAI."""
-        try:
-            # Estimate token usage
-            estimated_tokens = (
-                len(json.dumps(schema)) // 4
-            ) + 100  # Buffer for response
-
-            # Wait for rate limit capacity
-            if not self.rate_limiter.wait_for_capacity(
-                estimated_tokens
-            ):
-                raise RoboRateLimitError(
-                    "Failed to acquire capacity after retries"
-                )
-
-            response = self.client.chat.completions.create(
-                model=self.config.model_name,
-                messages=[
-                    {
-                        "role": "system",
-                        "content": self.config.activity_schema_prompt,
-                    },
-                    {
-                        "role": "user",
-                        "content": (
-                            f"Create templates for this activity schema: "
-                            f"{json.dumps(schema)}"
-                        ),
-                    },
-                ],
-                tools=[
-                    {
-                        "type": "function",
-                        "function": PROCESS_ACTIVITY_FUNCTION,
-                    }
-                ],
-                tool_choice={
-                    "type": "function",
-                    "function": {
-                        "name": "process_activity"
-                    },
-                },
-                temperature=self.config.temperature,
-                max_tokens=self.config.max_tokens,
-            )
-
-            # Record token usage
-            self.rate_limiter.record_usage(
-                datetime.fromtimestamp(
-                    response.created, UTC
-                ),
-                response.usage.total_tokens,
-            )
-
-            # Extract and validate response
-            tool_call = response.choices[
-                0
-            ].message.tool_calls[0]
-            result = json.loads(
-                tool_call.function.arguments
-            )
-
-            # Validate required fields
-            if (
-                "title" not in result
-                or "formatted" not in result
-            ):
-                raise RoboAPIError(
-                    f"Missing required fields in response: {result}"
-                )
-
-            return result
-
-        except Exception as e:
-            logger.error(
-                f"Error processing activity schema: {str(e)}"
-            )
-            if isinstance(e, RoboRateLimitError):
-                raise
-            raise RoboAPIError(
-                f"Failed to process activity schema: {str(e)}"
-            )

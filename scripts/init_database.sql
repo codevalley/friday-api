@@ -86,14 +86,23 @@ CREATE TABLE IF NOT EXISTS topics (
 -- Create tasks table after topics
 CREATE TABLE IF NOT EXISTS tasks (
     id INT PRIMARY KEY AUTO_INCREMENT,
-    title VARCHAR(255) NOT NULL,
-    description TEXT NOT NULL,
+    content TEXT NOT NULL,
     user_id VARCHAR(36) NOT NULL,
     parent_id INT NULL,
     note_id INT NULL,
     topic_id INT NULL,
     status ENUM('TODO', 'IN_PROGRESS', 'DONE') NOT NULL DEFAULT 'TODO',
     priority ENUM('LOW', 'MEDIUM', 'HIGH', 'URGENT') NOT NULL DEFAULT 'MEDIUM',
+    processing_status ENUM(
+        'NOT_PROCESSED',
+        'PENDING',
+        'PROCESSING',
+        'COMPLETED',
+        'FAILED',
+        'SKIPPED'
+    ) NOT NULL DEFAULT 'PENDING',
+    enrichment_data JSON NULL,
+    processed_at TIMESTAMP NULL,
     due_date TIMESTAMP NULL,
     tags JSON NULL DEFAULT ('[]'),
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -102,8 +111,7 @@ CREATE TABLE IF NOT EXISTS tasks (
     FOREIGN KEY (parent_id) REFERENCES tasks(id) ON DELETE SET NULL,
     FOREIGN KEY (note_id) REFERENCES notes(id) ON DELETE SET NULL,
     FOREIGN KEY (topic_id) REFERENCES topics(id) ON DELETE SET NULL,
-    CHECK (title != ''),
-    CHECK (description != '')
+    CHECK (content != '')
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- Create documents table

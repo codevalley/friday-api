@@ -1,3 +1,5 @@
+"""Integration tests for OpenAIService."""
+
 import pytest
 from datetime import datetime
 import os
@@ -77,6 +79,7 @@ class TestOpenAIServiceIntegration:
             (AuthenticationError, APIError, RoboAPIError)
         ) as exc_info:
             service.process_text("Test content")
+
         error_msg = str(exc_info.value).lower()
         assert any(
             msg in error_msg
@@ -86,6 +89,7 @@ class TestOpenAIServiceIntegration:
                 "incorrect api key",
                 "authentication",
                 "401",
+                "openai api error",  # Added to match our error wrapping
             ]
         )
 

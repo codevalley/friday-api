@@ -46,6 +46,17 @@ class RoboConfig:
 
 
 @dataclass
+class RoboResponse:
+    """Response from Robo service."""
+
+    content: str
+    metadata: Dict[str, Any]
+    tokens_used: int
+    model_name: str
+    created_at: datetime = datetime.now(UTC)
+
+
+@dataclass
 class RoboProcessingResult:
     """Result of a Robo processing operation."""
 
@@ -64,7 +75,7 @@ class RoboService(ABC):
         self,
         text: str,
         context: Optional[Dict[str, Any]] = None,
-    ) -> RoboProcessingResult:
+    ) -> RoboResponse:
         """Process text input and return enhanced/analyzed result.
 
         The processing type is determined by the context:
@@ -76,7 +87,7 @@ class RoboService(ABC):
             context: Optional context for processing
 
         Returns:
-            RoboProcessingResult: Processing result
+            RoboResponse: Processing result
         """
         pass
 

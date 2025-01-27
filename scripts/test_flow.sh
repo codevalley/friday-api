@@ -484,11 +484,10 @@ TASK1_RESPONSE=$(curl -s -X POST "$BASE_URL/tasks" \
     -H "Authorization: Bearer $TOKEN1" \
     -H "Content-Type: application/json" \
     -d '{
-        "title": "First Task",
-        "description": "This is a simple task",
+        "content": "Simple task that needs to be done",
         "status": "todo",
         "priority": "medium",
-        "due_date": "'$(get_future_date 30)'",
+        "due_date": "'$(get_future_date 7)'",
         "tags": ["test", "simple"]
     }')
 echo "Task1 Response: $TASK1_RESPONSE"
@@ -500,8 +499,7 @@ TASK2_RESPONSE=$(curl -s -X POST "$BASE_URL/tasks" \
     -H "Authorization: Bearer $TOKEN1" \
     -H "Content-Type: application/json" \
     -d '{
-        "title": "Second Task",
-        "description": "This is a complex task",
+        "content": "Complex task that requires multiple steps and careful planning. This task involves:\n1. Research phase\n2. Implementation\n3. Testing\n4. Documentation",
         "status": "in_progress",
         "priority": "high",
         "due_date": "'$(get_future_date 15)'",
@@ -580,8 +578,7 @@ TASK3_RESPONSE=$(curl -s -X POST "$BASE_URL/tasks" \
     -H "Authorization: Bearer $TOKEN2" \
     -H "Content-Type: application/json" \
     -d '{
-        "title": "User2 Task",
-        "description": "Task for user2",
+        "content": "User2 task that needs to be completed by next week",
         "status": "todo",
         "priority": "low",
         "due_date": "'$(get_future_date 7)'",
@@ -604,7 +601,7 @@ UPDATE_TASK_RESPONSE=$(curl -s -X PUT "$BASE_URL/tasks/$TASK1_ID" \
     -H "Authorization: Bearer $TOKEN1" \
     -H "Content-Type: application/json" \
     -d '{
-        "title": "Updated First Task",
+        "content": "Updated first task content",
         "status": "in_progress",
         "priority": "high"
     }')
