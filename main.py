@@ -11,6 +11,9 @@ from routers.v1.ActivityRouter import (
     router as activity_router,
 )
 from routers.v1.AuthRouter import router as auth_router
+from routers.v1.DocumentRouter import (
+    router as document_router,
+)
 from routers.v1.MomentRouter import router as moment_router
 from routers.v1.NoteRouter import router as note_router
 from routers.v1.TaskRouter import router as task_router
@@ -46,6 +49,7 @@ app.add_middleware(RequestLoggingMiddleware)
 # Add routers
 app.include_router(auth_router)
 app.include_router(activity_router)
+app.include_router(document_router)
 app.include_router(moment_router)
 app.include_router(note_router)
 app.include_router(task_router)

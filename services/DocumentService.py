@@ -100,13 +100,15 @@ class DocumentService:
         Raises:
             HTTPException: If validation fails
         """
-        # Check if string contains only alphanumeric chars and underscores
-        if not all(
-            c.isalnum() or c == "_" for c in unique_name
-        ):
+        if not unique_name:
+            return
+
+        import re
+
+        if not re.match(r"^[a-zA-Z0-9_]+$", unique_name):
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="unique_name must be alphanumeric (underscore allowed)",
+                detail="unique_name must contain only letters, numbers, and underscores",  # noqa: E501
             )
 
     def _prepare_document_response(
@@ -395,8 +397,14 @@ class DocumentService:
             # Update document fields
             update_dict = update_data.model_dump(
                 exclude_unset=True,
-                by_alias=False,  # Don't use aliases when dumping
+                by_alias=True,  # Use aliases when dumping
             )
+
+            # Map metadata to doc_metadata
+            if "metadata" in update_dict:
+                update_dict[
+                    "doc_metadata"
+                ] = update_dict.pop("metadata")
 
             # Validate unique_name if provided
             if "unique_name" in update_dict:

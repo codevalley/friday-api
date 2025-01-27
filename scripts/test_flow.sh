@@ -437,7 +437,6 @@ check_api_response "$UPDATE_RESPONSE" "Updating note"
 echo -e "\n${BLUE}15. Testing note access control...${NC}"
 UNAUTHORIZED_RESPONSE=$(curl -s -X GET "$BASE_URL/notes/$NOTE3_ID" \
     -H "Authorization: Bearer $TOKEN1")
-echo "Unauthorized Response: $UNAUTHORIZED_RESPONSE"
 if echo "$UNAUTHORIZED_RESPONSE" | grep -q "\"detail\":\"Note not found\""; then
     echo -e "${GREEN}✓ Access control working correctly${NC}"
 else
@@ -630,27 +629,39 @@ echo -e "\n${BLUE}23. Testing document operations...${NC}"
 
 # Create a private document for user1
 echo -e "\n${BLUE}Creating private document for user1...${NC}"
-PRIVATE_DOC_RESPONSE=$(curl -s -X POST "$BASE_URL/docs" \
+PRIVATE_DOC_RESPONSE=$(curl -s -X POST "$BASE_URL/docs/upload" \
     -H "Authorization: Bearer $TOKEN1" \
     -H "Content-Type: multipart/form-data" \
     -F "file=@scripts/test_flow.sh" \
     -F "name=test_flow.sh" \
+    -F "mime_type=text/x-shellscript" \
+    -F "metadata={\"category\":\"scripts\",\"type\":\"test\"}" \
     -F "is_public=false")
 echo "Private Document Response: $PRIVATE_DOC_RESPONSE"
 PRIVATE_DOC_ID=$(extract_json_value "$PRIVATE_DOC_RESPONSE" "id")
+if [ -z "$PRIVATE_DOC_ID" ]; then
+    echo -e "${RED}Failed to extract private document ID${NC}"
+    exit 1
+fi
 check_api_response "$PRIVATE_DOC_RESPONSE" "Creating private document"
 
 # Create a public document for user1
 echo -e "\n${BLUE}Creating public document for user1...${NC}"
-PUBLIC_DOC_RESPONSE=$(curl -s -X POST "$BASE_URL/docs" \
+PUBLIC_DOC_RESPONSE=$(curl -s -X POST "$BASE_URL/docs/upload" \
     -H "Authorization: Bearer $TOKEN1" \
     -H "Content-Type: multipart/form-data" \
     -F "file=@scripts/test_flow.sh" \
     -F "name=public_test_flow.sh" \
+    -F "mime_type=text/x-shellscript" \
+    -F "metadata={\"category\":\"scripts\",\"type\":\"test\",\"visibility\":\"public\"}" \
     -F "is_public=true" \
     -F "unique_name=test_flow_123")
 echo "Public Document Response: $PUBLIC_DOC_RESPONSE"
 PUBLIC_DOC_ID=$(extract_json_value "$PUBLIC_DOC_RESPONSE" "id")
+if [ -z "$PUBLIC_DOC_ID" ]; then
+    echo -e "${RED}Failed to extract public document ID${NC}"
+    exit 1
+fi
 check_api_response "$PUBLIC_DOC_RESPONSE" "Creating public document"
 
 # List documents for user1
@@ -664,13 +675,19 @@ check_api_response "$DOCS_RESPONSE" "Listing documents"
 echo -e "\n${BLUE}Getting private document content...${NC}"
 PRIVATE_CONTENT_RESPONSE=$(curl -s -X GET "$BASE_URL/docs/$PRIVATE_DOC_ID/content" \
     -H "Authorization: Bearer $TOKEN1")
-check_api_response "$PRIVATE_CONTENT_RESPONSE" "Getting private document content"
+if ! check_api_response "$PRIVATE_CONTENT_RESPONSE" "Getting private document content"; then
+    echo -e "${RED}Failed to get private document content${NC}"
+    exit 1
+fi
 
 # Get public document by unique name
 echo -e "\n${BLUE}Getting public document by unique name...${NC}"
 PUBLIC_DOC_RESPONSE=$(curl -s -X GET "$BASE_URL/docs/public/test_flow_123" \
     -H "Authorization: Bearer $TOKEN2")
-check_api_response "$PUBLIC_DOC_RESPONSE" "Getting public document"
+if ! check_api_response "$PUBLIC_DOC_RESPONSE" "Getting public document"; then
+    echo -e "${RED}Failed to get public document${NC}"
+    exit 1
+fi
 
 # Update document metadata
 echo -e "\n${BLUE}Updating document metadata...${NC}"
@@ -679,9 +696,17 @@ UPDATE_DOC_RESPONSE=$(curl -s -X PUT "$BASE_URL/docs/$PRIVATE_DOC_ID" \
     -H "Content-Type: application/json" \
     -d '{
         "name": "updated_test_flow.sh",
-        "metadata": {"category": "scripts", "version": "1.1"}
+        "metadata": {
+            "category": "scripts",
+            "type": "test",
+            "version": "1.1",
+            "last_updated": "'$(date -u +"%Y-%m-%dT%H:%M:%SZ")'"
+        }
     }')
-check_api_response "$UPDATE_DOC_RESPONSE" "Updating document metadata"
+if ! check_api_response "$UPDATE_DOC_RESPONSE" "Updating document metadata"; then
+    echo -e "${RED}Failed to update document metadata${NC}"
+    exit 1
+fi
 
 # Try to access private document with user2's token (should fail)
 echo -e "\n${BLUE}Testing document access control...${NC}"
@@ -698,7 +723,10 @@ fi
 echo -e "\n${BLUE}Deleting private document...${NC}"
 DELETE_DOC_RESPONSE=$(curl -s -X DELETE "$BASE_URL/docs/$PRIVATE_DOC_ID" \
     -H "Authorization: Bearer $TOKEN1")
-check_api_response "$DELETE_DOC_RESPONSE" "Deleting document"
+if ! check_api_response "$DELETE_DOC_RESPONSE" "Deleting document"; then
+    echo -e "${RED}Failed to delete document${NC}"
+    exit 1
+fi
 
 # Verify document deletion
 VERIFY_DOC_DELETE_RESPONSE=$(curl -s -X GET "$BASE_URL/docs/$PRIVATE_DOC_ID" \

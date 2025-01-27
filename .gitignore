@@ -139,3 +139,6 @@ dmypy.json
 docs/bugs.md
 review-*.md
 app.log.*
+
+# general files
+/storage

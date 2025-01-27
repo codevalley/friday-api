@@ -50,39 +50,31 @@ class Document(EntityMeta):
     # Primary key
     id: Mapped[int] = Column(Integer, primary_key=True)
 
-    # Basic document metadata
+    # Document properties
     name: Mapped[str] = Column(String(255), nullable=False)
-    mime_type: Mapped[str] = Column(
-        String(255), nullable=False
-    )
     storage_url: Mapped[Optional[str]] = Column(
         String(1024), nullable=True
     )
-    doc_metadata: Mapped[Optional[Dict[str, Any]]] = Column(
-        JSON, nullable=True
-    )  # Renamed from metadata to avoid conflict
-
-    # Document status
+    mime_type: Mapped[str] = Column(
+        String(128), nullable=False
+    )
+    size_bytes: Mapped[Optional[int]] = Column(
+        Integer, nullable=True
+    )
     status: Mapped[DocumentStatus] = Column(
         Enum(DocumentStatus),
         nullable=False,
-        default=DocumentStatus.ACTIVE,
-        server_default=DocumentStatus.ACTIVE.value,
+        default=DocumentStatus.PENDING,
     )
-
-    # Foreign keys and relationships
-    user_id: Mapped[str] = Column(
-        String(36),
-        ForeignKey("users.id", ondelete="CASCADE"),
-        nullable=False,
+    doc_metadata: Mapped[Optional[Dict[str, Any]]] = Column(
+        JSON, nullable=True
     )
-    owner: Mapped["User"] = relationship(
-        "User",
-        back_populates="documents",
+    unique_name: Mapped[Optional[str]] = Column(
+        String(128), nullable=True, unique=True
     )
-
-    # File size
-    size_bytes: Mapped[int] = Column(Integer, default=0)
+    is_public: Mapped[bool] = Column(
+        Boolean, nullable=False, default=False
+    )
 
     # Timestamps
     created_at: Mapped[datetime] = Column(
@@ -97,12 +89,13 @@ class Document(EntityMeta):
         onupdate=lambda: datetime.now(UTC),
     )
 
-    # Public access fields
-    unique_name: Mapped[Optional[str]] = Column(
-        String(128), nullable=True, unique=True
+    # Foreign keys and relationships
+    user_id: Mapped[str] = Column(
+        String(36),
+        ForeignKey("users.id", ondelete="CASCADE"),
     )
-    is_public: Mapped[bool] = Column(
-        Boolean, nullable=False, default=False
+    owner: Mapped["User"] = relationship(
+        "User", back_populates="documents"
     )
 
     def to_dict(self) -> Dict[str, Any]:

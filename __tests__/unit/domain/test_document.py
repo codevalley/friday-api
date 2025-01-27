@@ -73,7 +73,7 @@ def test_unique_name_validation():
     # Test invalid characters
     with pytest.raises(
         DocumentValidationError,
-        match="unique_name must be alphanumeric",
+        match="unique_name must be alphanumeric or underscore",
     ):
         DocumentData(
             name="Test Document",
@@ -84,16 +84,23 @@ def test_unique_name_validation():
             unique_name="test-doc",  # Contains hyphen
         )
 
-    # Test valid unique name
-    doc = DocumentData(
-        name="Test Document",
-        storage_url="/test/path",
-        mime_type="text/plain",
-        size_bytes=100,
-        user_id="user123",
-        unique_name="testdoc123",
-    )
-    assert doc.unique_name == "testdoc123"
+    # Test valid unique names
+    valid_names = [
+        "testdoc123",  # Alphanumeric
+        "test_doc_123",  # With underscores
+        "a_b_c",  # Multiple underscores
+    ]
+
+    for name in valid_names:
+        doc = DocumentData(
+            name="Test Document",
+            storage_url="/test/path",
+            mime_type="text/plain",
+            size_bytes=100,
+            user_id="user123",
+            unique_name=name,
+        )
+        assert doc.unique_name == name
 
 
 def test_status_transitions():

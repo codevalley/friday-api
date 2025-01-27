@@ -84,6 +84,8 @@ def test_document_base_invalid_unique_name():
         "test doc",  # Space not allowed
         "test@doc",  # Special char not allowed
         "test/doc",  # Slash not allowed
+        "test.doc",  # Period not allowed
+        "test$doc",  # Dollar sign not allowed
         "a" * 129,  # Too long
     ]
     for name in invalid_names:
@@ -94,6 +96,23 @@ def test_document_base_invalid_unique_name():
                 unique_name=name,
             )
         assert "unique_name" in str(exc.value)
+
+
+def test_document_base_valid_unique_name():
+    """Test valid unique name validation."""
+    valid_names = [
+        "testdoc123",  # Alphanumeric
+        "test_doc_123",  # With underscores
+        "a_b_c",  # Multiple underscores
+        "doc_123_test",  # Underscore with numbers
+    ]
+    for name in valid_names:
+        doc = DocumentBase(
+            name="test.pdf",
+            mime_type="application/pdf",
+            unique_name=name,
+        )
+        assert doc.unique_name == name
 
 
 def test_document_create_to_domain():

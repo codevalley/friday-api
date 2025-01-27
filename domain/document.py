@@ -106,7 +106,7 @@ class DocumentData:
                 for c in self.unique_name
             ):
                 raise DocumentValidationError(
-                    "unique_name must be alphanumeric"
+                    "unique_name must be alphanumeric or underscore"
                 )
 
         if self.is_public and not self.unique_name:

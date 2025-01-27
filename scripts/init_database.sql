@@ -115,7 +115,7 @@ CREATE TABLE IF NOT EXISTS documents (
     size_bytes BIGINT NULL,  -- Allow null during creation
     user_id VARCHAR(36) NOT NULL,
     status ENUM('PENDING', 'ACTIVE', 'ARCHIVED', 'ERROR') NOT NULL DEFAULT 'PENDING',
-    metadata JSON NULL,
+    doc_metadata JSON NULL,
     unique_name VARCHAR(128) NULL UNIQUE,
     is_public BOOLEAN NOT NULL DEFAULT FALSE,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -124,7 +124,7 @@ CREATE TABLE IF NOT EXISTS documents (
     CHECK (name != ''),
     CHECK (mime_type != ''),
     CHECK (size_bytes IS NULL OR size_bytes >= 0),
-    CHECK (unique_name REGEXP '^[a-zA-Z0-9]+$' OR unique_name IS NULL)
+    CHECK (unique_name REGEXP '^[a-zA-Z0-9_]+$' OR unique_name IS NULL)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- Create moments table

@@ -586,5 +586,6 @@ class TestDocumentService:
                 document_service._validate_unique_name(name)
             assert exc.value.status_code == 400
             assert (
-                "must be alphanumeric" in exc.value.detail
+                "unique_name must contain only letters, numbers, and underscores"  # noqa: E501
+                == exc.value.detail
             )

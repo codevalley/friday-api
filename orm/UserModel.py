@@ -84,9 +84,10 @@ class User(EntityMeta):
         nullable=False,
         default=lambda: datetime.now(UTC),
     )
-    updated_at: Mapped[Optional[datetime]] = Column(
+    updated_at: Mapped[datetime] = Column(
         DateTime(timezone=True),
-        nullable=True,
+        nullable=False,
+        default=lambda: datetime.now(UTC),
         onupdate=lambda: datetime.now(UTC),
     )
 
