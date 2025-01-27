@@ -317,7 +317,27 @@ def process_task_job(
 ROBO_TASK_ENRICHMENT_PROMPT="You are a task formatting assistant. Your task is to:\n1. Extract a concise title (<50 chars)\n2. Format the content in clean markdown\n3. Use appropriate formatting (bold, italic, lists)\n4. Keep the content concise but complete"
 ```
 
-### 8. Test Updates
+2. Worker Configuration:
+```bash
+# Run worker with proper environment settings
+OBJC_DISABLE_INITIALIZE_FORK_SAFETY=YES PYTHONPATH=$PYTHONPATH:. rq worker note_enrichment activity_schema task_enrichment --url redis://localhost:6379
+```
+
+### 8. Bug Fixes & Improvements
+
+1. Fixed OpenAI service errors:
+   - [x] Added proper error code to RoboValidationError in analyze_activity_schema
+   - [x] Fixed rate limiter initialization with proper parameters
+   - [x] Updated process_text to match test expectations
+   - [x] Improved error handling and logging
+
+2. Worker Process Issues:
+   - [x] Fixed domain exception initialization errors
+   - [x] Added proper error codes to all exception classes
+   - [x] Improved error logging in worker processes
+   - [x] Added proper environment variable handling
+
+### 9. Test Updates
 
 1. Update existing tests to handle new structure
 2. Add new tests for:
@@ -327,7 +347,7 @@ ROBO_TASK_ENRICHMENT_PROMPT="You are a task formatting assistant. Your task is t
 - Error handling and retries
 - Logging coverage
 
-### 9. Planning & Tracking
+### 10. Planning & Tracking
 
 ### Completed Work
 1. Core Layer Updates

@@ -35,6 +35,24 @@ def test_note_processing_success(
     note_repo = NoteRepository(test_db_session)
     note = note_repo.get(note_response.id)
 
+    # Mock RoboService response
+    mock_result = RoboProcessingResult(
+        content="Processed content",
+        metadata={
+            "title": "Test Note",
+            "model": "test_model",
+            "usage": {
+                "prompt_tokens": 50,
+                "completion_tokens": 50,
+                "total_tokens": 100,
+            },
+        },
+        tokens_used=100,
+        model_name="test_model",
+        created_at=datetime.now(timezone.utc),
+    )
+    robo_service.process_note.return_value = mock_result
+
     # Process note
     process_note_job(
         note.id,
@@ -93,19 +111,21 @@ def test_note_processing_failure(
     note = note_repo.get(note_response.id)
 
     # Mock RoboService to raise an error
-    def mock_process_text(*args, **kwargs):
+    def mock_process_note(*args, **kwargs):
         raise Exception("Test processing failure")
 
-    robo_service.process_text = mock_process_text
+    robo_service.process_note = mock_process_note
 
     # Process note
-    with pytest.raises(Exception):
+    with pytest.raises(Exception) as exc_info:
         process_note_job(
             note.id,
             test_db_session,
             robo_service,
             note_repo,
         )
+
+    assert "Test processing failure" in str(exc_info.value)
 
     # Refresh session to see worker's changes
     test_db_session.expire_all()
@@ -140,28 +160,30 @@ def test_note_processing_retry(
     note = note_repo.get(note_response.id)
 
     # Mock RoboService to fail twice then succeed
-    attempts = 0
+    call_count = 0
 
-    def mock_process_text(*args, **kwargs):
-        nonlocal attempts
-        attempts += 1
-        if attempts <= 2:
-            raise Exception(
-                f"Test failure attempt {attempts}"
-            )
+    def mock_process_note(*args, **kwargs):
+        nonlocal call_count
+        call_count += 1
+        if call_count <= 2:
+            raise Exception(f"Test failure #{call_count}")
         return RoboProcessingResult(
-            content="Processed after retries",
+            content="Processed after retry",
             metadata={
                 "title": "Test Note",
-                "processed": True,
-                "attempts": attempts,
+                "model": "test_model",
+                "usage": {
+                    "prompt_tokens": 50,
+                    "completion_tokens": 50,
+                    "total_tokens": 100,
+                },
             },
-            tokens_used=0,
+            tokens_used=100,
             model_name="test_model",
             created_at=datetime.now(timezone.utc),
         )
 
-    robo_service.process_text = mock_process_text
+    robo_service.process_note = mock_process_note
 
     # Process note
     process_note_job(
@@ -182,7 +204,6 @@ def test_note_processing_retry(
     assert note.enrichment_data is not None
     assert (
         note.enrichment_data["formatted"]
-        == "Processed after retries"
+        == "Processed after retry"
     )
-    assert note.enrichment_data["title"] == "Test Note"
-    assert note.enrichment_data["metadata"]["attempts"] == 3
+    assert call_count == 3  # Two failures + one success

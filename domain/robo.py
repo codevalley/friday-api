@@ -35,6 +35,14 @@ class RoboConfig:
         "the formatted content, use Markdown for emphasis (bold, "
         "italics, bullet points) to create a well-structured template."
     )
+    task_enrichment_prompt: str = (
+        "You are a task processing assistant. Your task is to:\n"
+        "1. Extract a descriptive title (<50 chars)\n"
+        "2. Format the content in clean markdown\n"
+        "3. Suggest a priority (high/medium/low)\n"
+        "4. Extract any mentioned due dates (ISO format)\n"
+        "5. Keep the content clear and actionable"
+    )
     schema_analysis_prompt: str = (
         "You are a UI/UX expert analyzing JSON schemas. "
         "Your task is to:\n"
@@ -99,20 +107,14 @@ class RoboService(ABC):
 
         This method analyzes a JSON Schema that defines an activity's
         data structure and generates templates for displaying the activity's
-        title and content. The templates can use $variable_name syntax to
-        reference schema variables that will be populated dynamically.
+        title and content. The templates use $variable_name syntax to
+        reference fields from the schema that will be populated dynamically.
 
         Args:
-            schema: JSON Schema defining activity data structure
+            schema: JSON Schema defining the activity structure
 
         Returns:
-            Dict containing:
-                - title: A template for the activity title (< 50 chars)
-                - formatted: A markdown template for the activity content
-
-        Raises:
-            RoboAPIError: If API call fails
-            RoboValidationError: If schema is invalid
+            Dict with "title" and "formatted" templates
         """
         pass
 

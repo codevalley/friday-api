@@ -55,6 +55,14 @@ class RoboConfig(BaseModel):
         "}\n"
         "Do not include extra keys or commentary"
     )
+    task_enrichment_prompt: str = (
+        "You are a task processing assistant. Your task is to:\n"
+        "1. Extract a descriptive title (<50 chars)\n"
+        "2. Format the content in clean markdown\n"
+        "3. Suggest a priority (high/medium/low)\n"
+        "4. Extract any mentioned due dates (ISO format)\n"
+        "5. Keep the content clear and actionable"
+    )
 
     def to_domain_config(self) -> DomainRoboConfig:
         """Convert settings to domain config.
@@ -79,6 +87,7 @@ class RoboConfig(BaseModel):
             max_tokens=self.max_tokens,
             note_enrichment_prompt=self.note_enrichment_prompt,
             activity_schema_prompt=self.activity_schema_prompt,
+            task_enrichment_prompt=self.task_enrichment_prompt,
         )
 
     @classmethod
@@ -109,36 +118,29 @@ class RoboConfig(BaseModel):
                 env,
                 "ROBO_ACTIVITY_SCHEMA_PROMPT",
                 (
-                    "You are a skilled writer crafting natural, "
-                    "conversational templates for activity content. Your "
-                    "task is to analyze a JSON schema and create human-like "
-                    "templates that feel personal and engaging. Use "
-                    "$variable_name syntax to reference schema variables "
-                    "that will be populated dynamically.\n\n"
-                    "For the title:\n"
-                    "- Create a short, natural phrase (< 50 chars) that "
-                    "includes key fields\n"
-                    "- Must use the most descriptive field from the schema\n"
-                    "- Make it flow like natural speech\n"
-                    "- Example: 'Ran $distance miles in $time' instead of "
-                    "just 'Completed a run'\n\n"
-                    "For the content:\n"
-                    "- Write in a natural, conversational style\n"
-                    "- Must incorporate ALL available fields from the schema\n"
-                    "- Use meaningful markdown formatting to enhance "
-                    "readability:\n"
-                    "  * Use *italics* for measurements and numbers\n"
-                    "  * Use **bold** for important terms or categories\n"
-                    "  * Use bullet points for lists\n"
-                    "  * Use > for quotes or highlights\n"
-                    "- Example: 'Completed a **$type workout** lasting "
-                    "*$duration minutes* with $exercises'\n\n"
-                    "Only return valid JSON with the structure:\n"
-                    "{\n"
-                    '  "title": "...",\n'
-                    '  "formatted": "..."\n'
-                    "}\n"
-                    "Do not include extra keys or commentary"
+                    "You are a helpful assistant that creates templates "
+                    "for displaying activity content. Your task is to "
+                    "analyze a JSON schema that defines the structure of "
+                    "an activity and create templates for displaying the "
+                    "activity's title and content. Use $variable_name "
+                    "syntax to reference schema variables that will be "
+                    "populated dynamically. For the title, create a "
+                    "short template (< 50 chars) that captures the key "
+                    "information. For the formatted content, use "
+                    "Markdown for emphasis (bold, italics, bullet "
+                    "points) to create a well-structured template."
+                ),
+            ),
+            task_enrichment_prompt=getattr(
+                env,
+                "ROBO_TASK_ENRICHMENT_PROMPT",
+                (
+                    "You are a task processing assistant. Your task is to:\n"
+                    "1. Extract a descriptive title (<50 chars)\n"
+                    "2. Format the content in clean markdown\n"
+                    "3. Suggest a priority (high/medium/low)\n"
+                    "4. Extract any mentioned due dates (ISO format)\n"
+                    "5. Keep the content clear and actionable"
                 ),
             ),
         )
@@ -158,5 +160,5 @@ def get_robo_settings() -> RoboConfig:
         return RoboConfig.from_env()
     except Exception as e:
         raise RoboConfigError(
-            f"Failed to load Robo settings: {str(e)}"
-        )
+            f"Failed to load RoboService settings: {e}"
+        ) from e

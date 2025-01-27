@@ -98,9 +98,18 @@ def process_note_job(
                     f"Attempt {attempt + 1}/{max_retries + 1} "
                     f"to process note {note_id}"
                 )
-                result = robo_service.process_text(
+                result = robo_service.process_note(
                     note.content,
-                    context={"type": "note_enrichment"},
+                    context={
+                        "type": "note_enrichment",
+                        # Add related notes and topics if available
+                        "related_notes": note.related_notes
+                        if hasattr(note, "related_notes")
+                        else [],
+                        "topics": note.topics
+                        if hasattr(note, "topics")
+                        else [],
+                    },
                 )
                 logger.info(
                     f"Successfully processed note {note_id}"

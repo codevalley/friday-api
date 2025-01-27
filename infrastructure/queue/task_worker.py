@@ -98,9 +98,23 @@ def process_task_job(
                     f"Attempt {attempt + 1}/{max_retries + 1} "
                     f"to process task {task_id}"
                 )
-                result = robo_service.process_text(
+                result = robo_service.process_task(
                     task.content,
-                    context={"type": "task_enrichment"},
+                    context={
+                        "type": "task_enrichment",
+                        # Add any task-specific context
+                        "priority": task.priority
+                        if hasattr(task, "priority")
+                        else None,
+                        "due_date": task.due_date.isoformat()
+                        if hasattr(task, "due_date")
+                        and task.due_date
+                        else None,
+                        "parent_task": task.parent.content
+                        if hasattr(task, "parent")
+                        and task.parent
+                        else None,
+                    },
                 )
                 logger.info(
                     f"Successfully processed task {task_id}"

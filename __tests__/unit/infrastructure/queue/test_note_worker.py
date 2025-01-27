@@ -29,6 +29,8 @@ def mock_note():
     """Create a mock note."""
     note = MagicMock()
     note.content = "Test note content"
+    note.related_notes = []
+    note.topics = []
     return note
 
 
@@ -80,7 +82,7 @@ def test_process_note_success(
         model_name="test_model",
         created_at=datetime.now(timezone.utc),
     )
-    mock_robo_service.process_text.return_value = (
+    mock_robo_service.process_note.return_value = (
         mock_result
     )
 
@@ -102,9 +104,13 @@ def test_process_note_success(
     }
 
     # Verify method calls
-    mock_robo_service.process_text.assert_called_once_with(
+    mock_robo_service.process_note.assert_called_once_with(
         mock_note.content,
-        context={"type": "note_enrichment"},
+        context={
+            "type": "note_enrichment",
+            "related_notes": mock_note.related_notes,
+            "topics": mock_note.topics,
+        },
     )
     assert mock_session.commit.call_count >= 2
 
@@ -159,17 +165,37 @@ def test_process_note_robo_service_failure(
     mock_note_repo_class.return_value = mock_note_repo
     mock_get_robo_service.return_value = mock_robo_service
     mock_note_repo.get_by_id.return_value = mock_note
-    mock_robo_service.process_text.side_effect = Exception(
-        "Processing failed"
+    mock_robo_service.process_note.side_effect = Exception(
+        "Test processing failure"
     )
 
     # Explicitly set enrichment_data to None
     mock_note.enrichment_data = None
 
     # Execute
-    with pytest.raises(RoboServiceError) as exc:
+    with pytest.raises(RoboServiceError) as exc_info:
         process_note_job(1)
-    assert "Failed to process note" in str(exc.value)
+
+    # Verify error handling
+    assert str(exc_info.value) == (
+        "Failed to process note 1: Test processing failure"
+    )
+
+    # Verify retries
+    assert mock_robo_service.process_note.call_count == 4
+    for (
+        call
+    ) in mock_robo_service.process_note.call_args_list:
+        assert call == (
+            (mock_note.content,),
+            {
+                "context": {
+                    "type": "note_enrichment",
+                    "related_notes": mock_note.related_notes,
+                    "topics": mock_note.topics,
+                }
+            },
+        )
 
     # Verify state transitions
     assert (
@@ -177,13 +203,6 @@ def test_process_note_robo_service_failure(
         == ProcessingStatus.FAILED
     )
     assert mock_note.enrichment_data is None
-
-    # Verify method calls - should be called 4 times (initial + 3 retries)
-    assert mock_robo_service.process_text.call_count == 4
-    for (
-        call
-    ) in mock_robo_service.process_text.call_args_list:
-        assert call[0][0] == "Test note content"
 
     # Verify session commits
     mock_session.commit.assert_called()
