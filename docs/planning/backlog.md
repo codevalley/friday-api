@@ -25,6 +25,7 @@
     - Document standard patterns
     - Add examples for each pattern
     - Include validation rules
+- [ ] Document: Test and verify endpoints in `test_flow.sh` to verify S3 upload/download
 
 ### Configuration and Code Organization 🔧
 
