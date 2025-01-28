@@ -1,7 +1,7 @@
 """Factory for creating storage service instances."""
 
 import os
-import boto3
+from typing import Optional
 
 from domain.storage import IStorageService
 from infrastructure.storage.local_sync import (
@@ -10,7 +10,6 @@ from infrastructure.storage.local_sync import (
 from infrastructure.storage.mock_sync import (
     MockStorageService,
 )
-from infrastructure.storage.s3_sync import S3StorageService
 
 
 class StorageFactory:
@@ -18,7 +17,7 @@ class StorageFactory:
 
     @staticmethod
     def create_storage_service(
-        storage_type: str = None,
+        storage_type: Optional[str] = None,
     ) -> IStorageService:
         """Create a storage service instance.
 
@@ -48,6 +47,17 @@ class StorageFactory:
             return MockStorageService()
 
         elif storage_type == "s3":
+            try:
+                import boto3
+                from infrastructure.storage.s3_sync import (
+                    S3StorageService,
+                )
+            except ImportError:
+                raise ValueError(
+                    "boto3 package is required for S3 storage. "
+                    "Install it with: pip install boto3"
+                )
+
             bucket_name = os.getenv("S3_BUCKET_NAME")
             if not bucket_name:
                 raise ValueError(

@@ -39,6 +39,24 @@ QUEUE_JOB_TTL=3600  # How long jobs can stay in queue (1 hour)
 ### Worker Setup
 
 1. **Starting Workers**
+
+There are two ways to start the workers:
+
+#### A. Using the run_worker.py script (Recommended for Production)
+```bash
+# Using the run_worker.py script (includes logging and error handling)
+PYTHONPATH=$PYTHONPATH:. python -m infrastructure.queue.run_worker
+
+# For macOS, include OBJC_DISABLE_INITIALIZE_FORK_SAFETY
+OBJC_DISABLE_INITIALIZE_FORK_SAFETY=YES PYTHONPATH=$PYTHONPATH:. python -m infrastructure.queue.run_worker
+```
+This method:
+- Automatically configures logging
+- Handles all three queues (note_enrichment, activity_schema, task_enrichment)
+- Provides better error handling and shutdown management
+- Uses settings from your environment configuration
+
+#### B. Using RQ CLI directly (Good for Development)
 ```bash
 # Start a single worker for all queues
 PYTHONPATH=$PYTHONPATH:. rq worker note_enrichment activity_schema task_enrichment --url redis://localhost:6379

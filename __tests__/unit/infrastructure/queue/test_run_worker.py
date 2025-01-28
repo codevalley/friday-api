@@ -26,12 +26,14 @@ def test_worker_initialization():
         mock_queue_instances = [
             Mock(name="note_enrichment"),
             Mock(name="activity_schema"),
+            Mock(name="task_enrichment"),
         ]
         mock_queue.side_effect = (
             lambda name, connection: mock_queue_instances[
                 [
                     "note_enrichment",
                     "activity_schema",
+                    "task_enrichment",
                 ].index(name)
             ]
         )
@@ -45,7 +47,7 @@ def test_worker_initialization():
         with pytest.raises(SystemExit) as exc_info:
             run_worker()
 
-        # Verify worker was initialized with both queues
+        # Verify worker was initialized with all queues
         mock_worker.assert_called_once_with(
             mock_queue_instances,
             connection=mock_get_conn.return_value,
@@ -67,12 +69,14 @@ def test_worker_graceful_shutdown():
         mock_queue_instances = [
             Mock(name="note_enrichment"),
             Mock(name="activity_schema"),
+            Mock(name="task_enrichment"),
         ]
         mock_queue.side_effect = (
             lambda name, connection: mock_queue_instances[
                 [
                     "note_enrichment",
                     "activity_schema",
+                    "task_enrichment",
                 ].index(name)
             ]
         )
@@ -86,3 +90,4 @@ def test_worker_graceful_shutdown():
         with pytest.raises(SystemExit) as exc_info:
             run_worker()
         assert exc_info.value.code == 0
+        assert mock_worker_instance.work.call_count == 1

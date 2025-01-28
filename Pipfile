@@ -27,6 +27,7 @@ sqlalchemy = ">=1.4.35"
 pytest = "*"
 pymysql = "*"
 pytest-asyncio = "*"
+boto3 = "*"
 
 [dev-packages]
 pre-commit = ">=2.18.1"

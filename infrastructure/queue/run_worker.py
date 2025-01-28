@@ -30,6 +30,7 @@ def run_worker():
         queues = [
             Queue("note_enrichment", connection=redis_conn),
             Queue("activity_schema", connection=redis_conn),
+            Queue("task_enrichment", connection=redis_conn),
         ]
         worker = Worker(queues, connection=redis_conn)
         logger.info(
