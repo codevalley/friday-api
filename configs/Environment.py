@@ -45,14 +45,11 @@ class EnvironmentSettings(BaseSettings):
     ROBO_TIMEOUT_SECONDS: int = 30
     ROBO_TEMPERATURE: float = 0.7
     ROBO_MAX_TOKENS: int = 150
-    ROBO_NOTE_ENRICHMENT_PROMPT: str = (
-        "You are a note formatting assistant. "
-        "Your task is to:\n"
-        "1. Extract a concise title (<50 chars)\n"
-        "2. Format the content in clean markdown\n"
-        "3. Use appropriate formatting (bold, italic, lists)\n"
-        "4. Keep the content concise but complete"
-    )
+
+    # Prompt Configuration
+    ROBO_NOTE_ENRICHMENT_PROMPT: str | None = None
+    ROBO_ACTIVITY_SCHEMA_PROMPT: str | None = None
+    ROBO_TASK_ENRICHMENT_PROMPT: str | None = None
 
     # Redis Configuration
     REDIS_HOST: str = "localhost"

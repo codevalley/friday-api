@@ -6,6 +6,7 @@ from pydantic import BaseModel, SecretStr
 from domain.exceptions import RoboConfigError
 from configs.Environment import get_environment_variables
 from domain.robo import RoboConfig as DomainRoboConfig
+from utils.prompt_loader import get_prompt_from_env
 
 
 class RoboConfig(BaseModel):
@@ -26,34 +27,17 @@ class RoboConfig(BaseModel):
         "4. Keep the content concise but complete"
     )
     activity_schema_prompt: str = (
-        "You are a skilled writer crafting natural, conversational "
-        "templates for activity content. Your task is to analyze a JSON "
-        "schema and create human-like templates that feel personal and "
-        "engaging. Use $variable_name syntax to reference schema "
-        "variables that will be populated dynamically.\n\n"
-        "For the title:\n"
-        "- Create a short, natural phrase (< 50 chars) that includes key "
-        "fields\n"
-        "- Must use the most descriptive field from the schema\n"
-        "- Make it flow like natural speech\n"
-        "- Example: 'Ran $distance miles in $time' instead of just "
-        "'Completed a run'\n\n"
-        "For the content:\n"
-        "- Write in a natural, conversational style\n"
-        "- Must incorporate ALL available fields from the schema\n"
-        "- Use meaningful markdown formatting to enhance readability:\n"
-        "  * Use *italics* for measurements and numbers\n"
-        "  * Use **bold** for important terms or categories\n"
-        "  * Use bullet points for lists\n"
-        "  * Use > for quotes or highlights\n"
-        "- Example: 'Completed a **$type workout** lasting "
-        "*$duration minutes* with $exercises'\n\n"
-        "Only return valid JSON with the structure:\n"
-        "{\n"
-        '  "title": "...",\n'
-        '  "formatted": "..."\n'
-        "}\n"
-        "Do not include extra keys or commentary"
+        "You are a helpful assistant that creates templates "
+        "for displaying activity content. Your task is to "
+        "analyze a JSON schema that defines the structure of "
+        "an activity and create templates for displaying the "
+        "activity's title and content. Use $variable_name "
+        "syntax to reference schema variables that will be "
+        "populated dynamically. For the title, create a "
+        "short template (< 50 chars) that captures the key "
+        "information. For the formatted content, use "
+        "Markdown for emphasis (bold, italics, bullet "
+        "points) to create a well-structured template."
     )
     task_enrichment_prompt: str = (
         "You are a task processing assistant. Your task is to:\n"
@@ -94,6 +78,17 @@ class RoboConfig(BaseModel):
     def from_env(cls) -> "RoboConfig":
         """Create config from environment variables."""
         env = get_environment_variables()
+
+        # Get prompts from files or environment
+        note_enrichment_prompt = get_prompt_from_env(
+            env.ROBO_NOTE_ENRICHMENT_PROMPT,
+            "note_enrichment.txt",
+        )
+        activity_schema_prompt = get_prompt_from_env(
+            env.ROBO_ACTIVITY_SCHEMA_PROMPT,
+            "activity_schema.txt",
+        )
+
         return cls(
             api_key=env.ROBO_API_KEY,
             model_name=env.ROBO_MODEL_NAME
@@ -102,35 +97,8 @@ class RoboConfig(BaseModel):
             timeout_seconds=env.ROBO_TIMEOUT_SECONDS,
             temperature=env.ROBO_TEMPERATURE,
             max_tokens=env.ROBO_MAX_TOKENS,
-            note_enrichment_prompt=getattr(
-                env,
-                "ROBO_NOTE_ENRICHMENT_PROMPT",
-                (
-                    "You are a note formatting assistant. "
-                    "Your task is to:\n"
-                    "1. Extract a concise title (<50 chars)\n"
-                    "2. Format the content in clean markdown\n"
-                    "3. Use appropriate formatting (bold, italic, lists)\n"
-                    "4. Keep the content concise but complete"
-                ),
-            ),
-            activity_schema_prompt=getattr(
-                env,
-                "ROBO_ACTIVITY_SCHEMA_PROMPT",
-                (
-                    "You are a helpful assistant that creates templates "
-                    "for displaying activity content. Your task is to "
-                    "analyze a JSON schema that defines the structure of "
-                    "an activity and create templates for displaying the "
-                    "activity's title and content. Use $variable_name "
-                    "syntax to reference schema variables that will be "
-                    "populated dynamically. For the title, create a "
-                    "short template (< 50 chars) that captures the key "
-                    "information. For the formatted content, use "
-                    "Markdown for emphasis (bold, italics, bullet "
-                    "points) to create a well-structured template."
-                ),
-            ),
+            note_enrichment_prompt=note_enrichment_prompt,
+            activity_schema_prompt=activity_schema_prompt,
             task_enrichment_prompt=getattr(
                 env,
                 "ROBO_TASK_ENRICHMENT_PROMPT",
