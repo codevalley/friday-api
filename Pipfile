@@ -28,6 +28,7 @@ pytest = "*"
 pymysql = "*"
 pytest-asyncio = "*"
 boto3 = "*"
+python-multipart = "*"
 
 [dev-packages]
 pre-commit = ">=2.18.1"
