@@ -4,6 +4,7 @@ Given a raw task description, do the following:
 2. Provide a short, Markdown-formatted description.
    - Do NOT repeat the title.
    - Do NOT add new or imaginary details.
+   - If you identify multiple tasks, use markdown lists to separate them.
    - Use bold, *italic*, or bullet points only if helpful for clarity.
    - Use emojis only if it clarifies the task.
 3. Analyze and estimate priority (urgent/high/medium/low).
