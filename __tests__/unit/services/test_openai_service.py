@@ -1,8 +1,8 @@
 """Unit tests for OpenAIService."""
 
 import pytest
-from unittest.mock import MagicMock, patch
-from datetime import datetime
+from unittest.mock import MagicMock, patch, Mock
+from datetime import datetime, timezone
 import json
 from dateutil.tz import UTC
 
@@ -105,6 +105,42 @@ def openai_service(
         return_value=mock_rate_limiter,
     ):
         return OpenAIService(robo_config)
+
+
+@pytest.fixture
+def mock_openai_response():
+    response = Mock()
+    response.choices = [Mock()]
+    response.choices[0].message.content = "Test response"
+    response.model = "gpt-4"
+    response.created = int(
+        datetime.now(timezone.utc).timestamp()
+    )
+    response.usage.prompt_tokens = 50
+    response.usage.completion_tokens = 50
+    response.usage.total_tokens = 100
+    return response
+
+
+@pytest.fixture
+def mock_openai_function_response(mocker):
+    """Create a mock OpenAI function response."""
+    response_mock = mocker.MagicMock()
+
+    # Create tool call mock
+    tool_call_mock = mocker.MagicMock()
+    tool_call_mock.function.name = "extract_tasks"
+    tool_call_mock.function.arguments = (
+        '{"tasks": [{"content": "Test task"}]}'
+    )
+
+    # Set up response structure
+    response_mock.choices = [mocker.MagicMock()]
+    response_mock.choices[0].message.tool_calls = [
+        tool_call_mock
+    ]
+
+    return response_mock
 
 
 class TestOpenAIService:
@@ -472,3 +508,135 @@ class TestOpenAIService:
 
             with pytest.raises(RoboAPIError):
                 service.process_task("Test content")
+
+    def test_extract_tasks_success(
+        self, openai_service, mock_openai_function_response
+    ):
+        """Test successful task extraction."""
+        with patch.object(
+            openai_service.client.chat.completions,
+            "create",
+            return_value=mock_openai_function_response,
+        ):
+            result = openai_service.extract_tasks(
+                "Test note content"
+            )
+
+            assert isinstance(result, list)
+            assert len(result) == 1
+            assert result[0]["content"] == "Test task"
+
+    def test_extract_tasks_no_tasks(
+        self, openai_service, mock_openai_function_response
+    ):
+        """Test task extraction with no tasks found."""
+        mock_openai_function_response.choices[
+            0
+        ].message.tool_calls[
+            0
+        ].function.arguments = '{"tasks": []}'
+
+        with patch.object(
+            openai_service.client.chat.completions,
+            "create",
+            return_value=mock_openai_function_response,
+        ):
+            result = openai_service.extract_tasks(
+                "Test note content"
+            )
+
+            assert isinstance(result, list)
+            assert len(result) == 0
+
+    def test_extract_tasks_invalid_response(
+        self, openai_service, mock_openai_function_response
+    ):
+        """Test task extraction with invalid API response."""
+        mock_openai_function_response.choices[
+            0
+        ].message.tool_calls[
+            0
+        ].function.arguments = "invalid json"
+
+        with patch.object(
+            openai_service.client.chat.completions,
+            "create",
+            return_value=mock_openai_function_response,
+        ):
+            with pytest.raises(RoboValidationError):
+                openai_service.extract_tasks(
+                    "Test note content"
+                )
+
+    def test_extract_tasks_missing_tasks_field(
+        self, openai_service, mock_openai_function_response
+    ):
+        """Test task extraction with missing tasks field in response."""
+        mock_openai_function_response.choices[
+            0
+        ].message.tool_calls[
+            0
+        ].function.arguments = '{"other": []}'
+
+        with patch.object(
+            openai_service.client.chat.completions,
+            "create",
+            return_value=mock_openai_function_response,
+        ):
+            with pytest.raises(RoboValidationError):
+                openai_service.extract_tasks(
+                    "Test note content"
+                )
+
+    def test_extract_tasks_wrong_function_name(
+        self, openai_service, mock_openai_function_response
+    ):
+        """Test task extraction with wrong function name in response."""
+        mock_openai_function_response.choices[
+            0
+        ].message.tool_calls[
+            0
+        ].function.name = "wrong_function"
+
+        with patch.object(
+            openai_service.client.chat.completions,
+            "create",
+            return_value=mock_openai_function_response,
+        ):
+            with pytest.raises(RoboValidationError):
+                openai_service.extract_tasks(
+                    "Test note content"
+                )
+
+    def test_extract_tasks_multiple_tasks(
+        self, openai_service, mock_openai_function_response
+    ):
+        """Test task extraction with multiple tasks."""
+        mock_openai_function_response.choices[
+            0
+        ].message.tool_calls[
+            0
+        ].function.arguments = """
+        {
+            "tasks": [
+                {"content": "Task 1"},
+                {"content": "Task 2"},
+                {"content": "Task 3"}
+            ]
+        }
+        """
+
+        with patch.object(
+            openai_service.client.chat.completions,
+            "create",
+            return_value=mock_openai_function_response,
+        ):
+            result = openai_service.extract_tasks(
+                "Test note content"
+            )
+
+            assert isinstance(result, list)
+            assert len(result) == 3
+            assert result[0]["content"] == "Task 1"
+            assert result[1]["content"] == "Task 2"
+            assert result[2]["content"] == "Task 3"

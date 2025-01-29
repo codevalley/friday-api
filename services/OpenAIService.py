@@ -169,6 +169,31 @@ PROCESS_TASK_FUNCTION = {
     },
 }
 
+EXTRACT_TASKS_FUNCTION = {
+    "name": "extract_tasks",
+    "description": "Extract tasks from the given note content",
+    "parameters": {
+        "type": "object",
+        "properties": {
+            "tasks": {
+                "type": "array",
+                "description": "List of tasks extracted from the note",
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "content": {
+                            "type": "string",
+                            "description": "The task description",
+                        }
+                    },
+                    "required": ["content"],
+                },
+            }
+        },
+        "required": ["tasks"],
+    },
+}
+
 
 class OpenAIService(RoboService):
     """OpenAI service implementation."""
@@ -792,3 +817,116 @@ class OpenAIService(RoboService):
             return True
         except Exception:
             return False
+
+    def extract_tasks(
+        self, content: str
+    ) -> List[Dict[str, str]]:
+        """Extract tasks from note content.
+
+        Args:
+            content: The note content to extract tasks from
+
+        Returns:
+            List of extracted tasks, each with content string
+
+        Raises:
+            OpenAIError: If API call fails
+            ValidationError: If response validation fails
+        """
+        try:
+            # Read task extraction prompt
+            with open(
+                "prompts/task_extraction.txt", "r"
+            ) as f:
+                prompt = f.read()
+
+            # Prepare messages for chat completion
+            messages = [
+                {"role": "system", "content": prompt},
+                {"role": "user", "content": content},
+            ]
+
+            # Call OpenAI with function definition
+            response = self.client.chat.completions.create(
+                model=self.config.model_name,
+                messages=messages,
+                functions=[EXTRACT_TASKS_FUNCTION],
+                function_call={"name": "extract_tasks"},
+            )
+
+            # Parse and validate response
+            try:
+                # Try tool_calls first (newer format)
+                if (
+                    hasattr(
+                        response.choices[0].message,
+                        "tool_calls",
+                    )
+                    and response.choices[
+                        0
+                    ].message.tool_calls
+                ):
+                    tool_call = response.choices[
+                        0
+                    ].message.tool_calls[0]
+                    if (
+                        tool_call.function.name
+                        != "extract_tasks"
+                    ):
+                        raise RoboValidationError(
+                            message=(
+                                "Expected function name 'extract_tasks', "
+                                f"got '{tool_call.function.name}'"
+                            ),
+                            code="INVALID_FUNCTION_NAME",
+                        )
+                    arguments = tool_call.function.arguments
+                # Fall back to function_call (older format)
+                elif (
+                    hasattr(
+                        response.choices[0].message,
+                        "function_call",
+                    )
+                    and response.choices[
+                        0
+                    ].message.function_call
+                ):
+                    function_call = response.choices[
+                        0
+                    ].message.function_call
+                    if (
+                        function_call.name
+                        != "extract_tasks"
+                    ):
+                        raise RoboValidationError(
+                            message=(
+                                "Expected function name 'extract_tasks', "
+                                f"got '{function_call.name}'"
+                            ),
+                            code="INVALID_FUNCTION_NAME",
+                        )
+                    arguments = function_call.arguments
+                else:
+                    raise AttributeError(
+                        "No tool_calls or function_call found in response"
+                    )
+
+                result = json.loads(arguments)
+                return result["tasks"]
+            except (
+                json.JSONDecodeError,
+                KeyError,
+                AttributeError,
+            ) as e:
+                logger.error(
+                    f"Failed to parse OpenAI response: {str(e)}"
+                )
+                raise RoboValidationError(
+                    message="Invalid response format from OpenAI",
+                    code="INVALID_RESPONSE_FORMAT",
+                )
+        except Exception as e:
+            logger.error(
+                f"Unexpected error in extract_tasks: {str(e)}"
+            )
+            raise

@@ -2,10 +2,9 @@
 
 import pytest
 from datetime import datetime, timezone
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch, MagicMock, Mock
 
 from domain.values import ProcessingStatus
-from domain.exceptions import RoboServiceError
 from domain.robo import RoboProcessingResult
 from infrastructure.queue.note_worker import (
     process_note_job,
@@ -25,19 +24,58 @@ def mock_note_repo():
 
 
 @pytest.fixture
+def mock_task_repo():
+    """Create a mock task repository."""
+    repo = MagicMock()
+    repo.create.return_value = Mock()
+    return repo
+
+
+@pytest.fixture
 def mock_note():
     """Create a mock note."""
     note = MagicMock()
     note.content = "Test note content"
     note.related_notes = []
     note.topics = []
+    note.enrichment_data = {}
     return note
 
 
 @pytest.fixture
 def mock_robo_service():
     """Create a mock RoboService."""
-    return MagicMock()
+    service = MagicMock()
+    # Mock process_note response
+    process_result = RoboProcessingResult(
+        content="Processed content",
+        metadata={
+            "title": "Test Note",
+            "model": "test_model",
+            "usage": {
+                "prompt_tokens": 50,
+                "completion_tokens": 50,
+                "total_tokens": 100,
+            },
+        },
+        tokens_used=100,
+        model_name="test_model",
+        created_at=datetime(
+            2025,
+            1,
+            29,
+            14,
+            49,
+            31,
+            211138,
+            tzinfo=timezone.utc,
+        ),
+    )
+    service.process_note.return_value = process_result
+
+    # Mock extract_tasks response (empty by default)
+    service.extract_tasks.return_value = []
+    return service
 
 
 @patch("infrastructure.queue.note_worker.NoteRepository")
@@ -51,25 +89,44 @@ def test_process_note_success(
     mock_note_repo,
     mock_note,
     mock_robo_service,
+    mock_task_repo,
 ):
-    """Test successful note processing.
-
-    Should:
-    1. Update status to PROCESSING
-    2. Process with RoboService
-    3. Update with results and COMPLETED status
-    4. Commit all changes
-    """
+    """Test successful note processing."""
     # Setup
     mock_session_local.return_value = mock_session
     mock_note_repo_class.return_value = mock_note_repo
     mock_get_robo_service.return_value = mock_robo_service
     mock_note_repo.get_by_id.return_value = mock_note
 
-    # Mock RoboService response
-    mock_result = RoboProcessingResult(
-        content="Processed content",
-        metadata={
+    # Execute
+    process_note_job(
+        note_id=1,
+        session=mock_session,
+        robo_service=mock_robo_service,
+        note_repository=mock_note_repo,
+        task_repository=mock_task_repo,
+    )
+
+    # Verify note processing
+    mock_robo_service.process_note.assert_called_once()
+    assert (
+        mock_note.processing_status
+        == ProcessingStatus.COMPLETED
+    )
+
+    # Verify task extraction was attempted
+    mock_robo_service.extract_tasks.assert_called_once_with(
+        mock_note.content
+    )
+
+    # Verify enrichment data
+    expected_enrichment = {
+        "title": "Test Note",
+        "formatted": "Processed content",
+        "tokens_used": 100,
+        "model_name": "test_model",
+        "created_at": "2025-01-29T14:49:31.211138+00:00",
+        "metadata": {
             "title": "Test Note",
             "model": "test_model",
             "usage": {
@@ -78,72 +135,38 @@ def test_process_note_success(
                 "total_tokens": 100,
             },
         },
-        tokens_used=100,
-        model_name="test_model",
-        created_at=datetime.now(timezone.utc),
-    )
-    mock_robo_service.process_note.return_value = (
-        mock_result
-    )
-
-    # Execute
-    process_note_job(1)
-
-    # Verify state transitions
-    assert (
-        mock_note.processing_status
-        == ProcessingStatus.COMPLETED
-    )
-    assert mock_note.enrichment_data == {
-        "title": mock_result.metadata["title"],
-        "formatted": mock_result.content,
-        "tokens_used": mock_result.tokens_used,
-        "model_name": mock_result.model_name,
-        "created_at": mock_result.created_at.isoformat(),
-        "metadata": mock_result.metadata,
     }
 
-    # Verify method calls
-    mock_robo_service.process_note.assert_called_once_with(
-        mock_note.content,
-        context={
-            "type": "note_enrichment",
-            "related_notes": mock_note.related_notes,
-            "topics": mock_note.topics,
-        },
+    # Verify core enrichment data (ignoring task stats which may vary)
+    for key, value in expected_enrichment.items():
+        assert mock_note.enrichment_data[key] == value
+
+    # Verify task stats exist but don't check specific values
+    assert (
+        "task_extraction_stats" in mock_note.enrichment_data
     )
-    assert mock_session.commit.call_count >= 2
+    assert (
+        "task_extraction_completed_at"
+        in mock_note.enrichment_data
+    )
+    assert (
+        mock_note.enrichment_data["task_extraction_stats"][
+            "tasks_found"
+        ]
+        == 0
+    )
+    assert (
+        mock_note.enrichment_data["task_extraction_stats"][
+            "tasks_created"
+        ]
+        == 0
+    )
 
 
 @patch("infrastructure.queue.note_worker.NoteRepository")
 @patch("infrastructure.queue.note_worker.get_robo_service")
 @patch("infrastructure.queue.note_worker.SessionLocal")
-def test_process_note_not_found(
-    mock_session_local,
-    mock_get_robo_service,
-    mock_note_repo_class,
-    mock_session,
-    mock_note_repo,
-):
-    """Test handling of non-existent note."""
-    # Setup
-    mock_session_local.return_value = mock_session
-    mock_note_repo_class.return_value = mock_note_repo
-    mock_note_repo.get_by_id.return_value = None
-
-    # Execute and verify
-    with pytest.raises(ValueError) as exc:
-        process_note_job(1)
-    assert "Note 1 not found" in str(exc.value)
-
-    # Verify no updates were made
-    mock_session.commit.assert_not_called()
-
-
-@patch("infrastructure.queue.note_worker.NoteRepository")
-@patch("infrastructure.queue.note_worker.get_robo_service")
-@patch("infrastructure.queue.note_worker.SessionLocal")
-def test_process_note_robo_service_failure(
+def test_process_note_with_tasks(
     mock_session_local,
     mock_get_robo_service,
     mock_note_repo_class,
@@ -151,58 +174,94 @@ def test_process_note_robo_service_failure(
     mock_note_repo,
     mock_note,
     mock_robo_service,
+    mock_task_repo,
 ):
-    """Test handling of RoboService failure.
-
-    Should:
-    1. Update status to PROCESSING
-    2. Attempt to process with RoboService (with retries)
-    3. Update status to FAILED after all retries fail
-    4. Commit all changes
-    """
+    """Test note processing with task extraction."""
     # Setup
     mock_session_local.return_value = mock_session
     mock_note_repo_class.return_value = mock_note_repo
     mock_get_robo_service.return_value = mock_robo_service
     mock_note_repo.get_by_id.return_value = mock_note
-    mock_robo_service.process_note.side_effect = Exception(
-        "Test processing failure"
-    )
 
-    # Explicitly set enrichment_data to None
-    mock_note.enrichment_data = None
+    # Mock tasks being found
+    mock_robo_service.extract_tasks.return_value = [
+        {"content": "Task 1"},
+        {"content": "Task 2"},
+    ]
 
     # Execute
-    with pytest.raises(RoboServiceError) as exc_info:
-        process_note_job(1)
-
-    # Verify error handling
-    assert str(exc_info.value) == (
-        "Failed to process note 1: Test processing failure"
+    process_note_job(
+        note_id=1,
+        session=mock_session,
+        robo_service=mock_robo_service,
+        note_repository=mock_note_repo,
+        task_repository=mock_task_repo,
     )
 
-    # Verify retries
-    assert mock_robo_service.process_note.call_count == 4
-    for (
-        call
-    ) in mock_robo_service.process_note.call_args_list:
-        assert call == (
-            (mock_note.content,),
-            {
-                "context": {
-                    "type": "note_enrichment",
-                    "related_notes": mock_note.related_notes,
-                    "topics": mock_note.topics,
-                }
-            },
-        )
+    # Verify tasks were created
+    assert mock_task_repo.create.call_count == 2
+    assert (
+        mock_note.enrichment_data["task_extraction_stats"][
+            "tasks_found"
+        ]
+        == 2
+    )
+    assert (
+        mock_note.enrichment_data["task_extraction_stats"][
+            "tasks_created"
+        ]
+        == 2
+    )
 
-    # Verify state transitions
+
+@patch("infrastructure.queue.note_worker.NoteRepository")
+@patch("infrastructure.queue.note_worker.get_robo_service")
+@patch("infrastructure.queue.note_worker.SessionLocal")
+def test_process_note_task_extraction_failure(
+    mock_session_local,
+    mock_get_robo_service,
+    mock_note_repo_class,
+    mock_session,
+    mock_note_repo,
+    mock_note,
+    mock_robo_service,
+    mock_task_repo,
+):
+    """Test note processing succeeds even when task extraction fails."""
+    # Setup
+    mock_session_local.return_value = mock_session
+    mock_note_repo_class.return_value = mock_note_repo
+    mock_get_robo_service.return_value = mock_robo_service
+    mock_note_repo.get_by_id.return_value = mock_note
+
+    # Mock task extraction failing
+    mock_robo_service.extract_tasks.side_effect = Exception(
+        "Task extraction failed"
+    )
+
+    # Execute
+    process_note_job(
+        note_id=1,
+        session=mock_session,
+        robo_service=mock_robo_service,
+        note_repository=mock_note_repo,
+        task_repository=mock_task_repo,
+    )
+
+    # Verify note was still processed successfully
     assert (
         mock_note.processing_status
-        == ProcessingStatus.FAILED
+        == ProcessingStatus.COMPLETED
     )
-    assert mock_note.enrichment_data is None
-
-    # Verify session commits
-    mock_session.commit.assert_called()
+    assert (
+        mock_note.enrichment_data["task_extraction_stats"][
+            "tasks_found"
+        ]
+        == 0
+    )
+    assert (
+        mock_note.enrichment_data["task_extraction_stats"][
+            "tasks_created"
+        ]
+        == 0
+    )

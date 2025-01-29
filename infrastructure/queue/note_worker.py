@@ -10,6 +10,7 @@ from domain.values import ProcessingStatus
 from domain.exceptions import RoboServiceError
 from domain.robo import RoboService
 from repositories.NoteRepository import NoteRepository
+from repositories.TaskRepository import TaskRepository
 from services.robo import get_robo_service
 from utils.retry import calculate_backoff
 from configs.Database import SessionLocal
@@ -28,6 +29,7 @@ def process_note_job(
     session: Optional[Session] = None,
     robo_service: Optional[RoboService] = None,
     note_repository: Optional[NoteRepository] = None,
+    task_repository: Optional[TaskRepository] = None,
     max_retries: int = 3,
 ) -> None:
     """Process a note using RoboService.
@@ -37,6 +39,7 @@ def process_note_job(
         session: Optional database session
         robo_service: Optional RoboService instance
         note_repository: Optional note repository
+        task_repository: Optional task repository
         max_retries: Maximum number of retries
 
     Raises:
@@ -45,6 +48,11 @@ def process_note_job(
     """
     session_provided = session is not None
     start_time = datetime.now(timezone.utc)
+    task_stats = {
+        "tasks_found": 0,
+        "tasks_created": 0,
+        "processing_time": 0,
+    }
 
     try:
         logger.info(f"Starting to process note {note_id}")
@@ -54,10 +62,14 @@ def process_note_job(
             logger.debug("Creating new database session")
             session = SessionLocal()
 
-        # Create repository if not provided
+        # Create repositories if not provided
         if not note_repository:
             logger.debug("Creating new note repository")
             note_repository = NoteRepository(session)
+
+        if not task_repository:
+            logger.debug("Creating new task repository")
+            task_repository = TaskRepository(session)
 
         # Get note
         logger.debug(
@@ -68,8 +80,7 @@ def process_note_job(
             raise ValueError(f"Note {note_id} not found")
 
         logger.info(
-            f"Processing note {note_id} with content: "
-            f"{note.content[:100]}..."
+            f"Processing note {note_id} with content: {note.content[:100]}..."
         )
 
         # Update to PROCESSING
@@ -91,9 +102,9 @@ def process_note_job(
                 f"Created RoboService of type: {type(robo_service).__name__}"
             )
 
+        # Step 1: Process note with retries
         for attempt in range(max_retries + 1):
             try:
-                # Process the note with enrichment context
                 logger.info(
                     f"Attempt {attempt + 1}/{max_retries + 1} "
                     f"to process note {note_id}"
@@ -102,13 +113,18 @@ def process_note_job(
                     note.content,
                     context={
                         "type": "note_enrichment",
-                        # Add related notes and topics if available
-                        "related_notes": note.related_notes
-                        if hasattr(note, "related_notes")
-                        else [],
-                        "topics": note.topics
-                        if hasattr(note, "topics")
-                        else [],
+                        "related_notes": (
+                            note.related_notes
+                            if hasattr(
+                                note, "related_notes"
+                            )
+                            else []
+                        ),
+                        "topics": (
+                            note.topics
+                            if hasattr(note, "topics")
+                            else []
+                        ),
                     },
                 )
                 logger.info(
@@ -116,6 +132,7 @@ def process_note_job(
                 )
                 logger.debug(f"Processing result: {result}")
 
+                # Update note with enrichment data
                 note.enrichment_data = {
                     "title": result.metadata["title"],
                     "formatted": result.content,
@@ -125,7 +142,7 @@ def process_note_job(
                     "metadata": result.metadata,
                 }
 
-                # Update to COMPLETED
+                # Update note status to COMPLETED
                 logger.debug(
                     f"Updating note {note_id} status to COMPLETED"
                 )
@@ -138,22 +155,21 @@ def process_note_job(
                 note.updated_at = datetime.now(timezone.utc)
                 session.add(note)
                 session.commit()
+
                 logger.info(
-                    f"Successfully completed processing note {note_id}"
+                    f"Successfully completed note processing for {note_id}"
                 )
-                return  # Success, exit function
+                break  # Success, exit retry loop
 
             except Exception as e:
                 logger.error(
                     f"Failed to process note {note_id} "
-                    f"(attempt {attempt + 1}/{max_retries + 1}): "
-                    f"{str(e)}"
+                    f"(attempt {attempt + 1}/{max_retries + 1}): {str(e)}"
                 )
 
-                # If this was the last attempt, mark as failed and raise
                 if attempt == max_retries:
                     logger.error(
-                        f"All attempts failed for note {note_id}"
+                        f"All processing attempts failed for note {note_id}"
                     )
                     note.processing_status = (
                         ProcessingStatus.FAILED
@@ -174,13 +190,83 @@ def process_note_job(
                 )
                 time.sleep(delay)
 
+        # Step 2: Extract tasks (independent step,
+        # failures don't affect note status)
+        try:
+            logger.info(
+                f"Starting task extraction for note {note_id}"
+            )
+            extracted_tasks = robo_service.extract_tasks(
+                note.content
+            )
+            task_stats["tasks_found"] = len(extracted_tasks)
+
+            if task_stats["tasks_found"] > 0:
+                logger.info(
+                    f"Found {task_stats['tasks_found']} "
+                    f"tasks in note {note_id}"
+                )
+
+                # Create tasks
+                for task_data in extracted_tasks:
+                    try:
+                        created_at = datetime.now(
+                            timezone.utc
+                        )
+                        task = task_repository.create(
+                            content=task_data["content"],
+                            source_note_id=note_id,
+                            created_at=created_at,
+                            updated_at=created_at,
+                        )
+                        session.add(task)
+                        task_stats["tasks_created"] += 1
+                        logger.debug(
+                            f"Created task from note {note_id}: "
+                            f"{task_data['content'][:50]}..."
+                        )
+                    except Exception as e:
+                        logger.error(
+                            f"Failed to create task from note {note_id}: "
+                            f"{str(e)}"
+                        )
+                        continue
+
+                session.commit()
+                logger.info(
+                    f"Successfully created {task_stats['tasks_created']} "
+                    f"tasks from note {note_id}"
+                )
+            else:
+                logger.info(
+                    f"No tasks found in note {note_id}"
+                )
+
+        except Exception as e:
+            logger.error(
+                f"Task extraction failed for note {note_id}: {str(e)}"
+            )
+            # Task extraction failure is logged but doesn't affect note status
+
+        # Update task extraction stats in note's enrichment data
+        note.enrichment_data.update(
+            {
+                "task_extraction_stats": task_stats,
+                "task_extraction_completed_at": datetime.now(
+                    timezone.utc
+                ).isoformat(),
+            }
+        )
+        session.add(note)
+        session.commit()
+
     except Exception as e:
         if not isinstance(
             e, (ValueError, RoboServiceError)
         ):
             logger.error(
                 f"Error in process_note_job for note {note_id}: {str(e)}",
-                exc_info=True,  # Include stack trace
+                exc_info=True,
             )
         raise
 
@@ -193,6 +279,7 @@ def process_note_job(
         duration = (
             datetime.now(timezone.utc) - start_time
         ).total_seconds()
+        task_stats["processing_time"] = duration
         logger.info(
-            f"Note {note_id} processing completed in {duration}s"
+            f"Note {note_id} job completed in {duration}s"
         )
