@@ -239,6 +239,64 @@ class OpenAIService(RoboService):
             max_wait_seconds=60,  # Default to 60s max wait
         )
 
+    def _get_datetime_context(self) -> str:
+        """Generate current datetime context for LLM.
+
+        Returns:
+            str: Formatted datetime context
+        """
+        now = datetime.now(UTC)
+        return (
+            f"Current datetime: {now.isoformat()}\n"
+            f"Day: {now.strftime('%A')}\n"
+            f"Date: {now.strftime('%Y-%m-%d')}\n"
+            f"Time: {now.strftime('%H:%M:%S')} UTC\n"
+            "Use this information for any time-sensitive decisions."
+        )
+
+    def _prepare_messages(
+        self,
+        content: str,
+        system_prompt: Optional[str] = None,
+    ) -> List[Dict[str, str]]:
+        """Prepare messages for OpenAI API with datetime context.
+
+        Args:
+            content: The main content/prompt
+            system_prompt: Optional system-level prompt
+
+        Returns:
+            List of message dictionaries
+        """
+        messages = []
+
+        # Add datetime context first
+        messages.append(
+            {
+                "role": "system",
+                "content": self._get_datetime_context(),
+            }
+        )
+
+        # Add system prompt if provided
+        if system_prompt:
+            messages.append(
+                {
+                    "role": "system",
+                    "content": system_prompt,
+                }
+            )
+
+        # Add user content
+        messages.append(
+            {
+                "role": "user",
+                "content": content,
+            }
+        )
+
+        return messages
+
     def _estimate_tokens(
         self, text: str, buffer: int = 100
     ) -> int:
@@ -305,11 +363,11 @@ class OpenAIService(RoboService):
                 return self._enrich_note(text)
 
             # Default text processing
+            messages = self._prepare_messages(content=text)
+
             response = self.client.chat.completions.create(
                 model=self.config.model_name,
-                messages=[
-                    {"role": "user", "content": text},
-                ],
+                messages=messages,
                 temperature=self.config.temperature,
                 max_tokens=self.config.max_tokens or 150,
                 timeout=self.config.timeout_seconds,
@@ -461,15 +519,15 @@ class OpenAIService(RoboService):
                     "Failed to acquire capacity after retries"
                 )
 
+            # Prepare messages with datetime context
+            messages = self._prepare_messages(
+                content=content,
+                system_prompt=self.config.note_enrichment_prompt,
+            )
+
             response = self.client.chat.completions.create(
                 model=self.config.model_name,
-                messages=[
-                    {
-                        "role": "system",
-                        "content": self.config.note_enrichment_prompt,
-                    },
-                    {"role": "user", "content": content},
-                ],
+                messages=messages,
                 tools=[
                     {
                         "type": "function",
@@ -853,14 +911,11 @@ class OpenAIService(RoboService):
             ValidationError: If response validation fails
         """
         try:
-            # Use task extraction prompt from config
-            prompt = self.config.task_extraction_prompt
-
-            # Prepare messages for chat completion
-            messages = [
-                {"role": "system", "content": prompt},
-                {"role": "user", "content": content},
-            ]
+            # Prepare messages with datetime context
+            messages = self._prepare_messages(
+                content=content,
+                system_prompt=self.config.task_extraction_prompt,
+            )
 
             # Call OpenAI with function definition
             response = self.client.chat.completions.create(

@@ -11,7 +11,7 @@ from repositories.ActivityRepository import (
 from infrastructure.queue.activity_worker import (
     process_activity_job,
 )
-from domain.exceptions import RoboAPIError
+from domain.exceptions import RoboAPIError, RoboServiceError
 from domain.values import ProcessingStatus
 
 
@@ -130,10 +130,16 @@ def test_activity_schema_failure(
     )
 
     # Process activity
-    process_activity_job(
-        activity.id,
-        session=test_db_session,
-        robo_service=robo_service,
+    with pytest.raises(RoboServiceError) as exc_info:
+        process_activity_job(
+            activity.id,
+            session=test_db_session,
+            robo_service=robo_service,
+        )
+
+    assert (
+        "Failed to process activity 1: Test processing failure"
+        in str(exc_info.value)
     )
 
     # Refresh session to see worker's changes

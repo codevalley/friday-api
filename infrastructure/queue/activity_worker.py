@@ -1,22 +1,22 @@
 """Worker for processing activity schemas."""
 
+import time
 import logging
 from datetime import datetime, UTC
-from typing import Optional
-from sqlalchemy.orm import Session
 
+from domain.values import ProcessingStatus
+from domain.exceptions import RoboAPIError, RoboServiceError
+from orm.ActivityModel import Activity
 from configs.Database import SessionLocal
 from services.robo import get_robo_service
-from domain.exceptions import RoboAPIError
-from domain.values import ProcessingStatus
-from domain.robo import RoboService
-import orm.UserModel  # noqa: F401 Required for SQLAlchemy model registry
-import orm.TopicModel  # noqa: F401 Required for SQLAlchemy model registry
-import orm.NoteModel  # noqa: F401 Required for SQLAlchemy model registry
-import orm.MomentModel  # noqa: F401 Required for SQLAlchemy model registry
-import orm.TaskModel  # noqa: F401 Required for SQLAlchemy model registry
-import orm.ActivityModel  # noqa: F401 Required for SQLAlchemy model registry
-from orm.ActivityModel import Activity
+
+# Required for SQLAlchemy model registry
+import orm.UserModel  # noqa: F401
+import orm.TopicModel  # noqa: F401
+import orm.NoteModel  # noqa: F401
+import orm.MomentModel  # noqa: F401
+import orm.TaskModel  # noqa: F401
+import orm.ActivityModel  # noqa: F401
 
 logger = logging.getLogger(__name__)
 # Reduce SQLAlchemy logging
@@ -27,30 +27,40 @@ logging.getLogger("sqlalchemy.engine").setLevel(
 
 def process_activity_job(
     activity_id: int,
-    session: Optional[Session] = None,
-    robo_service: Optional[RoboService] = None,
+    session=None,
+    robo_service=None,
     max_retries: int = 3,
 ) -> None:
-    """Process an activity's schema for rendering suggestions.
+    """Process an activity job.
 
     Args:
         activity_id: ID of the activity to process
         session: Optional database session
-        robo_service: Optional RoboService instance
-        max_retries: Maximum number of retries for RoboAPI errors
+        robo_service: Optional service for processing activities (for testing)
+        max_retries: Maximum number of retries for processing errors
+
+    Raises:
+        ValueError: If activity not found
+        RoboAPIError: If processing fails with API error
+        RoboServiceError: If processing fails with other errors
     """
+    start_time = time.time()
     logger.info(
         f"Starting to process activity {activity_id}"
     )
-    session_provided = session is not None
-    start_time = datetime.now(UTC)
-    attempts = 0
 
+    # Create robo_service instance if not provided
+    if robo_service is None:
+        robo_service = get_robo_service()
+
+    # Create session if not provided
+    session_created = False
+    if session is None:
+        session = SessionLocal()
+        session_created = True
+
+    activity = None
     try:
-        # Create session if not provided
-        if not session:
-            session = SessionLocal()
-
         # Get activity
         activity = (
             session.query(Activity)
@@ -58,100 +68,81 @@ def process_activity_job(
             .first()
         )
 
-        if not activity:
-            logger.error(
-                f"Activity {activity_id} not found"
+        if activity is None:
+            raise ValueError(
+                f"Failed to process activity {activity_id}"
             )
-            return
 
-        # Update status to PROCESSING
-        activity.processing_status = (
-            ProcessingStatus.PROCESSING
-        )
-        activity.updated_at = datetime.now(UTC)
-        session.add(activity)
-        session.commit()
-        logger.info(
-            f"Activity {activity_id} status set to PROCESSING"
-        )
-
-        # Create RoboService if not provided
-        if not robo_service:
-            robo_service = get_robo_service()
-
-        while attempts < max_retries:
+        # Process activity schema
+        retries = 0
+        while retries < max_retries:
             try:
-                attempts += 1
-                logger.info(
-                    f"Analyzing schema for activity {activity_id} "
-                    f"(attempt {attempts})"
-                )
-                render_suggestion = (
+                schema_render = (
                     robo_service.analyze_activity_schema(
                         activity.activity_schema
                     )
                 )
-
-                # Update activity with results
-                activity.schema_render = render_suggestion
+                activity.schema_render = schema_render
                 activity.processing_status = (
                     ProcessingStatus.COMPLETED
                 )
                 activity.processed_at = datetime.now(UTC)
-                activity.updated_at = datetime.now(UTC)
                 session.add(activity)
                 session.commit()
-                logger.info(
-                    f"Activity {activity_id} processing completed successfully"
-                )
-                return
-
+                break
             except RoboAPIError as e:
+                retries += 1
                 logger.error(
-                    f"RoboAPI error processing activity {activity_id} "
-                    f"(attempt {attempts}): {str(e)}"
+                    f"Error processing activity {activity_id} "
+                    f"(attempt {retries}): {str(e)}"
                 )
-                if attempts >= max_retries:
-                    raise
+                if retries < max_retries:
+                    time.sleep(
+                        2**retries
+                    )  # Exponential backoff
+                else:
+                    activity.processing_status = (
+                        ProcessingStatus.FAILED
+                    )
+                    session.add(activity)
+                    session.commit()
+                    raise RoboServiceError(
+                        f"Failed to process activity {activity_id}: {str(e)}"
+                    )
+            except Exception as e:
+                retries += 1
+                logger.error(
+                    f"Error processing activity {activity_id} "
+                    f"(attempt {retries}): {str(e)}"
+                )
+                if retries < max_retries:
+                    time.sleep(
+                        2**retries
+                    )  # Exponential backoff
+                else:
+                    activity.processing_status = (
+                        ProcessingStatus.FAILED
+                    )
+                    session.add(activity)
+                    session.commit()
+                    raise RoboServiceError(
+                        f"Failed to process activity {activity_id}"
+                    ) from e
 
-        # If we get here, all retries failed
-        activity.processing_status = ProcessingStatus.FAILED
-        activity.updated_at = datetime.now(UTC)
-        session.add(activity)
-        session.commit()
-
-    except RoboAPIError as e:
-        logger.error(
-            f"RoboAPI error processing activity {activity_id} "
-            f"after {attempts} attempts: {str(e)}"
-        )
-        if activity:
-            activity.processing_status = (
-                ProcessingStatus.FAILED
-            )
-            activity.updated_at = datetime.now(UTC)
-            session.add(activity)
-            session.commit()
     except Exception as e:
-        logger.error(
-            f"Error processing activity {activity_id}: {str(e)}",
-            exc_info=True,
-        )
-        if activity:
+        if activity is not None:
             activity.processing_status = (
                 ProcessingStatus.FAILED
             )
-            activity.updated_at = datetime.now(UTC)
             session.add(activity)
             session.commit()
+        raise e
+
     finally:
-        # Only close the session if we created it
-        if not session_provided and session:
+        if session_created:
             session.close()
 
-        duration = (
-            datetime.now(UTC) - start_time
-        ).total_seconds()
+        duration = time.time() - start_time
         logger.info(
             f"Activity {activity_id} processing finished in {duration:.2f}s"
         )

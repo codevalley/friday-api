@@ -190,18 +190,21 @@ class TestOpenAIService:
         }
 
         # Verify OpenAI API was called correctly
-        mock_openai.chat.completions.create.assert_called_once_with(
-            model="gpt-4",
-            messages=[
-                {
-                    "role": "user",
-                    "content": "Test content",
-                }
-            ],
-            max_tokens=150,
-            temperature=0.7,
-            timeout=30,
+        call_args = (
+            mock_openai.chat.completions.create.call_args[1]
         )
+        assert call_args["model"] == "gpt-4"
+        assert call_args["max_tokens"] == 150
+        assert call_args["temperature"] == 0.7
+        assert call_args["timeout"] == 30
+
+        # Verify messages structure
+        messages = call_args["messages"]
+        assert len(messages) == 2
+        assert messages[0]["role"] == "system"
+        assert "Current datetime:" in messages[0]["content"]
+        assert messages[1]["role"] == "user"
+        assert messages[1]["content"] == "Test content"
 
     def test_rate_limit_failure(
         self, robo_config, mock_openai
@@ -641,3 +644,75 @@ class TestOpenAIService:
             assert result[0]["content"] == "Task 1"
             assert result[1]["content"] == "Task 2"
             assert result[2]["content"] == "Task 3"
+
+    def test_get_datetime_context(self, openai_service):
+        """Test datetime context generation."""
+        context = openai_service._get_datetime_context()
+
+        # Verify all required components are present
+        assert "Current datetime:" in context
+        assert "Day:" in context
+        assert "Date:" in context
+        assert "Time:" in context
+        assert "UTC" in context
+
+    def test_prepare_messages_with_system_prompt(
+        self, openai_service
+    ):
+        """Test message preparation with system prompt."""
+        messages = openai_service._prepare_messages(
+            content="test content",
+            system_prompt="test system prompt",
+        )
+
+        assert (
+            len(messages) == 3
+        )  # datetime context + system prompt + user content
+        assert messages[0]["role"] == "system"
+        assert "Current datetime:" in messages[0]["content"]
+        assert messages[1]["role"] == "system"
+        assert (
+            messages[1]["content"] == "test system prompt"
+        )
+        assert messages[2]["role"] == "user"
+        assert messages[2]["content"] == "test content"
+
+    def test_prepare_messages_without_system_prompt(
+        self, openai_service
+    ):
+        """Test message preparation without system prompt."""
+        messages = openai_service._prepare_messages(
+            content="test content"
+        )
+
+        assert (
+            len(messages) == 2
+        )  # datetime context + user content
+        assert messages[0]["role"] == "system"
+        assert "Current datetime:" in messages[0]["content"]
+        assert messages[1]["role"] == "user"
+        assert messages[1]["content"] == "test content"
+
+    @patch("services.OpenAIService.datetime")
+    def test_datetime_context_in_api_calls(
+        self, mock_datetime, openai_service, mock_openai
+    ):
+        """Test that datetime context is included in API calls."""
+        # Mock datetime to have a fixed value
+        mock_now = datetime(2024, 1, 1, 12, 0, tzinfo=UTC)
+        mock_datetime.now.return_value = mock_now
+
+        # Test process_text
+        openai_service.process_text("test content")
+
+        # Verify datetime context was included in the API call
+        actual_messages = (
+            mock_openai.chat.completions.create.call_args[
+                1
+            ]["messages"]
+        )
+        assert any(
+            msg["role"] == "system"
+            and "2024-01-01" in msg["content"]
+            for msg in actual_messages
+        )
