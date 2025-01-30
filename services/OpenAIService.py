@@ -184,7 +184,26 @@ EXTRACT_TASKS_FUNCTION = {
                         "content": {
                             "type": "string",
                             "description": "The task description",
-                        }
+                        },
+                        "priority": {
+                            "type": "string",
+                            "enum": [
+                                "urgent",
+                                "high",
+                                "medium",
+                                "low",
+                            ],
+                            "description": "Task priority level",
+                        },
+                        "status": {
+                            "type": "string",
+                            "enum": [
+                                "todo",
+                                "in_progress",
+                                "done",
+                            ],
+                            "description": "Task status",
+                        },
                     },
                     "required": ["content"],
                 },

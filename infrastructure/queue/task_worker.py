@@ -28,6 +28,8 @@ def create_task(
     content: str,
     user_id: int,
     source_note_id: Optional[int] = None,
+    priority: str = "medium",
+    status: str = "todo",
     session: Optional[Session] = None,
     max_retries: int = 3,
 ) -> int:
@@ -37,6 +39,8 @@ def create_task(
         content: Task content
         user_id: ID of the task owner
         source_note_id: Optional ID of source note
+        priority: Task priority (urgent/high/medium/low)
+        status: Task status (todo/in_progress/done)
         session: Optional database session
         max_retries: Maximum number of retries
 
@@ -63,8 +67,8 @@ def create_task(
                 "note_id": source_note_id,
                 "created_at": created_at,
                 "updated_at": created_at,
-                "status": "TODO",
-                "priority": "MEDIUM",
+                "status": status.upper(),
+                "priority": priority.upper(),
                 "processing_status": ProcessingStatus.PENDING,
             }
         )

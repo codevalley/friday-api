@@ -222,6 +222,12 @@ def process_note_job(
                             content=task_data["content"],
                             user_id=note.user_id,
                             source_note_id=note_id,
+                            priority=task_data.get(
+                                "priority", "medium"
+                            ),
+                            status=task_data.get(
+                                "status", "todo"
+                            ),
                             session=session,
                             max_retries=max_retries,
                         )

@@ -59,8 +59,16 @@ def mock_robo_service():
 
     # Mock extract_tasks response
     service.extract_tasks.return_value = [
-        {"content": "Task 1"},
-        {"content": "Task 2"},
+        {
+            "content": "Task 1",
+            "priority": "high",
+            "status": "todo",
+        },
+        {
+            "content": "Task 2",
+            "priority": "medium",
+            "status": "todo",
+        },
     ]
 
     # Mock config
@@ -125,14 +133,18 @@ def test_process_note_success(
     mock_create_task.assert_any_call(
         content="Task 1",
         user_id=mock_note.user_id,
-        note_id=1,
+        source_note_id=1,
+        priority="high",
+        status="todo",
         session=mock_session,
         max_retries=3,
     )
     mock_create_task.assert_any_call(
         content="Task 2",
         user_id=mock_note.user_id,
-        note_id=1,
+        source_note_id=1,
+        priority="medium",
+        status="todo",
         session=mock_session,
         max_retries=3,
     )
@@ -215,14 +227,18 @@ def test_process_note_with_tasks(
     mock_create_task.assert_any_call(
         content="Task 1",
         user_id=mock_note.user_id,
-        note_id=1,
+        source_note_id=1,
+        priority="high",
+        status="todo",
         session=mock_session,
         max_retries=3,
     )
     mock_create_task.assert_any_call(
         content="Task 2",
         user_id=mock_note.user_id,
-        note_id=1,
+        source_note_id=1,
+        priority="medium",
+        status="todo",
         session=mock_session,
         max_retries=3,
     )
