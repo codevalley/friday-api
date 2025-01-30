@@ -199,8 +199,12 @@ def test_storage_error_handling(
     user_dir = os.path.join(storage_dir, "user456")
     os.makedirs(user_dir, exist_ok=True)
 
-    # Make user directory read-only
-    os.chmod(user_dir, 0o444)
+    # Create a file and make it read-only
+    # This works on both Windows and Unix
+    test_file = os.path.join(user_dir, "test123")
+    with open(test_file, "wb") as f:
+        f.write(b"existing")
+    os.chmod(test_file, 0o444)
 
     try:
         with pytest.raises(StorageError):
@@ -212,7 +216,8 @@ def test_storage_error_handling(
             )
     finally:
         # Restore permissions for cleanup
-        os.chmod(user_dir, 0o755)
+        os.chmod(test_file, 0o644)
+        os.remove(test_file)
 
 
 def test_public_file_access(storage_service):

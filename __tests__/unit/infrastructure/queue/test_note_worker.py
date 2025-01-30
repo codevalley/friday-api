@@ -24,14 +24,6 @@ def mock_note_repo():
 
 
 @pytest.fixture
-def mock_task_repo():
-    """Create a mock task repository."""
-    repo = MagicMock()
-    repo.create.return_value = Mock()
-    return repo
-
-
-@pytest.fixture
 def mock_note():
     """Create a mock note."""
     note = MagicMock()
@@ -39,6 +31,7 @@ def mock_note():
     note.related_notes = []
     note.topics = []
     note.enrichment_data = {}
+    note.user_id = 123
     return note
 
 
@@ -88,7 +81,9 @@ def mock_robo_service():
 @patch("infrastructure.queue.note_worker.NoteRepository")
 @patch("infrastructure.queue.note_worker.get_robo_service")
 @patch("infrastructure.queue.note_worker.SessionLocal")
+@patch("infrastructure.queue.note_worker.create_task")
 def test_process_note_success(
+    mock_create_task,
     mock_session_local,
     mock_get_robo_service,
     mock_note_repo_class,
@@ -96,7 +91,6 @@ def test_process_note_success(
     mock_note_repo,
     mock_note,
     mock_robo_service,
-    mock_task_repo,
 ):
     """Test successful note processing."""
     # Setup
@@ -104,6 +98,7 @@ def test_process_note_success(
     mock_note_repo_class.return_value = mock_note_repo
     mock_get_robo_service.return_value = mock_robo_service
     mock_note_repo.get_by_id.return_value = mock_note
+    mock_create_task.side_effect = [1, 2]  # Return task IDs
 
     # Execute
     process_note_job(
@@ -111,7 +106,6 @@ def test_process_note_success(
         session=mock_session,
         robo_service=mock_robo_service,
         note_repository=mock_note_repo,
-        task_repository=mock_task_repo,
     )
 
     # Verify note processing
@@ -124,6 +118,23 @@ def test_process_note_success(
     # Verify task extraction was attempted
     mock_robo_service.extract_tasks.assert_called_once_with(
         mock_note.content
+    )
+
+    # Verify task creation was called
+    assert mock_create_task.call_count == 2
+    mock_create_task.assert_any_call(
+        content="Task 1",
+        user_id=mock_note.user_id,
+        source_note_id=1,
+        session=mock_session,
+        max_retries=3,
+    )
+    mock_create_task.assert_any_call(
+        content="Task 2",
+        user_id=mock_note.user_id,
+        source_note_id=1,
+        session=mock_session,
+        max_retries=3,
     )
 
     # Verify enrichment data
@@ -172,7 +183,9 @@ def test_process_note_success(
 @patch("infrastructure.queue.note_worker.NoteRepository")
 @patch("infrastructure.queue.note_worker.get_robo_service")
 @patch("infrastructure.queue.note_worker.SessionLocal")
+@patch("infrastructure.queue.note_worker.create_task")
 def test_process_note_with_tasks(
+    mock_create_task,
     mock_session_local,
     mock_get_robo_service,
     mock_note_repo_class,
@@ -180,7 +193,6 @@ def test_process_note_with_tasks(
     mock_note_repo,
     mock_note,
     mock_robo_service,
-    mock_task_repo,
 ):
     """Test note processing with task extraction."""
     # Setup
@@ -188,12 +200,7 @@ def test_process_note_with_tasks(
     mock_note_repo_class.return_value = mock_note_repo
     mock_get_robo_service.return_value = mock_robo_service
     mock_note_repo.get_by_id.return_value = mock_note
-
-    # Mock tasks being found
-    mock_robo_service.extract_tasks.return_value = [
-        {"content": "Task 1"},
-        {"content": "Task 2"},
-    ]
+    mock_create_task.side_effect = [1, 2]  # Return task IDs
 
     # Execute
     process_note_job(
@@ -201,11 +208,26 @@ def test_process_note_with_tasks(
         session=mock_session,
         robo_service=mock_robo_service,
         note_repository=mock_note_repo,
-        task_repository=mock_task_repo,
     )
 
-    # Verify tasks were created
-    assert mock_task_repo.create.call_count == 2
+    # Verify task creation
+    assert mock_create_task.call_count == 2
+    mock_create_task.assert_any_call(
+        content="Task 1",
+        user_id=mock_note.user_id,
+        source_note_id=1,
+        session=mock_session,
+        max_retries=3,
+    )
+    mock_create_task.assert_any_call(
+        content="Task 2",
+        user_id=mock_note.user_id,
+        source_note_id=1,
+        session=mock_session,
+        max_retries=3,
+    )
+
+    # Verify task stats
     assert (
         mock_note.enrichment_data["task_extraction_stats"][
             "tasks_found"
@@ -223,7 +245,9 @@ def test_process_note_with_tasks(
 @patch("infrastructure.queue.note_worker.NoteRepository")
 @patch("infrastructure.queue.note_worker.get_robo_service")
 @patch("infrastructure.queue.note_worker.SessionLocal")
+@patch("infrastructure.queue.note_worker.create_task")
 def test_process_note_task_extraction_failure(
+    mock_create_task,
     mock_session_local,
     mock_get_robo_service,
     mock_note_repo_class,
@@ -231,7 +255,6 @@ def test_process_note_task_extraction_failure(
     mock_note_repo,
     mock_note,
     mock_robo_service,
-    mock_task_repo,
 ):
     """Test note processing succeeds even when task extraction fails."""
     # Setup
@@ -240,7 +263,7 @@ def test_process_note_task_extraction_failure(
     mock_get_robo_service.return_value = mock_robo_service
     mock_note_repo.get_by_id.return_value = mock_note
 
-    # Mock task extraction failing
+    # Mock task extraction failure
     mock_robo_service.extract_tasks.side_effect = Exception(
         "Task extraction failed"
     )
@@ -251,13 +274,20 @@ def test_process_note_task_extraction_failure(
         session=mock_session,
         robo_service=mock_robo_service,
         note_repository=mock_note_repo,
-        task_repository=mock_task_repo,
     )
 
-    # Verify note was still processed successfully
+    # Verify note processing completed despite task extraction failure
     assert (
         mock_note.processing_status
         == ProcessingStatus.COMPLETED
+    )
+
+    # Verify task extraction stats reflect failure
+    assert (
+        mock_note.enrichment_data["task_extraction_stats"][
+            "error"
+        ]
+        == "Task extraction failed"
     )
     assert (
         mock_note.enrichment_data["task_extraction_stats"][

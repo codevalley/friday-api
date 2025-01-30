@@ -10,10 +10,10 @@ from domain.values import ProcessingStatus
 from domain.exceptions import RoboServiceError
 from domain.robo import RoboService
 from repositories.NoteRepository import NoteRepository
-from repositories.TaskRepository import TaskRepository
 from services.robo import get_robo_service
 from utils.retry import calculate_backoff
 from configs.Database import SessionLocal
+from infrastructure.queue.task_worker import create_task
 import orm.UserModel  # noqa: F401 Required for SQLAlchemy model registry
 import orm.TopicModel  # noqa: F401 Required for SQLAlchemy model registry
 import orm.NoteModel  # noqa: F401 Required for SQLAlchemy model registry
@@ -29,7 +29,6 @@ def process_note_job(
     session: Optional[Session] = None,
     robo_service: Optional[RoboService] = None,
     note_repository: Optional[NoteRepository] = None,
-    task_repository: Optional[TaskRepository] = None,
     max_retries: int = 3,
 ) -> None:
     """Process a note using RoboService.
@@ -39,7 +38,6 @@ def process_note_job(
         session: Optional database session
         robo_service: Optional RoboService instance
         note_repository: Optional note repository
-        task_repository: Optional task repository
         max_retries: Maximum number of retries
 
     Raises:
@@ -66,10 +64,6 @@ def process_note_job(
         if not note_repository:
             logger.debug("Creating new note repository")
             note_repository = NoteRepository(session)
-
-        if not task_repository:
-            logger.debug("Creating new task repository")
-            task_repository = TaskRepository(session)
 
         # Get note
         logger.debug(
@@ -210,30 +204,27 @@ def process_note_job(
                     f"tasks in note {note_id}"
                 )
                 logger.debug(
-                    "Extracted tasks: " + 
-                    ", ".join(f"'{t['content'][:50]}...'" 
+                    "Extracted tasks: " +
+                    ", ".join(f"'{t['content'][:50]}...'"
                              for t in extracted_tasks)
                 )
 
                 # Create tasks
                 for task_data in extracted_tasks:
                     try:
-                        created_at = datetime.now(
-                            timezone.utc
-                        )
                         logger.debug(
                             f"Creating task with content: {task_data['content']}"
                         )
-                        task = task_repository.create(
+                        task_id = create_task(
                             content=task_data["content"],
+                            user_id=note.user_id,
                             source_note_id=note_id,
-                            created_at=created_at,
-                            updated_at=created_at,
+                            session=session,
+                            max_retries=max_retries,
                         )
-                        session.add(task)
                         task_stats["tasks_created"] += 1
                         logger.info(
-                            f"Created task {task.id} from note {note_id}: "
+                            f"Created task {task_id} from note {note_id}: "
                             f"{task_data['content'][:50]}..."
                         )
                     except Exception as e:
@@ -259,7 +250,11 @@ def process_note_job(
             logger.error(
                 f"Task extraction failed for note {note_id}: {str(e)}"
             )
-            # Task extraction failure is logged but doesn't affect note status
+            task_stats.update({
+                "error": str(e),
+                "tasks_found": 0,
+                "tasks_created": 0
+            })
 
         # Update task extraction stats in note's enrichment data
         note.enrichment_data.update(

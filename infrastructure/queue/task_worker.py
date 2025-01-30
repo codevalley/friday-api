@@ -24,6 +24,66 @@ import orm.ActivityModel  # noqa: F401 Required for SQLAlchemy model registry
 logger = logging.getLogger(__name__)
 
 
+def create_task(
+    content: str,
+    user_id: int,
+    source_note_id: Optional[int] = None,
+    session: Optional[Session] = None,
+    max_retries: int = 3,
+) -> int:
+    """Create a new task and enqueue it for enrichment.
+
+    Args:
+        content: Task content
+        user_id: ID of the task owner
+        source_note_id: Optional ID of source note
+        session: Optional database session
+        max_retries: Maximum number of retries
+
+    Returns:
+        ID of the created task
+
+    Raises:
+        TaskValidationError: If task creation fails
+    """
+    session_provided = session is not None
+    try:
+        if not session:
+            session = SessionLocal()
+
+        # Create task repository
+        task_repository = TaskRepository(session)
+
+        # Create task with basic attributes
+        created_at = datetime.now(timezone.utc)
+        task = task_repository.create({
+            "content": content,
+            "user_id": user_id,
+            "source_note_id": source_note_id,
+            "created_at": created_at,
+            "updated_at": created_at,
+            "status": "TODO",
+            "priority": "MEDIUM",
+            "processing_status": ProcessingStatus.PENDING,
+        })
+
+        session.add(task)
+        session.commit()
+
+        # Enqueue task for enrichment
+        process_task_job(
+            task.id,
+            session=session,
+            max_retries=max_retries,
+        )
+
+        return task.id
+
+    finally:
+        if not session_provided and session:
+            session.close()
+
+
 def process_task_job(
     task_id: int,
     session: Optional[Session] = None,

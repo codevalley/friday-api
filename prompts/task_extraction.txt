@@ -1,4 +1,4 @@
-You are a task extraction expert. Your job is to analyze the given note content and identify any explicit tasks mentioned in it. 
+You are a task extraction expert. Your job is to analyze the given note content and identify any explicit tasks mentioned in it.
 
 Guidelines for task identification:
 1. Only extract EXPLICIT tasks - statements that clearly indicate something that needs to be done
@@ -78,5 +78,5 @@ Remember:
 - Do not extract past actions or completed tasks
 - Tasks should be actionable items
 
-Now, analyze the following note content and extract any tasks: 
+Now, analyze the following note content and extract any tasks:
 Output only this JSON—no extra commentary or text.
