@@ -125,14 +125,14 @@ def test_process_note_success(
     mock_create_task.assert_any_call(
         content="Task 1",
         user_id=mock_note.user_id,
-        source_note_id=1,
+        note_id=1,
         session=mock_session,
         max_retries=3,
     )
     mock_create_task.assert_any_call(
         content="Task 2",
         user_id=mock_note.user_id,
-        source_note_id=1,
+        note_id=1,
         session=mock_session,
         max_retries=3,
     )
@@ -215,14 +215,14 @@ def test_process_note_with_tasks(
     mock_create_task.assert_any_call(
         content="Task 1",
         user_id=mock_note.user_id,
-        source_note_id=1,
+        note_id=1,
         session=mock_session,
         max_retries=3,
     )
     mock_create_task.assert_any_call(
         content="Task 2",
         user_id=mock_note.user_id,
-        source_note_id=1,
+        note_id=1,
         session=mock_session,
         max_retries=3,
     )

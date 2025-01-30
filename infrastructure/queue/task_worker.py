@@ -60,7 +60,7 @@ def create_task(
             {
                 "content": content,
                 "user_id": user_id,
-                "source_note_id": source_note_id,
+                "note_id": source_note_id,
                 "created_at": created_at,
                 "updated_at": created_at,
                 "status": "TODO",
