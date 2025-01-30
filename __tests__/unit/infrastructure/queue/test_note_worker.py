@@ -159,13 +159,13 @@ def test_process_note_success(
         mock_note.enrichment_data["task_extraction_stats"][
             "tasks_found"
         ]
-        == 0
+        == 2
     )
     assert (
         mock_note.enrichment_data["task_extraction_stats"][
             "tasks_created"
         ]
-        == 0
+        == 2
     )
 
 
