@@ -204,6 +204,13 @@ EXTRACT_TASKS_FUNCTION = {
                             ],
                             "description": "Task status",
                         },
+                        "due_date": {
+                            "type": "string",
+                            "description": (
+                                "Due date in ISO format (YYYY-MM-DD) "
+                                "if mentioned in the task"
+                            ),
+                        },
                     },
                     "required": ["content"],
                 },

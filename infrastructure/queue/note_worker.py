@@ -228,6 +228,9 @@ def process_note_job(
                             status=task_data.get(
                                 "status", "todo"
                             ),
+                            due_date=task_data.get(
+                                "due_date"
+                            ),
                             session=session,
                             max_retries=max_retries,
                         )

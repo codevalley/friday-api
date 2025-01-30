@@ -136,6 +136,7 @@ def test_process_note_success(
         source_note_id=1,
         priority="high",
         status="todo",
+        due_date=None,
         session=mock_session,
         max_retries=3,
     )
@@ -145,6 +146,7 @@ def test_process_note_success(
         source_note_id=1,
         priority="medium",
         status="todo",
+        due_date=None,
         session=mock_session,
         max_retries=3,
     )
@@ -230,6 +232,7 @@ def test_process_note_with_tasks(
         source_note_id=1,
         priority="high",
         status="todo",
+        due_date=None,
         session=mock_session,
         max_retries=3,
     )
@@ -239,6 +242,7 @@ def test_process_note_with_tasks(
         source_note_id=1,
         priority="medium",
         status="todo",
+        due_date=None,
         session=mock_session,
         max_retries=3,
     )
