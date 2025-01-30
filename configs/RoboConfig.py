@@ -98,6 +98,14 @@ class RoboConfig(BaseModel):
             env.ROBO_ACTIVITY_SCHEMA_PROMPT,
             "activity_schema.txt",
         )
+        task_extraction_prompt = get_prompt_from_env(
+            env.ROBO_TASK_EXTRACTION_PROMPT,
+            "task_extraction.txt",
+        )
+        task_enrichment_prompt = get_prompt_from_env(
+            env.ROBO_TASK_ENRICHMENT_PROMPT,
+            "task_enrichment.txt",
+        )
 
         return cls(
             api_key=env.ROBO_API_KEY,
@@ -109,31 +117,8 @@ class RoboConfig(BaseModel):
             max_tokens=env.ROBO_MAX_TOKENS,
             note_enrichment_prompt=note_enrichment_prompt,
             activity_schema_prompt=activity_schema_prompt,
-            task_enrichment_prompt=getattr(
-                env,
-                "ROBO_TASK_ENRICHMENT_PROMPT",
-                (
-                    "You are a task processing assistant. Your task is to:\n"
-                    "1. Extract a descriptive title (<50 chars)\n"
-                    "2. Format the content in clean markdown\n"
-                    "3. Suggest a priority (high/medium/low)\n"
-                    "4. Extract any mentioned due dates (ISO format)\n"
-                    "5. Keep the content clear and actionable"
-                ),
-            ),
-            task_extraction_prompt=getattr(
-                env,
-                "ROBO_TASK_EXTRACTION_PROMPT",
-                (
-                    "You are a task extraction assistant. Your task is to:\n"
-                    "1. Analyze the given note content\n"
-                    "2. Identify and extract any tasks or action items\n"
-                    "3. Extract only the essential task description\n"
-                    "4. Return tasks in a clear, actionable format\n"
-                    "5. Exclude any non-task content or context\n"
-                    "Note: Task is any actionable item that needs completion"
-                ),
-            ),
+            task_extraction_prompt=task_extraction_prompt,
+            task_enrichment_prompt=task_enrichment_prompt,
         )
 
 

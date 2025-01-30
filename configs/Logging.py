@@ -62,6 +62,12 @@ def configure_logging(is_test: bool = False) -> None:
     Args:
         is_test: Whether the application is running in test mode
     """
+    # Configure SQLAlchemy logging
+    logging.getLogger('sqlalchemy.engine').setLevel(logging.WARNING)
+    logging.getLogger('sqlalchemy.pool').setLevel(logging.WARNING)
+    logging.getLogger('sqlalchemy.dialects').setLevel(logging.WARNING)
+    logging.getLogger('sqlalchemy.orm').setLevel(logging.WARNING)
+
     if is_test:
         # Simple configuration for tests
         config = {

@@ -196,6 +196,9 @@ def process_note_job(
             logger.info(
                 f"Starting task extraction for note {note_id}"
             )
+            logger.debug(
+                f"Analyzing note content for tasks: {note.content[:200]}..."
+            )
             extracted_tasks = robo_service.extract_tasks(
                 note.content
             )
@@ -206,12 +209,20 @@ def process_note_job(
                     f"Found {task_stats['tasks_found']} "
                     f"tasks in note {note_id}"
                 )
+                logger.debug(
+                    "Extracted tasks: " + 
+                    ", ".join(f"'{t['content'][:50]}...'" 
+                             for t in extracted_tasks)
+                )
 
                 # Create tasks
                 for task_data in extracted_tasks:
                     try:
                         created_at = datetime.now(
                             timezone.utc
+                        )
+                        logger.debug(
+                            f"Creating task with content: {task_data['content']}"
                         )
                         task = task_repository.create(
                             content=task_data["content"],
@@ -221,13 +232,14 @@ def process_note_job(
                         )
                         session.add(task)
                         task_stats["tasks_created"] += 1
-                        logger.debug(
-                            f"Created task from note {note_id}: "
+                        logger.info(
+                            f"Created task {task.id} from note {note_id}: "
                             f"{task_data['content'][:50]}..."
                         )
                     except Exception as e:
                         logger.error(
-                            f"Failed to create task from note {note_id}: "
+                            f"Failed to create task from note {note_id} "
+                            f"with content '{task_data['content'][:50]}...': "
                             f"{str(e)}"
                         )
                         continue
@@ -239,7 +251,8 @@ def process_note_job(
                 )
             else:
                 logger.info(
-                    f"No tasks found in note {note_id}"
+                    f"No tasks found in note {note_id}. "
+                    f"Content preview: {note.content[:100]}..."
                 )
 
         except Exception as e:
