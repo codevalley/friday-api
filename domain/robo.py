@@ -43,6 +43,15 @@ class RoboConfig:
         "4. Extract any mentioned due dates (ISO format)\n"
         "5. Keep the content clear and actionable"
     )
+    task_extraction_prompt: str = (
+        "You are a task extraction assistant. Your task is to:\n"
+        "1. Analyze the given note content\n"
+        "2. Identify and extract any tasks or action items\n"
+        "3. Extract only the essential task description\n"
+        "4. Return tasks in a clear, actionable format\n"
+        "5. Exclude any non-task content or context\n"
+        "Note: Task is any actionable item that needs completion"
+    )
     schema_analysis_prompt: str = (
         "You are a UI/UX expert analyzing JSON schemas. "
         "Your task is to:\n"

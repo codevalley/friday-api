@@ -47,6 +47,15 @@ class RoboConfig(BaseModel):
         "4. Extract any mentioned due dates (ISO format)\n"
         "5. Keep the content clear and actionable"
     )
+    task_extraction_prompt: str = (
+        "You are a task extraction assistant. Your task is to:\n"
+        "1. Analyze the given note content\n"
+        "2. Identify and extract any tasks or action items\n"
+        "3. For each task, extract only the essential task description\n"
+        "4. Return tasks in a clear, actionable format\n"
+        "5. Exclude any non-task content or context\n"
+        "Note: A task is any actionable item that requires completion"
+    )
 
     def to_domain_config(self) -> DomainRoboConfig:
         """Convert settings to domain config.
@@ -72,6 +81,7 @@ class RoboConfig(BaseModel):
             note_enrichment_prompt=self.note_enrichment_prompt,
             activity_schema_prompt=self.activity_schema_prompt,
             task_enrichment_prompt=self.task_enrichment_prompt,
+            task_extraction_prompt=self.task_extraction_prompt,
         )
 
     @classmethod
@@ -109,6 +119,19 @@ class RoboConfig(BaseModel):
                     "3. Suggest a priority (high/medium/low)\n"
                     "4. Extract any mentioned due dates (ISO format)\n"
                     "5. Keep the content clear and actionable"
+                ),
+            ),
+            task_extraction_prompt=getattr(
+                env,
+                "ROBO_TASK_EXTRACTION_PROMPT",
+                (
+                    "You are a task extraction assistant. Your task is to:\n"
+                    "1. Analyze the given note content\n"
+                    "2. Identify and extract any tasks or action items\n"
+                    "3. Extract only the essential task description\n"
+                    "4. Return tasks in a clear, actionable format\n"
+                    "5. Exclude any non-task content or context\n"
+                    "Note: Task is any actionable item that needs completion"
                 ),
             ),
         )

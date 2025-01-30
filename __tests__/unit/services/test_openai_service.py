@@ -89,6 +89,7 @@ def robo_config():
         temperature=0.7,
         max_tokens=150,
         task_enrichment_prompt="Format this task",
+        task_extraction_prompt="Extract tasks from this note",
     )
 
 

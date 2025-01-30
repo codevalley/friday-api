@@ -834,11 +834,8 @@ class OpenAIService(RoboService):
             ValidationError: If response validation fails
         """
         try:
-            # Read task extraction prompt
-            with open(
-                "prompts/task_extraction.txt", "r"
-            ) as f:
-                prompt = f.read()
+            # Use task extraction prompt from config
+            prompt = self.config.task_extraction_prompt
 
             # Prepare messages for chat completion
             messages = [

@@ -48,33 +48,40 @@ def mock_robo_service():
     service = MagicMock()
     # Mock process_note response
     process_result = RoboProcessingResult(
-        content="Processed content",
+        content="Formatted content",
         metadata={
             "title": "Test Note",
-            "model": "test_model",
+            "model": "gpt-4",
             "usage": {
-                "prompt_tokens": 50,
+                "prompt_tokens": 100,
                 "completion_tokens": 50,
-                "total_tokens": 100,
+                "total_tokens": 150,
             },
         },
-        tokens_used=100,
-        model_name="test_model",
-        created_at=datetime(
-            2025,
-            1,
-            29,
-            14,
-            49,
-            31,
-            211138,
-            tzinfo=timezone.utc,
-        ),
+        tokens_used=150,
+        model_name="gpt-4",
+        created_at=datetime.now(timezone.utc),
     )
     service.process_note.return_value = process_result
 
-    # Mock extract_tasks response (empty by default)
-    service.extract_tasks.return_value = []
+    # Mock extract_tasks response
+    service.extract_tasks.return_value = [
+        {"content": "Task 1"},
+        {"content": "Task 2"},
+    ]
+
+    # Mock config
+    service.config = MagicMock()
+    service.config.task_extraction_prompt = (
+        "Extract tasks from this note"
+    )
+    service.config.task_enrichment_prompt = (
+        "Format this task"
+    )
+    service.config.note_enrichment_prompt = (
+        "Format this note"
+    )
+
     return service
 
 
@@ -122,17 +129,16 @@ def test_process_note_success(
     # Verify enrichment data
     expected_enrichment = {
         "title": "Test Note",
-        "formatted": "Processed content",
-        "tokens_used": 100,
-        "model_name": "test_model",
-        "created_at": "2025-01-29T14:49:31.211138+00:00",
+        "formatted": "Formatted content",
+        "tokens_used": 150,
+        "model_name": "gpt-4",
         "metadata": {
             "title": "Test Note",
-            "model": "test_model",
+            "model": "gpt-4",
             "usage": {
-                "prompt_tokens": 50,
+                "prompt_tokens": 100,
                 "completion_tokens": 50,
-                "total_tokens": 100,
+                "total_tokens": 150,
             },
         },
     }

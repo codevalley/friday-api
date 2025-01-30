@@ -44,6 +44,8 @@ def test_to_domain_config_success():
         temperature=0.5,
         max_tokens=200,
         note_enrichment_prompt=test_prompt,
+        task_enrichment_prompt="Test task enrichment prompt",
+        task_extraction_prompt="Test task extraction prompt",
     )
     domain_config = config.to_domain_config()
     assert isinstance(domain_config, DomainRoboConfig)
@@ -55,4 +57,12 @@ def test_to_domain_config_success():
     assert domain_config.max_tokens == 200
     assert (
         domain_config.note_enrichment_prompt == test_prompt
+    )
+    assert (
+        domain_config.task_enrichment_prompt
+        == "Test task enrichment prompt"
+    )
+    assert (
+        domain_config.task_extraction_prompt
+        == "Test task extraction prompt"
     )
