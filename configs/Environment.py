@@ -50,6 +50,7 @@ class EnvironmentSettings(BaseSettings):
     ROBO_NOTE_ENRICHMENT_PROMPT: str | None = None
     ROBO_ACTIVITY_SCHEMA_PROMPT: str | None = None
     ROBO_TASK_ENRICHMENT_PROMPT: str | None = None
+    ROBO_TASK_EXTRACTION_PROMPT: str | None = None
 
     # Redis Configuration
     REDIS_HOST: str = "localhost"
