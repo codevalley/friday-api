@@ -2,7 +2,7 @@
 
 import pytest
 from datetime import datetime, timezone
-from unittest.mock import patch, MagicMock, Mock
+from unittest.mock import patch, MagicMock
 
 from domain.values import ProcessingStatus
 from domain.robo import RoboProcessingResult

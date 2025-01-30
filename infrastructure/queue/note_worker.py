@@ -204,16 +204,19 @@ def process_note_job(
                     f"tasks in note {note_id}"
                 )
                 logger.debug(
-                    "Extracted tasks: " +
-                    ", ".join(f"'{t['content'][:50]}...'"
-                             for t in extracted_tasks)
+                    "Extracted tasks: "
+                    + ", ".join(
+                        f"'{t['content'][:50]}...'"
+                        for t in extracted_tasks
+                    )
                 )
 
                 # Create tasks
                 for task_data in extracted_tasks:
                     try:
                         logger.debug(
-                            f"Creating task with content: {task_data['content']}"
+                            f"Creating task with content: "
+                            f"{task_data['content']}"
                         )
                         task_id = create_task(
                             content=task_data["content"],
@@ -250,11 +253,13 @@ def process_note_job(
             logger.error(
                 f"Task extraction failed for note {note_id}: {str(e)}"
             )
-            task_stats.update({
-                "error": str(e),
-                "tasks_found": 0,
-                "tasks_created": 0
-            })
+            task_stats.update(
+                {
+                    "error": str(e),
+                    "tasks_found": 0,
+                    "tasks_created": 0,
+                }
+            )
 
         # Update task extraction stats in note's enrichment data
         note.enrichment_data.update(

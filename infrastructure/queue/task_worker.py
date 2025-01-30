@@ -56,16 +56,18 @@ def create_task(
 
         # Create task with basic attributes
         created_at = datetime.now(timezone.utc)
-        task = task_repository.create({
-            "content": content,
-            "user_id": user_id,
-            "source_note_id": source_note_id,
-            "created_at": created_at,
-            "updated_at": created_at,
-            "status": "TODO",
-            "priority": "MEDIUM",
-            "processing_status": ProcessingStatus.PENDING,
-        })
+        task = task_repository.create(
+            {
+                "content": content,
+                "user_id": user_id,
+                "source_note_id": source_note_id,
+                "created_at": created_at,
+                "updated_at": created_at,
+                "status": "TODO",
+                "priority": "MEDIUM",
+                "processing_status": ProcessingStatus.PENDING,
+            }
+        )
 
         session.add(task)
         session.commit()
