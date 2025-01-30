@@ -62,18 +62,18 @@ def configure_logging(is_test: bool = False) -> None:
     Args:
         is_test: Whether the application is running in test mode
     """
-    # Configure SQLAlchemy logging
+    # Configure SQLAlchemy logging - set to ERROR to hide SQL queries
     logging.getLogger("sqlalchemy.engine").setLevel(
-        logging.WARNING
+        logging.ERROR
     )
     logging.getLogger("sqlalchemy.pool").setLevel(
-        logging.WARNING
+        logging.ERROR
     )
     logging.getLogger("sqlalchemy.dialects").setLevel(
-        logging.WARNING
+        logging.ERROR
     )
     logging.getLogger("sqlalchemy.orm").setLevel(
-        logging.WARNING
+        logging.ERROR
     )
 
     if is_test:

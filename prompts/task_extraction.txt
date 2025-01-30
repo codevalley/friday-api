@@ -11,6 +11,11 @@ Guidelines for task identification:
    - "Should..."
    - Action items or bullet points describing work to be done
    - Assignments or delegated work
+5. When a task mentions a date or deadline:
+   - Convert relative dates (e.g., "tomorrow", "next Friday", "this Saturday") to ISO format (YYYY-MM-DD)
+   - Use the current date as reference for relative dates
+   - Include the converted date in the task's due_date field
+   - Keep the original date reference in the content
 
 Response Format:
 Return a JSON array of tasks. Each task should have:
@@ -18,6 +23,9 @@ Return a JSON array of tasks. Each task should have:
   "tasks": [
     {
       "content": "The complete task description as found in the note",
+      "due_date": "YYYY-MM-DD if a date is mentioned, otherwise omit this field",
+      "priority": "high/medium/low based on urgency indicators",
+      "status": "todo/in_progress/done"
     }
   ]
 }
@@ -33,7 +41,10 @@ Output 1:
 {
   "tasks": [
     {
-      "content": "update the website copy by Friday"
+      "content": "update the website copy by Friday",
+      "due_date": "2024-02-02",  // Assuming today is 2024-01-29
+      "priority": "medium",
+      "status": "todo"
     }
   ]
 }
@@ -47,25 +58,36 @@ Output 2:
 }
 
 Input Note 3:
-"TODO: Review PR #123
-Need to deploy v2.0.1 to production
+"TODO: Review PR #123 by tomorrow
+Need to deploy v2.0.1 to production next week
 Action item: Update documentation
-* Schedule team meeting for next week"
+* Schedule team meeting for next Tuesday"
 
 Output 3:
 {
   "tasks": [
     {
-      "content": "Review PR #123",
+      "content": "Review PR #123 by tomorrow",
+      "due_date": "2024-01-30",  // Assuming today is 2024-01-29
+      "priority": "high",
+      "status": "todo"
     },
     {
-      "content": "deploy v2.0.1 to production",
+      "content": "deploy v2.0.1 to production next week",
+      "due_date": "2024-02-05",  // Next Monday
+      "priority": "medium",
+      "status": "todo"
     },
     {
       "content": "Update documentation",
+      "priority": "medium",
+      "status": "todo"
     },
     {
-      "content": "Schedule team meeting for next week",
+      "content": "Schedule team meeting for next Tuesday",
+      "due_date": "2024-02-06",
+      "priority": "medium",
+      "status": "todo"
     }
   ]
 }
@@ -73,6 +95,7 @@ Output 3:
 Remember:
 - Only extract EXPLICIT tasks
 - Include the complete task description
+- Convert any relative dates to ISO format (YYYY-MM-DD)
 - If and only if it adds value, rephrase the task content to improve clarity and context
 - Do not extract implied or potential tasks
 - Do not extract past actions or completed tasks
