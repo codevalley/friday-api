@@ -2,7 +2,10 @@
 
 from typing import Dict, Any
 
-from .exceptions import ActivityValidationError
+from .exceptions import (
+    ActivityValidationError,
+    ValidationException,
+)
 
 
 def validate_activity_schema(
@@ -99,3 +102,20 @@ def validate_activity_schema(
         has_properties or has_pattern_props
     ):
         raise ActivityValidationError.invalid_schema_constraints()
+
+
+def validate_not_empty(value: str, field_name: str) -> None:
+    """Validate that a string value is not empty.
+
+    Args:
+        value: String value to validate
+        field_name: Name of the field being validated
+
+    Raises:
+        ValidationException: If value is empty
+    """
+    if not value or not value.strip():
+        raise ValidationException(
+            message=f"{field_name} cannot be empty",
+            code="empty_value",
+        )

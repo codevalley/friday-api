@@ -446,3 +446,20 @@ class DocumentStorageError(DomainException):
             message=message,
             code=ErrorCode.DOCUMENT_STORAGE_ERROR,
         )
+
+
+class TimelineValidationError(DomainException):
+    """Raised when timeline event validation fails."""
+
+    def __init__(
+        self,
+        message: str,
+        code: str = "timeline_validation_error",
+    ):
+        """Initialize the error.
+
+        Args:
+            message: Error message
+            code: Error code for client handling
+        """
+        super().__init__(message, code)
