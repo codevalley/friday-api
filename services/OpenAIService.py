@@ -210,6 +210,7 @@ EXTRACT_TASKS_FUNCTION = {
                                 "Due date in ISO format (YYYY-MM-DD) "
                                 "if mentioned in the task"
                             ),
+                            "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
                         },
                     },
                     "required": ["content"],
@@ -277,22 +278,20 @@ class OpenAIService(RoboService):
         """
         messages = []
 
-        # Add datetime context first
+        # Combine datetime context and system prompt
+        system_content = self._get_datetime_context()
+        if system_prompt:
+            system_content = (
+                f"{system_content}\n\n{system_prompt}"
+            )
+
+        # Add combined system message
         messages.append(
             {
                 "role": "system",
-                "content": self._get_datetime_context(),
+                "content": system_content,
             }
         )
-
-        # Add system prompt if provided
-        if system_prompt:
-            messages.append(
-                {
-                    "role": "system",
-                    "content": system_prompt,
-                }
-            )
 
         # Add user content
         messages.append(
@@ -624,15 +623,15 @@ class OpenAIService(RoboService):
                     "Failed to acquire capacity after retries"
                 )
 
+            # Prepare messages with datetime context
+            messages = self._prepare_messages(
+                content=content,
+                system_prompt=self.config.task_enrichment_prompt,
+            )
+
             response = self.client.chat.completions.create(
                 model=self.config.model_name,
-                messages=[
-                    {
-                        "role": "system",
-                        "content": self.config.task_enrichment_prompt,
-                    },
-                    {"role": "user", "content": content},
-                ],
+                messages=messages,
                 tools=[
                     {
                         "type": "function",

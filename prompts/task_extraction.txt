@@ -11,7 +11,8 @@ Guidelines for task identification:
    - "Should..."
    - Action items or bullet points describing work to be done
    - Assignments or delegated work
-5. When a task mentions a date or deadline:
+5. Don't hesitate to extract compound tasks, i.e tasks that elaborate multiple subtasks/steps, but are all related to the same overall task.
+6. When a task mentions a date or deadline:
    - Convert relative dates (e.g., "tomorrow", "next Friday", "this Saturday") to ISO format (YYYY-MM-DD)
    - Use the current date as reference for relative dates
    - Include the converted date in the task's due_date field

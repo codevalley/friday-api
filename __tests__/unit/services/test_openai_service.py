@@ -431,32 +431,36 @@ class TestOpenAIService:
         assert result.tokens_used == 30
 
         # Verify OpenAI API was called correctly
-        mock_openai.chat.completions.create.assert_called_once_with(
-            model="gpt-4",
-            messages=[
-                {
-                    "role": "system",
-                    "content": "Format this task",
-                },
-                {
-                    "role": "user",
-                    "content": "Create a new feature",
-                },
-            ],
-            tools=[
-                {
-                    "type": "function",
-                    "function": PROCESS_TASK_FUNCTION,
-                }
-            ],
-            tool_choice={
-                "type": "function",
-                "function": {"name": "process_task"},
-            },
-            temperature=0.7,
-            max_tokens=150,
-            timeout=30,
+        call_args = (
+            mock_openai.chat.completions.create.call_args[1]
         )
+        assert call_args["model"] == "gpt-4"
+        assert call_args["temperature"] == 0.7
+        assert call_args["max_tokens"] == 150
+        assert call_args["timeout"] == 30
+
+        # Verify messages structure
+        messages = call_args["messages"]
+        assert len(messages) == 2
+        assert messages[0]["role"] == "system"
+        assert "Current datetime:" in messages[0]["content"]
+        assert "Format this task" in messages[0]["content"]
+        assert messages[1]["role"] == "user"
+        assert (
+            messages[1]["content"] == "Create a new feature"
+        )
+
+        # Verify tools and tool choice
+        assert call_args["tools"] == [
+            {
+                "type": "function",
+                "function": PROCESS_TASK_FUNCTION,
+            }
+        ]
+        assert call_args["tool_choice"] == {
+            "type": "function",
+            "function": {"name": "process_task"},
+        }
 
     def test_process_task_empty_content(
         self, openai_service
@@ -665,17 +669,21 @@ class TestOpenAIService:
             system_prompt="test system prompt",
         )
 
+        # Verify message structure
         assert (
-            len(messages) == 3
-        )  # datetime context + system prompt + user content
+            len(messages) == 2
+        )  # Combined system message + user content
+
+        # Verify system message
         assert messages[0]["role"] == "system"
         assert "Current datetime:" in messages[0]["content"]
-        assert messages[1]["role"] == "system"
         assert (
-            messages[1]["content"] == "test system prompt"
+            "test system prompt" in messages[0]["content"]
         )
-        assert messages[2]["role"] == "user"
-        assert messages[2]["content"] == "test content"
+
+        # Verify user message
+        assert messages[1]["role"] == "user"
+        assert messages[1]["content"] == "test content"
 
     def test_prepare_messages_without_system_prompt(
         self, openai_service
