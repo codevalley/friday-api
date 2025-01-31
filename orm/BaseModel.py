@@ -79,5 +79,6 @@ def init() -> None:
     from orm.TaskModel import Task  # noqa: F401
     from orm.DocumentModel import Document  # noqa: F401
     from orm.TopicModel import Topic  # noqa: F401
+    from orm.TimelineModel import Timeline  # noqa: F401
 
     EntityMeta.metadata.create_all(bind=Engine)

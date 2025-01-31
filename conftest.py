@@ -2,11 +2,49 @@
 
 import os
 import sys
+from typing import Generator
 import pytest
+from sqlalchemy import create_engine
+from sqlalchemy.orm import Session, sessionmaker
+
+from orm.BaseModel import Base
 
 # Add project root to Python path
 project_root = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, project_root)
+
+
+@pytest.fixture(scope="session")
+def test_engine():
+    """Create a test database engine."""
+    # Use SQLite in-memory database for testing
+    engine = create_engine("sqlite:///:memory:")
+    Base.metadata.create_all(bind=engine)
+    return engine
+
+
+@pytest.fixture(scope="function")
+def db_session(
+    test_engine,
+) -> Generator[Session, None, None]:
+    """Create a new database session for a test.
+
+    The session is rolled back after each test.
+    """
+    # Create a new session for each test
+    TestingSessionLocal = sessionmaker(
+        autocommit=False,
+        autoflush=False,
+        bind=test_engine,
+    )
+    session = TestingSessionLocal()
+
+    try:
+        yield session
+    finally:
+        # Roll back any changes and close the session
+        session.rollback()
+        session.close()
 
 
 @pytest.fixture(autouse=True)

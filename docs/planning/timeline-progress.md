@@ -11,10 +11,9 @@ This document tracks the implementation progress of the Timeline API as specifie
 ## Epic 1: Timeline Domain & Aggregation Logic
 
 ### Domain Model
-- ✅ Create TimelineEventData class
-- ✅ Define field structure and validation
-- ✅ Add type hints and documentation
-- ✅ Add unit tests for domain model
+- ✅ Create TimelineEventData class with validation
+- ✅ Add comprehensive unit tests for TimelineEventData
+- ✅ Document the domain model
 
 ### Application Layer (TimelineService)
 - 🟡 Create TimelineService class
@@ -24,6 +23,8 @@ This document tracks the implementation progress of the Timeline API as specifie
 - ⬜️ Add pagination support
 
 ### Repository Layer
+- ✅ Implement TimelineRepository with list/query methods
+- 🟡 Add unit tests for TimelineRepository
 - ⬜️ Add list_recent_for_timeline to TaskRepository
 - ⬜️ Add list_recent_for_timeline to NoteRepository
 - ⬜️ Add list_recent_for_timeline to MomentRepository
@@ -92,3 +93,32 @@ Current focus:
 - 2024-01-31: Starting TimelineService implementation
 - 2024-01-31: Added comprehensive unit tests for TimelineEventData domain model
 - 2024-01-31: All domain model tests passing with 100% coverage
+
+## Progress Tracker
+
+Epic 1: Timeline API Implementation (Started: 2024-01-31)
+
+1. Domain Model
+   - ✅ Create TimelineEventData class with validation
+   - ✅ Add comprehensive unit tests for TimelineEventData
+   - ✅ Document the domain model
+
+2. Repository Layer
+   - ✅ Implement TimelineRepository with list/query methods
+   - 🟡 Add unit tests for TimelineRepository
+   - ⬜ Document the repository layer
+
+3. Service Layer
+   - ⬜ Implement TimelineService
+   - ⬜ Add unit tests for TimelineService
+   - ⬜ Document the service layer
+
+4. API Endpoints
+   - ⬜ Implement timeline endpoints
+   - ⬜ Add integration tests
+   - ⬜ Document the API endpoints
+
+5. Integration
+   - ⬜ Integrate with Task events
+   - ⬜ Integrate with Note events
+   - ⬜ Add end-to-end tests

@@ -11,9 +11,21 @@ from domain.exceptions import TimelineValidationError
 class TimelineEventType(str, Enum):
     """Valid types of timeline events."""
 
-    TASK = "task"
-    NOTE = "note"
-    MOMENT = "moment"
+    # Task events
+    TASK_CREATED = "task_created"
+    TASK_UPDATED = "task_updated"
+    TASK_COMPLETED = "task_completed"
+    TASK_DELETED = "task_deleted"
+
+    # Note events
+    NOTE_CREATED = "note_created"
+    NOTE_UPDATED = "note_updated"
+    NOTE_DELETED = "note_deleted"
+
+    # Moment events
+    MOMENT_CREATED = "moment_created"
+    MOMENT_UPDATED = "moment_updated"
+    MOMENT_DELETED = "moment_deleted"
 
 
 @dataclass

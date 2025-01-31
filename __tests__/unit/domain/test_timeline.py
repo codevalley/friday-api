@@ -15,7 +15,7 @@ from domain.exceptions import TimelineValidationError
 def valid_timeline_data() -> Dict[str, Any]:
     """Fixture providing valid timeline event data."""
     return {
-        "entity_type": TimelineEventType.TASK,
+        "entity_type": TimelineEventType.TASK_CREATED,
         "entity_id": 1,
         "user_id": "test-user",
         "timestamp": datetime.now(timezone.utc),
@@ -29,7 +29,9 @@ def valid_timeline_data() -> Dict[str, Any]:
 def test_create_valid_timeline_event(valid_timeline_data):
     """Test creating a valid timeline event."""
     event = TimelineEventData(**valid_timeline_data)
-    assert event.entity_type == TimelineEventType.TASK
+    assert (
+        event.entity_type == TimelineEventType.TASK_CREATED
+    )
     assert event.entity_id == 1
     assert event.user_id == "test-user"
     assert isinstance(event.timestamp, datetime)
@@ -42,12 +44,14 @@ def test_create_valid_timeline_event(valid_timeline_data):
 def test_create_minimal_timeline_event():
     """Test creating a timeline event with only required fields."""
     event = TimelineEventData(
-        entity_type=TimelineEventType.NOTE,
+        entity_type=TimelineEventType.NOTE_CREATED,
         entity_id=1,
         user_id="test-user",
         timestamp=datetime.now(timezone.utc),
     )
-    assert event.entity_type == TimelineEventType.NOTE
+    assert (
+        event.entity_type == TimelineEventType.NOTE_CREATED
+    )
     assert event.title is None
     assert event.description is None
     assert event.content is None
@@ -138,14 +142,14 @@ def test_to_dict_conversion(valid_timeline_data):
 def test_to_dict_with_minimal_data():
     """Test converting minimal timeline event to dictionary."""
     event = TimelineEventData(
-        entity_type=TimelineEventType.MOMENT,
+        entity_type=TimelineEventType.MOMENT_CREATED,
         entity_id=1,
         user_id="test-user",
         timestamp=datetime.now(timezone.utc),
     )
     event_dict = event.to_dict()
 
-    assert event_dict["type"] == "moment"
+    assert event_dict["type"] == "moment_created"
     assert event_dict["id"] == 1
     assert event_dict["title"] is None
     assert event_dict["description"] is None
