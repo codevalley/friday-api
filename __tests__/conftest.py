@@ -2,16 +2,18 @@
 
 # Third-party imports
 import pytest
+import pytest_asyncio
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker, Session
 from moto import mock_aws
 from fastapi.testclient import TestClient
+from httpx import AsyncClient
 from fakeredis import FakeStrictRedis
 import boto3
 
 # Standard library imports
 from datetime import datetime, timezone
-from typing import Generator
+from typing import Generator, AsyncGenerator
 from unittest.mock import Mock
 import asyncio
 import sys
@@ -457,3 +459,47 @@ def document_service(test_db_session, storage_service):
     return DocumentService(
         repository=repository, storage=storage_service
     )
+
+
+@pytest_asyncio.fixture
+async def async_client(
+    fastapi_app, test_db_session
+) -> AsyncGenerator[AsyncClient, None]:
+    """Create an async test client."""
+
+    def override_get_db():
+        try:
+            yield test_db_session
+        finally:
+            test_db_session.close()
+
+    fastapi_app.dependency_overrides[
+        get_db_connection
+    ] = override_get_db
+
+    async with AsyncClient(
+        app=fastapi_app, base_url="http://test"
+    ) as client:
+        yield client
+
+
+@pytest.fixture
+def test_user(test_db_session):
+    """Create a test user."""
+    user = User(
+        id=str(uuid.uuid4()),
+        username=f"testuser_{uuid.uuid4().hex[:8]}",
+        key_id=str(uuid.uuid4()),
+        user_secret="test-secret-hash",
+        created_at=datetime.now(timezone.utc),
+        updated_at=datetime.now(timezone.utc),
+    )
+    test_db_session.add(user)
+    test_db_session.commit()
+    return user
+
+
+@pytest.fixture
+def auth_headers(test_user):
+    """Create authentication headers for testing."""
+    return {"Authorization": f"Bearer {test_user.key_id}"}

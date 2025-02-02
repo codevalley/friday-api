@@ -18,6 +18,9 @@ from routers.v1.MomentRouter import router as moment_router
 from routers.v1.NoteRouter import router as note_router
 from routers.v1.TaskRouter import router as task_router
 from routers.v1.TopicRouter import router as topic_router
+from routers.v1.TimelineRouter import (
+    router as timeline_router,
+)
 from utils.middleware.request_logging import (
     RequestLoggingMiddleware,
 )
@@ -54,6 +57,7 @@ app.include_router(moment_router)
 app.include_router(note_router)
 app.include_router(task_router)
 app.include_router(topic_router)
+app.include_router(timeline_router)
 
 
 # Add dependencies
