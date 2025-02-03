@@ -59,7 +59,13 @@ Below is a comprehensive API guide extracted from the **Friday API** codebase an
    - [Get Subtasks](#get-subtasks)
    - [Attach / Detach Note from Task](#attach--detach-note-from-task)
 
-8. [Common Response Formats](#common-response-formats)
+8. [Timeline](#timeline)
+   - [List Timeline Events](#list-timeline-events)
+   - [Get Recent Events](#get-recent-events)
+   - [Get Events by Type](#get-events-by-type)
+   - [Get Events in Timerange](#get-events-in-timerange)
+
+9. [Common Response Formats](#common-response-formats)
 
 ---
 
@@ -1226,7 +1232,158 @@ They return updated Moment data upon success.
 
 ---
 
-## 8. Common Response Formats
+## 8. Timeline
+
+### List Timeline Events
+**Endpoint**: `GET /v1/timeline`
+**Description**: Retrieves a paginated list of timeline events with support for various filters.
+
+**Query Parameters**:
+- `page` (optional, default=1): Page number
+- `size` (optional, default=50): Number of items per page
+- `event_type` (optional, can be used multiple times): Filter by event type(s)
+- `start_time` (optional): Filter events after this time (ISO datetime)
+- `end_time` (optional): Filter events before this time (ISO datetime)
+
+**Available Event Types**:
+- Task Events:
+  - `TASK_CREATED`: When a task is created
+  - `TASK_UPDATED`: When a task is modified
+  - `TASK_COMPLETED`: When a task is marked as complete
+  - `TASK_DELETED`: When a task is deleted
+- Note Events:
+  - `NOTE_CREATED`: When a note is created
+  - `NOTE_UPDATED`: When a note is modified
+  - `NOTE_DELETED`: When a note is deleted
+- Moment Events:
+  - `MOMENT_CREATED`: When a moment is created
+  - `MOMENT_UPDATED`: When a moment is modified
+  - `MOMENT_DELETED`: When a moment is deleted
+
+**Example Requests**:
+
+1. Get all task and note creations from the last 2 days:
+```
+GET /v1/timeline?event_type=TASK_CREATED&event_type=NOTE_CREATED&start_time=2024-03-17T00:00:00Z&end_time=2024-03-19T00:00:00Z
+```
+
+2. Get all completed tasks:
+```
+GET /v1/timeline?event_type=TASK_COMPLETED
+```
+
+3. Get all moment updates with custom page size:
+```
+GET /v1/timeline?event_type=MOMENT_UPDATED&page=1&size=20
+```
+
+**Response**:
+```json
+{
+  "data": {
+    "items": [
+      {
+        "id": 1,
+        "event_type": "TASK_CREATED",
+        "user_id": "string (UUID)",
+        "timestamp": "2024-03-19T10:00:00Z",
+        "event_metadata": {
+          "task_id": 123,
+          "task_title": "Implement caching",
+          "status": "todo",
+          "priority": "high"
+        }
+      },
+      {
+        "id": 2,
+        "event_type": "NOTE_CREATED",
+        "user_id": "string (UUID)",
+        "timestamp": "2024-03-19T09:30:00Z",
+        "event_metadata": {
+          "note_id": 456,
+          "content_preview": "Meeting notes for..."
+        }
+      }
+    ],
+    "total": 25,
+    "page": 1,
+    "size": 50,
+    "pages": 1
+  },
+  "message": "Timeline events retrieved successfully"
+}
+```
+
+### Get Recent Events
+**Endpoint**: `GET /v1/timeline/recent`
+**Description**: Get the most recent timeline events for quick access.
+
+**Query Parameters**:
+- `limit` (optional, default=5): Number of recent events to return
+
+**Response**:
+```json
+{
+  "data": [
+    {
+      "id": 1,
+      "event_type": "TASK_CREATED",
+      "user_id": "string (UUID)",
+      "timestamp": "2024-03-19T10:00:00Z",
+      "event_metadata": {
+        "task_id": 123,
+        "task_title": "Implement caching"
+      }
+    }
+  ],
+  "message": "Recent timeline events retrieved successfully"
+}
+```
+
+### Get Events by Type
+**Endpoint**: `GET /v1/timeline/by-type/{event_type}`
+**Description**: Get timeline events of a specific type.
+
+**Path Parameters**:
+- `event_type`: One of the available event types (e.g., `TASK_CREATED`, `NOTE_CREATED`, etc.)
+
+**Query Parameters**:
+- `page` (optional, default=1): Page number
+- `size` (optional, default=50): Number of items per page
+
+**Response**: Same format as List Timeline Events
+
+### Get Events in Timerange
+**Endpoint**: `GET /v1/timeline/in-timerange`
+**Description**: Get timeline events within a specific time range.
+
+**Query Parameters**:
+- `start_time` (required): Start of time range (ISO datetime)
+- `end_time` (required): End of time range (ISO datetime)
+- `page` (optional, default=1): Page number
+- `size` (optional, default=50): Number of items per page
+
+**Example Request**:
+```
+GET /v1/timeline/in-timerange?start_time=2024-03-01T00:00:00Z&end_time=2024-03-19T23:59:59Z
+```
+
+**Response**: Same format as List Timeline Events
+
+**Error Responses**:
+- `400 Bad Request`: If end_time is before start_time
+```json
+{
+  "detail": {
+    "message": "Start time must be before end time",
+    "code": "timeline_validation_error"
+  }
+}
+```
+- `401 Unauthorized`: If authentication token is missing or invalid
+- `422 Unprocessable Entity`: If datetime format is invalid
+
+## 9. Common Response Formats
 
 You may notice three main response patterns:
 
