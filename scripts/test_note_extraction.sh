@@ -176,35 +176,35 @@ for note_content in "${test_notes[@]}"; do
         -d "{
             \"content\": \"$note_content\"
         }")
-    
+
     NOTE_ID=$(extract_json_value "$NOTE_RESPONSE" "id")
     echo "Note Response: $NOTE_RESPONSE"
     echo "Note ID: $NOTE_ID"
     check_api_response "$NOTE_RESPONSE" "Creating note"
-    
+
     echo -e "\n${BLUE}Waiting for note $NOTE_ID to be processed...${NC}"
     wait_for_note_processing "$NOTE_ID" "$TOKEN1"
-    
+
     echo -e "\n${BLUE}Getting processed note and extracted tasks...${NC}"
     PROCESSED_NOTE=$(curl -s -X GET "$BASE_URL/notes/$NOTE_ID" \
         -H "Authorization: Bearer $TOKEN1")
-    
+
     echo -e "\nProcessed Note Response:"
     echo "$PROCESSED_NOTE" | python3 -m json.tool
-    
+
     # Get tasks created from this note
     TASKS_RESPONSE=$(curl -s -X GET "$BASE_URL/tasks?source_note_id=$NOTE_ID" \
         -H "Authorization: Bearer $TOKEN1")
-    
+
     echo -e "\nExtracted Tasks:"
     if check_api_response "$TASKS_RESPONSE" "Getting tasks"; then
         echo "$TASKS_RESPONSE" | python3 -m json.tool
     else
         echo -e "${RED}Failed to get tasks${NC}"
     fi
-    
+
     sleep 2  # Brief pause between notes
 done
 
 echo -e "\n${GREEN}Test completed!${NC}"
-echo -e "\n${BLUE}Test logs have been saved to $LOG_FILE${NC}" 
+echo -e "\n${BLUE}Test logs have been saved to $LOG_FILE${NC}"

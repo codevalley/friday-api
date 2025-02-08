@@ -734,8 +734,7 @@ class OpenAIService(RoboService):
         """
         if not content:
             raise RoboValidationError(
-                message="Note content cannot be empty",
-                code="ROBO_VALIDATION_ERROR",
+                message="Note content cannot be empty"
             )
 
         return self._enrich_note(content, context)
@@ -776,8 +775,7 @@ class OpenAIService(RoboService):
         """
         if not content:
             raise RoboValidationError(
-                message="Task content cannot be empty",
-                code="ROBO_VALIDATION_ERROR",
+                message="Task content cannot be empty"
             )
 
         return self._process_task(content, context)
@@ -954,8 +952,7 @@ class OpenAIService(RoboService):
                             message=(
                                 "Expected function name 'extract_tasks', "
                                 f"got '{tool_call.function.name}'"
-                            ),
-                            code="INVALID_FUNCTION_NAME",
+                            )
                         )
                     arguments = tool_call.function.arguments
                 # Fall back to function_call (older format)
@@ -979,8 +976,7 @@ class OpenAIService(RoboService):
                             message=(
                                 "Expected function name 'extract_tasks', "
                                 f"got '{function_call.name}'"
-                            ),
-                            code="INVALID_FUNCTION_NAME",
+                            )
                         )
                     arguments = function_call.arguments
                 else:
@@ -999,8 +995,7 @@ class OpenAIService(RoboService):
                     f"Failed to parse OpenAI response: {str(e)}"
                 )
                 raise RoboValidationError(
-                    message="Invalid response format from OpenAI",
-                    code="INVALID_RESPONSE_FORMAT",
+                    message="Invalid response format from OpenAI"
                 )
         except Exception as e:
             logger.error(

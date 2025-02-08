@@ -29,6 +29,7 @@ pymysql = "*"
 pytest-asyncio = "*"
 boto3 = "*"
 python-multipart = "*"
+instructor = ">=0.4.0"  # For OpenAI function calling
 
 [dev-packages]
 pre-commit = ">=2.18.1"
@@ -37,6 +38,7 @@ pytest-mock = "*"
 fakeredis = "*"
 pytest-asyncio = "*"
 flake8 = "*"
+moto = "*"  # AWS service mocking
 
 [requires]
 python_version = "3.12"

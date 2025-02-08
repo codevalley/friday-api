@@ -6,18 +6,18 @@ globs: *.py,*.md
 # Your rule content
 
 - Go through [architecture.md](mdc:docs/design/architecture.md) to understand our philosophy and approach.
-- Always follow clean architecture/hexagonal design principles. 
-- Between domain -> model -> orm -> schema -> repository layers, prefer pydantic/domain objects rather than custom dicts. 
+- Always follow clean architecture/hexagonal design principles.
+- Between domain -> model -> orm -> schema -> repository layers, prefer pydantic/domain objects rather than custom dicts.
 - Most of the project uses strict sync methods (apart from router, which is async by default as FastAPI recommends). So if there is any async approach being considered, confirm before implementing.
 - When working on a module/file, if changes spread beyond the module, confirm before applying/implementing.
 - After new APIs, update [Tags.py](mdc:metadata/Tags.py) to ensure OpenAPI documentation is up to date.
-- Tests are in /tests folder and after each major feature completetion, tests are be added/executed. 
+- Tests are in /tests folder and after each major feature completetion, tests are be added/executed.
 - Ideal to not drop test coverage < 80%
 - When trying to fix tests (make it pass), choose the "right" approach, not whatever gets the tests pass. This means
   - Evaluate and see if the test case is correctly written.
   - Is there an actual issue with the functional code
-  - Any expectation is wrongly set. 
+  - Any expectation is wrongly set.
   - Identify and fix the right problem, not just anything that gets tests pass.
-- While fixing an issue, if things are going in loop. Take a step back, look at the problem with fresh perspective and then start over again, most importanly first confirm with the user before proceeeding. 
-- Whenever a new feature is getting built, ask if we need to maintain a progress-tracker file (markdown) in docs/planning folder for the feature. 
-- If progress tracker is created, after each meaningful task completion, review the file, update it and pick up next task. 
+- While fixing an issue, if things are going in loop. Take a step back, look at the problem with fresh perspective and then start over again, most importanly first confirm with the user before proceeeding.
+- Whenever a new feature is getting built, ask if we need to maintain a progress-tracker file (markdown) in docs/planning folder for the feature.
+- If progress tracker is created, after each meaningful task completion, review the file, update it and pick up next task.

@@ -103,7 +103,7 @@ from datetime import datetime
 class NoteEnrichmentSchema(OpenAISchema):
     """Schema for note enrichment function."""
     title: str = Field(
-        ..., 
+        ...,
         max_length=50,
         description="Extracted title for the note"
     )

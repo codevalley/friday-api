@@ -293,7 +293,10 @@ class RoboProcessingError(RoboError):
 class RoboValidationError(RoboError):
     """Raised when there's an error validating Robo inputs or outputs."""
 
-    pass
+    def __init__(self, message: str):
+        super().__init__(
+            message=message, code="ROBO_VALIDATION_ERROR"
+        )
 
 
 class RoboServiceError(DomainException):
