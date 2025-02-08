@@ -6,15 +6,18 @@ from functools import lru_cache
 from domain.robo import RoboService
 from services.OpenAIService import OpenAIService
 from services.TestRoboService import TestRoboService
-from configs.RoboConfig import get_robo_settings
+from configs.RoboConfig import (
+    get_robo_settings,
+    ServiceImplementation,
+)
 
 
 @lru_cache()
 def get_robo_service() -> RoboService:
-    """Get appropriate RoboService implementation based on environment.
+    """Get appropriate RoboService implementation based on configuration.
 
     Returns:
-        RoboService: Service implementation (OpenAI in prod, Test in test)
+        RoboService: Service implementation based on configuration
     """
     settings = get_robo_settings()
     config = settings.to_domain_config()
@@ -23,5 +26,21 @@ def get_robo_service() -> RoboService:
     if os.getenv("ENV", "").lower() == "test":
         return TestRoboService(config)
 
-    # Use OpenAIService in production
-    return OpenAIService(config)
+    # Use configured service implementation
+    if (
+        config.service_implementation
+        == ServiceImplementation.INSTRUCTOR
+    ):
+        from services.InstructorService import (
+            InstructorService,
+        )
+
+        return InstructorService(config)
+    elif (
+        config.service_implementation
+        == ServiceImplementation.MANUAL
+    ):
+        return OpenAIService(config)
+    else:
+        # Default to manual implementation
+        return OpenAIService(config)

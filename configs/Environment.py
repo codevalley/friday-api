@@ -41,6 +41,9 @@ class EnvironmentSettings(BaseSettings):
     # Optional Robo Configuration
     ROBO_API_KEY: SecretStr | None = None
     ROBO_MODEL_NAME: str | None = None
+    ROBO_SERVICE_IMPLEMENTATION: str = (
+        "manual"  # manual or instructor
+    )
     ROBO_MAX_RETRIES: int = 3
     ROBO_TIMEOUT_SECONDS: int = 30
     ROBO_TEMPERATURE: float = 0.7

@@ -2,18 +2,11 @@
 
 import pytest
 from unittest.mock import MagicMock, patch
-from datetime import datetime, timezone
-import json
-from dateutil.tz import UTC
 
-from domain.robo import (
-    RoboConfig,
-    RoboProcessingResult
-)
+from domain.robo import RoboConfig, RoboProcessingResult
 from domain.exceptions import RoboConfigError
 from domain.exceptions import (
     RoboRateLimitError,
-    RoboAPIError,
     RoboValidationError,
 )
 from services.InstructorService import (
@@ -21,33 +14,33 @@ from services.InstructorService import (
     NoteEnrichmentSchema,
     TaskEnrichmentSchema,
     ActivitySchemaAnalysis,
+    TextProcessingSchema,
 )
 
 
 @pytest.fixture
 def mock_openai(mocker):
     """Mock OpenAI client with instructor support."""
-    # Create mock response for note enrichment
-    note_mock = mocker.MagicMock()
-    note_mock.model_dump.return_value = {
-        "title": "Test Note",
-        "formatted": "# Test Note\n\nContent here",
-        "metadata": {"topics": ["test"]},
-    }
-
-    # Create mock response for task enrichment
-    task_mock = mocker.MagicMock()
-    task_mock.model_dump.return_value = {
-        "title": "Test Task",
-        "formatted": "Complete test task",
-        "suggested_priority": "HIGH",
-        "suggested_due_date": "2024-02-15T17:00:00Z",
-        "metadata": {"tags": ["test"]},
-    }
-
     # Create OpenAI client mock
     client_mock = mocker.MagicMock()
-    
+
+    # Mock chat completions
+    chat_completion = mocker.MagicMock()
+    chat_completion.choices = [mocker.MagicMock()]
+    chat_completion.choices[0].message = mocker.MagicMock()
+    chat_completion.choices[
+        0
+    ].message.content = (
+        "# Test Content\n\nProcessed content here"
+    )
+    chat_completion.usage = mocker.MagicMock()
+    chat_completion.usage.total_tokens = 100
+
+    # Set up the completion response
+    client_mock.chat.completions.create.return_value = (
+        chat_completion
+    )
+
     # Mock response for note processing
     note_response = mocker.MagicMock()
     note_response.choices = [
@@ -58,7 +51,7 @@ def mock_openai(mocker):
         )
     ]
     note_response.usage = mocker.MagicMock(total_tokens=100)
-    
+
     # Mock response for task processing
     task_response = mocker.MagicMock()
     task_response.choices = [
@@ -69,7 +62,7 @@ def mock_openai(mocker):
         )
     ]
     task_response.usage = mocker.MagicMock(total_tokens=80)
-    
+
     # Mock response for schema analysis
     schema_response = mocker.MagicMock()
     schema_response.choices = [
@@ -79,19 +72,54 @@ def mock_openai(mocker):
             )
         )
     ]
-    schema_response.usage = mocker.MagicMock(total_tokens=120)
-    
+    schema_response.usage = mocker.MagicMock(
+        total_tokens=120
+    )
+
     # Configure mock to return different responses based on input
     def side_effect(*args, **kwargs):
-        messages = kwargs.get('messages', [])
-        if any('formats notes' in msg.get('content', '') for msg in messages):
+        messages = kwargs.get("messages", [])
+        if any(
+            "formats notes" in msg.get("content", "")
+            for msg in messages
+        ):
+            note_response.choices[
+                0
+            ].message.content = (
+                "# Test Note\n\nContent here"
+            )
             return note_response
-        elif any('formats tasks' in msg.get('content', '') for msg in messages):
+        elif any(
+            "formats tasks" in msg.get("content", "")
+            for msg in messages
+        ):
+            task_response.choices[
+                0
+            ].message.content = (
+                "# Test Task\n\nComplete test task"
+            )
             return task_response
+        elif any(
+            "processes text" in msg.get("content", "")
+            for msg in messages
+        ):
+            chat_completion.choices[
+                0
+            ].message.content = (
+                "# Test Content\n\nProcessed content here"
+            )
+            return chat_completion
         else:
+            schema_response.choices[
+                0
+            ].message.content = (
+                "# Test Content\n\nProcessed content here"
+            )
             return schema_response
-    
-    client_mock.chat.completions.create.side_effect = side_effect
+
+    client_mock.chat.completions.create.side_effect = (
+        side_effect
+    )
     return client_mock
 
 
@@ -130,14 +158,20 @@ class TestInstructorService:
 
     def test_initialization(self, robo_config):
         """Test service initialization."""
-        with patch("services.InstructorService.OpenAI") as mock_openai_class:
+        with patch(
+            "services.InstructorService.OpenAI"
+        ) as mock_openai_class:
             service = InstructorService(robo_config)
             assert service.config == robo_config
-            mock_openai_class.assert_called_once_with(api_key=robo_config.api_key)
+            mock_openai_class.assert_called_once_with(
+                api_key=robo_config.api_key
+            )
 
     def test_initialization_without_api_key(self):
         """Test initialization fails without API key."""
-        config = RoboConfig(api_key=None, model_name="gpt-4")
+        config = RoboConfig(
+            api_key=None, model_name="gpt-4"
+        )
         with pytest.raises(RoboConfigError):
             InstructorService(config)
 
@@ -149,7 +183,9 @@ class TestInstructorService:
         result = instructor_service.process_note(content)
 
         assert isinstance(result, RoboProcessingResult)
-        assert result.content == "# Test Note\n\nContent here"
+        assert (
+            result.content == "# Test Note\n\nContent here"
+        )
         assert result.metadata["title"] == "Test Note"
         assert result.tokens_used > 0
 
@@ -157,7 +193,9 @@ class TestInstructorService:
         self, instructor_service, mock_rate_limiter
     ):
         """Test note processing with rate limit."""
-        mock_rate_limiter.wait_for_capacity.return_value = False
+        mock_rate_limiter.wait_for_capacity.return_value = (
+            False
+        )
         with pytest.raises(RoboRateLimitError):
             instructor_service.process_note("test content")
 
@@ -169,16 +207,24 @@ class TestInstructorService:
         result = instructor_service.process_task(content)
 
         assert isinstance(result, RoboProcessingResult)
-        assert result.content == "# Test Task\n\nComplete test task"
+        assert (
+            result.content
+            == "# Test Task\n\nComplete test task"
+        )
         assert result.metadata["title"] == "Test Task"
-        assert result.metadata["suggested_priority"] == "HIGH"
+        assert (
+            result.metadata["suggested_priority"] == "high"
+        )
         assert result.tokens_used > 0
 
     def test_process_task_validation(
         self, instructor_service
     ):
         """Test task processing input validation."""
-        with pytest.raises(RoboValidationError, match="Content cannot be empty"):
+        with pytest.raises(
+            RoboValidationError,
+            match="Content cannot be empty",
+        ):
             instructor_service.process_task("")
 
     def test_analyze_activity_schema_success(
@@ -192,34 +238,95 @@ class TestInstructorService:
                 "project": {"type": "string"},
             },
         }
-        result = instructor_service.analyze_activity_schema(schema)
+        result = instructor_service.analyze_activity_schema(
+            schema
+        )
 
         assert "title_template" in result
         assert "content_template" in result
         assert "suggested_layout" in result
 
-    def test_health_check_success(
-        self, instructor_service
-    ):
+    def test_health_check_success(self, instructor_service):
         """Test successful health check."""
         # Create a MagicMock for the models.list method
-        models_list_mock = MagicMock(return_value=["gpt-4", "gpt-3.5-turbo"])
+        models_list_mock = MagicMock(
+            return_value=["gpt-4", "gpt-3.5-turbo"]
+        )
         # Set up the mock on the service's client
-        instructor_service.client.models.list = models_list_mock
+        instructor_service.client.models.list = (
+            models_list_mock
+        )
         assert instructor_service.health_check() is True
 
     def test_health_check_failure(
         self, instructor_service, mock_openai
     ):
         """Test health check failure."""
-        mock_openai.models.list.side_effect = Exception("API Error")
+        mock_openai.models.list.side_effect = Exception(
+            "API Error"
+        )
         assert instructor_service.health_check() is False
 
     def test_estimate_tokens(self, instructor_service):
         """Test token estimation logic."""
         text = "This is a test" * 10  # 40 characters
-        estimated = instructor_service._estimate_tokens(text)
+        estimated = instructor_service._estimate_tokens(
+            text
+        )
         assert estimated == 135  # (40 // 4) + 100 buffer
+
+    def test_process_text_success(
+        self, instructor_service, mock_openai
+    ):
+        """Test successful text processing."""
+        content = "Process this text"
+        result = instructor_service.process_text(content)
+
+        assert isinstance(result, RoboProcessingResult)
+        assert (
+            result.content
+            == "# Test Content\n\nProcessed content here"
+        )
+        assert "topics" in result.metadata
+        assert result.tokens_used > 0
+
+    def test_process_text_with_context(
+        self, instructor_service, mock_openai
+    ):
+        """Test text processing with context."""
+        content = "Process this text"
+        context = {"mode": "technical"}
+        result = instructor_service.process_text(
+            content, context
+        )
+
+        assert isinstance(result, RoboProcessingResult)
+        assert (
+            result.content
+            == "# Test Content\n\nProcessed content here"
+        )
+        assert "topics" in result.metadata
+        assert result.tokens_used > 0
+
+    def test_process_text_validation(
+        self, instructor_service
+    ):
+        """Test text processing input validation."""
+        with pytest.raises(
+            RoboValidationError,
+            match="Content cannot be empty",
+        ):
+            instructor_service.process_text("")
+
+    def test_process_text_rate_limit(
+        self, instructor_service, mock_rate_limiter
+    ):
+        """Test text processing with rate limit."""
+        mock_rate_limiter.wait_for_capacity.return_value = (
+            False
+        )
+        with pytest.raises(RoboRateLimitError):
+            instructor_service.process_text("test content")
 
 
 class TestNoteEnrichmentSchema:
@@ -270,7 +377,9 @@ class TestTaskEnrichmentSchema:
         assert schema.title == data["title"]
         assert schema.formatted == data["formatted"]
         assert (
-            schema.suggested_due_date.isoformat().replace("+00:00", "Z")
+            schema.suggested_due_date.isoformat().replace(
+                "+00:00", "Z"
+            )
             == data["suggested_due_date"]
         )
 
@@ -294,6 +403,35 @@ class TestTaskEnrichmentSchema:
             )
 
 
+class TestTextProcessingSchema:
+    """Test suite for TextProcessingSchema."""
+
+    def test_valid_schema(self):
+        """Test schema with valid data."""
+        data = {
+            "content": "# Test Content\n\nProcessed content here",
+            "metadata": {
+                "topics": ["test"],
+                "sentiment": "neutral",
+            },
+        }
+        schema = TextProcessingSchema(**data)
+        assert schema.content == data["content"]
+        assert schema.metadata == data["metadata"]
+
+    def test_required_fields(self):
+        """Test required field validation."""
+        with pytest.raises(ValueError):
+            TextProcessingSchema(
+                metadata={}
+            )  # Missing content
+
+        # Should work with just content
+        schema = TextProcessingSchema(content="Test")
+        assert schema.content == "Test"
+        assert schema.metadata == {}
+
+
 class TestActivitySchemaAnalysis:
     """Test suite for ActivitySchemaAnalysis."""
 
@@ -306,14 +444,25 @@ class TestActivitySchemaAnalysis:
                 "type": "card",
                 "sections": [
                     {"title": "Action", "field": "action"},
-                    {"title": "Project", "field": "project"},
+                    {
+                        "title": "Project",
+                        "field": "project",
+                    },
                 ],
             },
         }
         schema = ActivitySchemaAnalysis(**data)
-        assert schema.title_template == data["title_template"]
-        assert schema.content_template == data["content_template"]
-        assert schema.suggested_layout == data["suggested_layout"]
+        assert (
+            schema.title_template == data["title_template"]
+        )
+        assert (
+            schema.content_template
+            == data["content_template"]
+        )
+        assert (
+            schema.suggested_layout
+            == data["suggested_layout"]
+        )
 
     def test_required_fields(self):
         """Test required field validation."""

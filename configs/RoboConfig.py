@@ -9,11 +9,24 @@ from domain.robo import RoboConfig as DomainRoboConfig
 from utils.prompt_loader import get_prompt_from_env
 
 
+from enum import Enum
+
+
+class ServiceImplementation(str, Enum):
+    """Available RoboService implementations."""
+
+    MANUAL = "manual"  # Manual function definition approach
+    INSTRUCTOR = "instructor"  # Instructor-based approach
+
+
 class RoboConfig(BaseModel):
     """Configuration for RoboService."""
 
     api_key: SecretStr | None = None
     model_name: str = "gpt-4o-mini"
+    service_implementation: ServiceImplementation = (
+        ServiceImplementation.MANUAL
+    )
     max_retries: int = 3
     timeout_seconds: int = 30
     temperature: float = 0.7
@@ -107,10 +120,19 @@ class RoboConfig(BaseModel):
             "task_enrichment.txt",
         )
 
+        # Parse service implementation
+        try:
+            service_impl = ServiceImplementation(
+                env.ROBO_SERVICE_IMPLEMENTATION.lower()
+            )
+        except ValueError:
+            service_impl = ServiceImplementation.OPENAI
+
         return cls(
             api_key=env.ROBO_API_KEY,
             model_name=env.ROBO_MODEL_NAME
             or "gpt-3.5-turbo",
+            service_implementation=service_impl,
             max_retries=env.ROBO_MAX_RETRIES,
             timeout_seconds=env.ROBO_TIMEOUT_SECONDS,
             temperature=env.ROBO_TEMPERATURE,
