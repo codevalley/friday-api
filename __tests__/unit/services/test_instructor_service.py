@@ -2,13 +2,7 @@
 
 import json
 import pytest
-from unittest.mock import MagicMock, patch, create_autospec
-
-
-class MockFunctionName(str):
-    """Custom string class for mocking function names."""
-    def __new__(cls, value):
-        return super().__new__(cls, value)
+from unittest.mock import MagicMock, patch
 
 from domain.robo import RoboConfig, RoboProcessingResult
 from domain.exceptions import RoboConfigError
@@ -23,6 +17,13 @@ from services.InstructorService import (
     ActivitySchemaAnalysis,
     TextProcessingSchema,
 )
+
+
+class MockFunctionName(str):
+    """Custom string class for mocking function names."""
+
+    def __new__(cls, value):
+        return super().__new__(cls, value)
 
 
 @pytest.fixture
@@ -500,13 +501,23 @@ class TestTaskExtraction:
         # Create a mock function object
         class Function:
             def __init__(self):
-                self.name = MockFunctionName("extract_tasks")
-                self.arguments = json.dumps({
-                    "tasks": [
-                        {"content": "Test task 1", "priority": "high"},
-                        {"content": "Test task 2", "priority": "medium"}
-                    ]
-                })
+                self.name = MockFunctionName(
+                    "extract_tasks"
+                )
+                self.arguments = json.dumps(
+                    {
+                        "tasks": [
+                            {
+                                "content": "Test task 1",
+                                "priority": "high",
+                            },
+                            {
+                                "content": "Test task 2",
+                                "priority": "medium",
+                            },
+                        ]
+                    }
+                )
 
         # Create a mock tool call object
         class ToolCall:
@@ -536,7 +547,9 @@ class TestTaskExtraction:
                 self.created = 1707499760
 
         # Create the response mock without side_effect
-        mock_openai.chat.completions.create.return_value = Response()
+        mock_openai.chat.completions.create.return_value = (
+            Response()
+        )
 
         content = "Here are some tasks:\n1. Test task 1\n2. Test task 2"
         result = instructor_service.extract_tasks(content)
@@ -559,7 +572,9 @@ class TestTaskExtraction:
         # Create a mock function object
         class Function:
             def __init__(self):
-                self.name = MockFunctionName("extract_tasks")
+                self.name = MockFunctionName(
+                    "extract_tasks"
+                )
                 self.arguments = json.dumps({"tasks": []})
 
         # Create a mock tool call object
@@ -590,7 +605,9 @@ class TestTaskExtraction:
                 self.created = 1707499760
 
         # Create the response mock without side_effect
-        mock_openai.chat.completions.create.return_value = Response()
+        mock_openai.chat.completions.create.return_value = (
+            Response()
+        )
 
         result = instructor_service.extract_tasks("")
         assert isinstance(result, list)
@@ -601,8 +618,10 @@ class TestTaskExtraction:
     ):
         """Test task extraction with rate limit exceeded."""
         # Mock rate limiter to raise RoboRateLimitError
-        mock_rate_limiter.wait_for_capacity.side_effect = RoboRateLimitError(
-            message="Rate limit exceeded"
+        mock_rate_limiter.wait_for_capacity.side_effect = (
+            RoboRateLimitError(
+                message="Rate limit exceeded"
+            )
         )
 
         with pytest.raises(RoboRateLimitError):
@@ -619,8 +638,12 @@ class TestTaskExtraction:
         # Create a mock function object with wrong name
         class Function:
             def __init__(self):
-                self.name = MockFunctionName("wrong_function")
-                self.arguments = json.dumps({"invalid": True})
+                self.name = MockFunctionName(
+                    "wrong_function"
+                )
+                self.arguments = json.dumps(
+                    {"invalid": True}
+                )
 
         # Create a mock tool call object
         class ToolCall:
@@ -650,7 +673,9 @@ class TestTaskExtraction:
                 self.created = 1707499760
 
         # Create the response mock without side_effect
-        mock_openai.chat.completions.create.return_value = Response()
+        mock_openai.chat.completions.create.return_value = (
+            Response()
+        )
 
         with pytest.raises(RoboValidationError):
             instructor_service.extract_tasks("Test content")

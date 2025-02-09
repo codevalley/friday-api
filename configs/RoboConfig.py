@@ -85,11 +85,14 @@ class RoboConfig(BaseModel):
             )
 
         # Convert service implementation to domain enum
-        from domain.robo import ServiceImplementation as DomainServiceImplementation
+        from domain.robo import (
+            ServiceImplementation as DomainServiceImplementation,
+        )
+
         try:
             domain_impl = getattr(
                 DomainServiceImplementation,
-                self.service_implementation.name
+                self.service_implementation.name,
             )
         except (AttributeError, ValueError):
             domain_impl = DomainServiceImplementation.MANUAL
@@ -134,7 +137,13 @@ class RoboConfig(BaseModel):
         # Parse service implementation
         try:
             # Strip any comments and whitespace, convert to lowercase
-            impl_value = env.ROBO_SERVICE_IMPLEMENTATION.split('#')[0].strip().lower()
+            impl_value = (
+                env.ROBO_SERVICE_IMPLEMENTATION.split("#")[
+                    0
+                ]
+                .strip()
+                .lower()
+            )
             service_impl = ServiceImplementation(impl_value)
         except (ValueError, AttributeError):
             # Default to MANUAL if parsing fails

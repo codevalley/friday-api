@@ -9,6 +9,7 @@ from datetime import datetime, UTC
 
 class ServiceImplementation(str, Enum):
     """Available RoboService implementations."""
+
     MANUAL = "manual"  # Manual function definition approach
     INSTRUCTOR = "instructor"  # Instructor-based approach
 
@@ -19,7 +20,9 @@ class RoboConfig:
 
     api_key: str
     model_name: str
-    service_implementation: ServiceImplementation = ServiceImplementation.MANUAL
+    service_implementation: ServiceImplementation = (
+        ServiceImplementation.MANUAL
+    )
     max_retries: int = 3
     timeout_seconds: int = 30
     temperature: float = 0.7

@@ -350,8 +350,10 @@ class InstructorService(RoboService):
 
         # Estimate tokens needed for this request
         estimated_tokens = self._estimate_tokens(content)
-        
-        if not self.rate_limiter.wait_for_capacity(tokens=estimated_tokens):
+
+        if not self.rate_limiter.wait_for_capacity(
+            tokens=estimated_tokens
+        ):
             raise RoboRateLimitError("Rate limit exceeded")
 
         try:
@@ -507,19 +509,29 @@ class InstructorService(RoboService):
         ]
 
         # Add datetime context if available
-        if hasattr(self.config, "include_datetime") and self.config.include_datetime:
+        if (
+            hasattr(self.config, "include_datetime")
+            and self.config.include_datetime
+        ):
             dt_context = self._get_datetime_context()
-            messages.append({"role": "system", "content": dt_context})
+            messages.append(
+                {"role": "system", "content": dt_context}
+            )
 
         # Add any additional context
         if context:
             context_str = "\n".join(
-                f"{key}: {value}" for key, value in context.items()
+                f"{key}: {value}"
+                for key, value in context.items()
             )
-            messages.append({"role": "system", "content": context_str})
+            messages.append(
+                {"role": "system", "content": context_str}
+            )
 
         # Add user content
-        messages.append({"role": "user", "content": content})
+        messages.append(
+            {"role": "user", "content": content}
+        )
 
         return messages
 
@@ -564,8 +576,10 @@ class InstructorService(RoboService):
 
         # Estimate tokens needed for this request
         estimated_tokens = self._estimate_tokens(content)
-        
-        if not self.rate_limiter.wait_for_capacity(tokens=estimated_tokens):
+
+        if not self.rate_limiter.wait_for_capacity(
+            tokens=estimated_tokens
+        ):
             raise RoboRateLimitError("Rate limit exceeded")
 
         try:
@@ -650,8 +664,10 @@ class InstructorService(RoboService):
 
         # Estimate tokens needed for this request
         estimated_tokens = self._estimate_tokens(content)
-        
-        if not self.rate_limiter.wait_for_capacity(tokens=estimated_tokens):
+
+        if not self.rate_limiter.wait_for_capacity(
+            tokens=estimated_tokens
+        ):
             raise RoboRateLimitError("Rate limit exceeded")
 
         try:
@@ -747,9 +763,13 @@ class InstructorService(RoboService):
 
         # Create schema string for token estimation and prompt
         schema_str = json.dumps(schema, indent=2)
-        estimated_tokens = self._estimate_tokens(schema_str, buffer=1000)  # Large buffer for template generation
+        estimated_tokens = self._estimate_tokens(
+            schema_str, buffer=1000
+        )  # Large buffer for template generation
 
-        if not self.rate_limiter.wait_for_capacity(tokens=estimated_tokens):
+        if not self.rate_limiter.wait_for_capacity(
+            tokens=estimated_tokens
+        ):
             raise RoboRateLimitError("Rate limit exceeded")
 
         try:
@@ -835,7 +855,9 @@ Respond with templates that will look good when populated."""
             )
 
             # Estimate tokens needed
-            estimated_tokens = self._estimate_tokens(content)
+            estimated_tokens = self._estimate_tokens(
+                content
+            )
             self.rate_limiter.wait_for_capacity(
                 estimated_tokens
             )
@@ -844,15 +866,15 @@ Respond with templates that will look good when populated."""
             response = self.client.chat.completions.create(
                 model=self.config.model_name,
                 messages=messages,
-                tools=[{
-                    "type": "function",
-                    "function": EXTRACT_TASKS_FUNCTION
-                }],
+                tools=[
+                    {
+                        "type": "function",
+                        "function": EXTRACT_TASKS_FUNCTION,
+                    }
+                ],
                 tool_choice={
                     "type": "function",
-                    "function": {
-                        "name": "extract_tasks"
-                    }
+                    "function": {"name": "extract_tasks"},
                 },
             )
 
@@ -933,7 +955,10 @@ Respond with templates that will look good when populated."""
                 response.usage.total_tokens,
             )
 
-        except (RoboRateLimitError, RoboValidationError) as e:
+        except (
+            RoboRateLimitError,
+            RoboValidationError,
+        ) as e:
             # Let these errors propagate as they are
             logger.error(
                 f"Error extracting tasks: {str(e)}"
