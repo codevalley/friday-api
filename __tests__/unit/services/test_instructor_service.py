@@ -1,7 +1,14 @@
 """Unit tests for InstructorService."""
 
+import json
 import pytest
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, patch, create_autospec
+
+
+class MockFunctionName(str):
+    """Custom string class for mocking function names."""
+    def __new__(cls, value):
+        return super().__new__(cls, value)
 
 from domain.robo import RoboConfig, RoboProcessingResult
 from domain.exceptions import RoboConfigError
@@ -477,3 +484,173 @@ class TestActivitySchemaAnalysis:
                 content_template="Content",
                 suggested_layout={},
             )
+
+
+class TestTaskExtraction:
+    """Test suite for task extraction functionality."""
+
+    def test_extract_tasks_success(
+        self, instructor_service, mocker
+    ):
+        """Test successful task extraction."""
+        # Create a fresh OpenAI client mock
+        mock_openai = mocker.MagicMock()
+        instructor_service.client = mock_openai
+
+        # Create a mock function object
+        class Function:
+            def __init__(self):
+                self.name = MockFunctionName("extract_tasks")
+                self.arguments = json.dumps({
+                    "tasks": [
+                        {"content": "Test task 1", "priority": "high"},
+                        {"content": "Test task 2", "priority": "medium"}
+                    ]
+                })
+
+        # Create a mock tool call object
+        class ToolCall:
+            def __init__(self):
+                self.function = Function()
+
+        # Create a mock message object
+        class Message:
+            def __init__(self):
+                self.tool_calls = [ToolCall()]
+
+        # Create a mock choice object
+        class Choice:
+            def __init__(self):
+                self.message = Message()
+
+        # Create a mock usage object
+        class Usage:
+            def __init__(self):
+                self.total_tokens = 100
+
+        # Create a mock response object
+        class Response:
+            def __init__(self):
+                self.choices = [Choice()]
+                self.usage = Usage()
+                self.created = 1707499760
+
+        # Create the response mock without side_effect
+        mock_openai.chat.completions.create.return_value = Response()
+
+        content = "Here are some tasks:\n1. Test task 1\n2. Test task 2"
+        result = instructor_service.extract_tasks(content)
+
+        assert isinstance(result, list)
+        assert len(result) == 2
+        assert result[0]["content"] == "Test task 1"
+        assert result[0]["priority"] == "high"
+        assert result[1]["content"] == "Test task 2"
+        assert result[1]["priority"] == "medium"
+
+    def test_extract_tasks_empty_content(
+        self, instructor_service, mocker
+    ):
+        """Test task extraction with empty content."""
+        # Create a fresh OpenAI client mock
+        mock_openai = mocker.MagicMock()
+        instructor_service.client = mock_openai
+
+        # Create a mock function object
+        class Function:
+            def __init__(self):
+                self.name = MockFunctionName("extract_tasks")
+                self.arguments = json.dumps({"tasks": []})
+
+        # Create a mock tool call object
+        class ToolCall:
+            def __init__(self):
+                self.function = Function()
+
+        # Create a mock message object
+        class Message:
+            def __init__(self):
+                self.tool_calls = [ToolCall()]
+
+        # Create a mock choice object
+        class Choice:
+            def __init__(self):
+                self.message = Message()
+
+        # Create a mock usage object
+        class Usage:
+            def __init__(self):
+                self.total_tokens = 50
+
+        # Create a mock response object
+        class Response:
+            def __init__(self):
+                self.choices = [Choice()]
+                self.usage = Usage()
+                self.created = 1707499760
+
+        # Create the response mock without side_effect
+        mock_openai.chat.completions.create.return_value = Response()
+
+        result = instructor_service.extract_tasks("")
+        assert isinstance(result, list)
+        assert len(result) == 0
+
+    def test_extract_tasks_rate_limit(
+        self, instructor_service, mock_rate_limiter
+    ):
+        """Test task extraction with rate limit exceeded."""
+        # Mock rate limiter to raise RoboRateLimitError
+        mock_rate_limiter.wait_for_capacity.side_effect = RoboRateLimitError(
+            message="Rate limit exceeded"
+        )
+
+        with pytest.raises(RoboRateLimitError):
+            instructor_service.extract_tasks("Test content")
+
+    def test_extract_tasks_invalid_response(
+        self, instructor_service, mocker
+    ):
+        """Test task extraction with invalid API response."""
+        # Create a fresh OpenAI client mock
+        mock_openai = mocker.MagicMock()
+        instructor_service.client = mock_openai
+
+        # Create a mock function object with wrong name
+        class Function:
+            def __init__(self):
+                self.name = MockFunctionName("wrong_function")
+                self.arguments = json.dumps({"invalid": True})
+
+        # Create a mock tool call object
+        class ToolCall:
+            def __init__(self):
+                self.function = Function()
+
+        # Create a mock message object
+        class Message:
+            def __init__(self):
+                self.tool_calls = [ToolCall()]
+
+        # Create a mock choice object
+        class Choice:
+            def __init__(self):
+                self.message = Message()
+
+        # Create a mock usage object
+        class Usage:
+            def __init__(self):
+                self.total_tokens = 50
+
+        # Create a mock response object
+        class Response:
+            def __init__(self):
+                self.choices = [Choice()]
+                self.usage = Usage()
+                self.created = 1707499760
+
+        # Create the response mock without side_effect
+        mock_openai.chat.completions.create.return_value = Response()
+
+        with pytest.raises(RoboValidationError):
+            instructor_service.extract_tasks("Test content")

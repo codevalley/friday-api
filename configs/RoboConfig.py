@@ -27,7 +27,7 @@ class RoboConfig(BaseModel):
     service_implementation: ServiceImplementation = (
         ServiceImplementation.MANUAL
     )
-    max_retries: int = 3
+    max_retries: int = 0
     timeout_seconds: int = 30
     temperature: float = 0.7
     max_tokens: int = 150
@@ -84,9 +84,20 @@ class RoboConfig(BaseModel):
                 "OpenAI API key is required"
             )
 
+        # Convert service implementation to domain enum
+        from domain.robo import ServiceImplementation as DomainServiceImplementation
+        try:
+            domain_impl = getattr(
+                DomainServiceImplementation,
+                self.service_implementation.name
+            )
+        except (AttributeError, ValueError):
+            domain_impl = DomainServiceImplementation.MANUAL
+
         return DomainRoboConfig(
             api_key=self.api_key.get_secret_value(),
             model_name=self.model_name,
+            service_implementation=domain_impl,
             max_retries=self.max_retries,
             timeout_seconds=self.timeout_seconds,
             temperature=self.temperature,
@@ -122,11 +133,12 @@ class RoboConfig(BaseModel):
 
         # Parse service implementation
         try:
-            service_impl = ServiceImplementation(
-                env.ROBO_SERVICE_IMPLEMENTATION.lower()
-            )
-        except ValueError:
-            service_impl = ServiceImplementation.OPENAI
+            # Strip any comments and whitespace, convert to lowercase
+            impl_value = env.ROBO_SERVICE_IMPLEMENTATION.split('#')[0].strip().lower()
+            service_impl = ServiceImplementation(impl_value)
+        except (ValueError, AttributeError):
+            # Default to MANUAL if parsing fails
+            service_impl = ServiceImplementation.MANUAL
 
         return cls(
             api_key=env.ROBO_API_KEY,

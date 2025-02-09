@@ -26,6 +26,52 @@ from utils.retry import with_retry
 logger = logging.getLogger(__name__)
 
 
+EXTRACT_TASKS_FUNCTION = {
+    "name": "extract_tasks",
+    "description": "Extract tasks from the given note content",
+    "parameters": {
+        "type": "object",
+        "properties": {
+            "tasks": {
+                "type": "array",
+                "description": "List of tasks extracted from the note",
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "content": {
+                            "type": "string",
+                            "description": "The task description",
+                        },
+                        "priority": {
+                            "type": "string",
+                            "enum": [
+                                "urgent",
+                                "high",
+                                "medium",
+                                "low",
+                            ],
+                            "description": "Task priority level",
+                        },
+                        "status": {
+                            "type": "string",
+                            "enum": [
+                                "todo",
+                                "in_progress",
+                                "done",
+                                "blocked",
+                            ],
+                            "description": "Current task status",
+                        },
+                    },
+                    "required": ["content"],
+                },
+            },
+        },
+        "required": ["tasks"],
+    },
+}
+
+
 class TextProcessingSchema(OpenAISchema):
     """Schema for general text processing."""
 
@@ -302,7 +348,10 @@ class InstructorService(RoboService):
                 "Content cannot be empty"
             )
 
-        if not self.rate_limiter.wait_for_capacity():
+        # Estimate tokens needed for this request
+        estimated_tokens = self._estimate_tokens(content)
+        
+        if not self.rate_limiter.wait_for_capacity(tokens=estimated_tokens):
             raise RoboRateLimitError("Rate limit exceeded")
 
         try:
@@ -437,6 +486,43 @@ class InstructorService(RoboService):
         # Simple estimation: ~4 chars per token + buffer
         return (len(text) // 4) + buffer
 
+    def _prepare_messages(
+        self,
+        content: str,
+        system_prompt: str,
+        context: Optional[Dict[str, Any]] = None,
+    ) -> List[Dict[str, str]]:
+        """Prepare messages for OpenAI API call.
+
+        Args:
+            content: The content to process
+            system_prompt: The system prompt to use
+            context: Optional context to include
+
+        Returns:
+            List of message dictionaries
+        """
+        messages = [
+            {"role": "system", "content": system_prompt},
+        ]
+
+        # Add datetime context if available
+        if hasattr(self.config, "include_datetime") and self.config.include_datetime:
+            dt_context = self._get_datetime_context()
+            messages.append({"role": "system", "content": dt_context})
+
+        # Add any additional context
+        if context:
+            context_str = "\n".join(
+                f"{key}: {value}" for key, value in context.items()
+            )
+            messages.append({"role": "system", "content": context_str})
+
+        # Add user content
+        messages.append({"role": "user", "content": content})
+
+        return messages
+
     @with_retry(
         max_retries=3,
         retry_on=(RoboAPIError, RoboRateLimitError),
@@ -476,7 +562,10 @@ class InstructorService(RoboService):
                 "Content cannot be empty"
             )
 
-        if not self.rate_limiter.wait_for_capacity():
+        # Estimate tokens needed for this request
+        estimated_tokens = self._estimate_tokens(content)
+        
+        if not self.rate_limiter.wait_for_capacity(tokens=estimated_tokens):
             raise RoboRateLimitError("Rate limit exceeded")
 
         try:
@@ -559,7 +648,10 @@ class InstructorService(RoboService):
                 "Content cannot be empty"
             )
 
-        if not self.rate_limiter.wait_for_capacity():
+        # Estimate tokens needed for this request
+        estimated_tokens = self._estimate_tokens(content)
+        
+        if not self.rate_limiter.wait_for_capacity(tokens=estimated_tokens):
             raise RoboRateLimitError("Rate limit exceeded")
 
         try:
@@ -653,12 +745,14 @@ class InstructorService(RoboService):
                 "Schema must contain properties"
             )
 
-        if not self.rate_limiter.wait_for_capacity():
+        # Create schema string for token estimation and prompt
+        schema_str = json.dumps(schema, indent=2)
+        estimated_tokens = self._estimate_tokens(schema_str, buffer=1000)  # Large buffer for template generation
+
+        if not self.rate_limiter.wait_for_capacity(tokens=estimated_tokens):
             raise RoboRateLimitError("Rate limit exceeded")
 
         try:
-            # Create a prompt that explains the task
-            schema_str = json.dumps(schema, indent=2)
             prompt = f"""Analyze this JSON Schema and create display templates.
 
 Schema:
@@ -712,3 +806,143 @@ Respond with templates that will look good when populated."""
         except Exception as e:
             logger.error(f"Health check failed: {e}")
             return False
+
+    @with_retry(
+        max_retries=3,
+        retry_on=(RoboAPIError, RoboRateLimitError),
+        exclude_on=tuple(),  # Allow retrying on RoboRateLimitError
+    )
+    def extract_tasks(
+        self, content: str
+    ) -> List[Dict[str, str]]:
+        """Extract tasks from note content.
+
+        Args:
+            content: The note content to extract tasks from
+
+        Returns:
+            List of extracted tasks, each with content string
+
+        Raises:
+            OpenAIError: If API call fails
+            ValidationError: If response validation fails
+        """
+        try:
+            # Prepare messages with datetime context
+            messages = self._prepare_messages(
+                content=content,
+                system_prompt=self.config.task_extraction_prompt,
+            )
+
+            # Estimate tokens needed
+            estimated_tokens = self._estimate_tokens(content)
+            self.rate_limiter.wait_for_capacity(
+                estimated_tokens
+            )
+
+            # Call OpenAI with function definition
+            response = self.client.chat.completions.create(
+                model=self.config.model_name,
+                messages=messages,
+                tools=[{
+                    "type": "function",
+                    "function": EXTRACT_TASKS_FUNCTION
+                }],
+                tool_choice={
+                    "type": "function",
+                    "function": {
+                        "name": "extract_tasks"
+                    }
+                },
+            )
+
+            # Parse and validate response
+            try:
+                # Try tool_calls first (newer format)
+                if (
+                    hasattr(
+                        response.choices[0].message,
+                        "tool_calls",
+                    )
+                    and response.choices[
+                        0
+                    ].message.tool_calls
+                ):
+                    tool_call = response.choices[
+                        0
+                    ].message.tool_calls[0]
+                    if (
+                        tool_call.function.name
+                        != "extract_tasks"
+                    ):
+                        raise RoboValidationError(
+                            message=(
+                                "Expected function name 'extract_tasks', "
+                                f"got '{tool_call.function.name}'"
+                            )
+                        )
+                    arguments = tool_call.function.arguments
+                # Fall back to function_call (older format)
+                elif (
+                    hasattr(
+                        response.choices[0].message,
+                        "function_call",
+                    )
+                    and response.choices[
+                        0
+                    ].message.function_call
+                ):
+                    function_call = response.choices[
+                        0
+                    ].message.function_call
+                    if (
+                        function_call.name
+                        != "extract_tasks"
+                    ):
+                        raise RoboValidationError(
+                            message=(
+                                "Expected function name 'extract_tasks', "
+                                f"got '{function_call.name}'"
+                            )
+                        )
+                    arguments = function_call.arguments
+                else:
+                    raise AttributeError(
+                        "No tool_calls or function_call found in response"
+                    )
+
+                result = json.loads(arguments)
+                return result["tasks"]
+            except (
+                json.JSONDecodeError,
+                KeyError,
+                AttributeError,
+            ) as e:
+                logger.error(
+                    f"Failed to parse OpenAI response: {str(e)}"
+                )
+                raise RoboValidationError(
+                    message="Invalid response format from OpenAI"
+                )
+
+            # Record token usage
+            self.rate_limiter.record_usage(
+                datetime.fromtimestamp(
+                    response.created, UTC
+                ),
+                response.usage.total_tokens,
+            )
+
+        except (RoboRateLimitError, RoboValidationError) as e:
+            # Let these errors propagate as they are
+            logger.error(
+                f"Error extracting tasks: {str(e)}"
+            )
+            raise
+        except Exception as e:
+            logger.error(
+                f"Error extracting tasks: {str(e)}"
+            )
+            raise RoboAPIError(
+                f"OpenAI API error: {str(e)}"
+            )

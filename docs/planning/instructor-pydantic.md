@@ -47,6 +47,12 @@ This document outlines the plan to migrate our OpenAI function calling implement
   - [x] Add template validation
   - [x] Write tests
 
+- [ ] Task 2.4: Task Extraction Models
+  - [ ] Create TaskExtractionSchema
+  - [ ] Add function calling metadata
+  - [ ] Add validation rules
+  - [ ] Write tests
+
 ### Epic 3: Service Implementation
 - [x] Task 3.1: Core Processing Methods
   - [x] Implement process_text with instructor

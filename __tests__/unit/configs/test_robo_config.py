@@ -13,7 +13,7 @@ def test_robo_config_default_values():
     config = RoboConfig()
     assert config.api_key is None
     assert config.model_name == "gpt-4o-mini"
-    assert config.max_retries == 3
+    assert config.max_retries == 0
     assert config.timeout_seconds == 30
     assert config.temperature == 0.7
     assert config.max_tokens == 150
@@ -39,6 +39,7 @@ def test_to_domain_config_success():
     config = RoboConfig(
         api_key=SecretStr("test-key"),
         model_name="test-model",
+        service_implementation="manual",
         max_retries=5,
         timeout_seconds=60,
         temperature=0.5,
@@ -51,6 +52,8 @@ def test_to_domain_config_success():
     assert isinstance(domain_config, DomainRoboConfig)
     assert domain_config.api_key == "test-key"
     assert domain_config.model_name == "test-model"
+    from domain.robo import ServiceImplementation as DomainServiceImplementation
+    assert domain_config.service_implementation == DomainServiceImplementation.MANUAL
     assert domain_config.max_retries == 5
     assert domain_config.timeout_seconds == 60
     assert domain_config.temperature == 0.5
