@@ -370,8 +370,7 @@ class InstructorService(RoboService):
                     messages=[
                         {
                             "role": "system",
-                            "content": "You are a helpful assistant that processes and formats text. "  # noqa: E501
-                            + "Extract relevant metadata like topics, sentiment, and key points.",  # noqa: E501
+                            "content": self.config.note_enrichment_prompt,
                         },
                         {
                             "role": "user",
@@ -379,7 +378,8 @@ class InstructorService(RoboService):
                         },
                     ],
                     model=self.config.model_name,
-                    temperature=0.7,
+                    temperature=self.config.temperature,
+                    max_tokens=self.config.max_tokens,
                 )
             )
 
@@ -596,7 +596,7 @@ class InstructorService(RoboService):
                     messages=[
                         {
                             "role": "system",
-                            "content": "You are a helpful assistant that formats notes in clean markdown.",  # noqa: E501
+                            "content": self.config.note_enrichment_prompt,
                         },
                         {
                             "role": "user",
@@ -604,7 +604,8 @@ class InstructorService(RoboService):
                         },
                     ],
                     model=self.config.model_name,
-                    temperature=0.7,
+                    temperature=self.config.temperature,
+                    max_tokens=self.config.max_tokens,
                 )
             )
 
@@ -684,7 +685,7 @@ class InstructorService(RoboService):
                     messages=[
                         {
                             "role": "system",
-                            "content": "You are a helpful assistant that formats tasks in clean markdown and suggests priorities.",  # noqa: E501
+                            "content": self.config.task_enrichment_prompt,
                         },
                         {
                             "role": "user",
@@ -692,7 +693,8 @@ class InstructorService(RoboService):
                         },
                     ],
                     model=self.config.model_name,
-                    temperature=0.7,
+                    temperature=self.config.temperature,
+                    max_tokens=self.config.max_tokens,
                 )
             )
 
@@ -793,12 +795,13 @@ Respond with templates that will look good when populated."""
                     messages=[
                         {
                             "role": "system",
-                            "content": "You are a helpful assistant that creates display templates for data structures.",  # noqa: E501
+                            "content": self.config.activity_schema_prompt,
                         },
                         {"role": "user", "content": prompt},
                     ],
                     model=self.config.model_name,
-                    temperature=0.7,
+                    temperature=self.config.temperature,
+                    max_tokens=self.config.max_tokens,
                 )
             )
 
@@ -866,6 +869,8 @@ Respond with templates that will look good when populated."""
             response = self.client.chat.completions.create(
                 model=self.config.model_name,
                 messages=messages,
+                temperature=self.config.temperature,
+                max_tokens=self.config.max_tokens,
                 tools=[
                     {
                         "type": "function",

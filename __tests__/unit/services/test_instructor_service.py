@@ -54,7 +54,7 @@ def mock_openai(mocker):
     note_response.choices = [
         mocker.MagicMock(
             message=mocker.MagicMock(
-                content="# Test Note\n\nContent here"
+                content="# Test Content\n\nProcessed content here"
             )
         )
     ]
@@ -65,7 +65,7 @@ def mock_openai(mocker):
     task_response.choices = [
         mocker.MagicMock(
             message=mocker.MagicMock(
-                content="# Test Task\n\nComplete test task"
+                content="# Test Content\n\nProcessed content here"
             )
         )
     ]
@@ -94,7 +94,7 @@ def mock_openai(mocker):
             note_response.choices[
                 0
             ].message.content = (
-                "# Test Note\n\nContent here"
+                "# Test Content\n\nProcessed content here"
             )
             return note_response
         elif any(
@@ -192,9 +192,10 @@ class TestInstructorService:
 
         assert isinstance(result, RoboProcessingResult)
         assert (
-            result.content == "# Test Note\n\nContent here"
+            result.content
+            == "# Test Content\n\nProcessed content here"
         )
-        assert result.metadata["title"] == "Test Note"
+        assert result.metadata["title"] == "Test Content"
         assert result.tokens_used > 0
 
     def test_process_note_rate_limit(
@@ -217,9 +218,9 @@ class TestInstructorService:
         assert isinstance(result, RoboProcessingResult)
         assert (
             result.content
-            == "# Test Task\n\nComplete test task"
+            == "# Test Content\n\nProcessed content here"
         )
-        assert result.metadata["title"] == "Test Task"
+        assert result.metadata["title"] == "Test Content"
         assert (
             result.metadata["suggested_priority"] == "high"
         )
