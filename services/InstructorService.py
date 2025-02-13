@@ -152,17 +152,18 @@ class NoteEnrichmentSchema(OpenAISchema):
     @classmethod
     def from_completion(cls, completion):
         """Create from OpenAI completion response."""
-        content = completion.choices[0].message.content
-        # Extract title from first line if it starts with #
-        lines = content.split("\n")
-        title = (
-            lines[0].lstrip("#").strip()
-            if lines[0].startswith("#")
-            else content[:50]
-        )
-        return cls(
-            title=title, formatted=content, metadata={}
-        )
+        try:
+            # Parse the JSON response
+            response_data = json.loads(completion.choices[0].message.content)
+            return cls(
+                title=response_data["title"],
+                formatted=response_data["formatted"],
+                metadata=response_data.get("metadata", {})
+            )
+        except json.JSONDecodeError as e:
+            raise RoboValidationError(f"Failed to parse OpenAI response as JSON: {str(e)}")
+        except KeyError as e:
+            raise RoboValidationError(f"Missing required field in OpenAI response: {str(e)}")
 
 
 class TaskEnrichmentSchema(OpenAISchema):
@@ -207,27 +208,20 @@ class TaskEnrichmentSchema(OpenAISchema):
     @classmethod
     def from_completion(cls, completion):
         """Create from OpenAI completion response."""
-        content = completion.choices[0].message.content
-        # Extract title from first line if it starts with #
-        lines = content.split("\n")
-        title = (
-            lines[0].lstrip("#").strip()
-            if lines[0].startswith("#")
-            else content[:50]
-        )
-        # Set default priority to HIGH for the test
-        priority = TaskPriority.HIGH
-        # TODO: Add due date extraction
-        return cls(
-            title=title,
-            formatted=content,
-            suggested_priority=priority,
-            suggested_due_date=None,
-            metadata={
-                "tags": ["task"],
-                "estimated_effort": "medium",
-            },
-        )
+        try:
+            # Parse the JSON response
+            response_data = json.loads(completion.choices[0].message.content)
+            return cls(
+                title=response_data["title"],
+                formatted=response_data["formatted"],
+                suggested_priority=response_data.get("suggested_priority"),
+                suggested_due_date=response_data.get("suggested_due_date"),
+                metadata=response_data.get("metadata", {})
+            )
+        except json.JSONDecodeError as e:
+            raise RoboValidationError(f"Failed to parse OpenAI response as JSON: {str(e)}")
+        except KeyError as e:
+            raise RoboValidationError(f"Missing required field in OpenAI response: {str(e)}")
 
 
 class ActivitySchemaAnalysis(OpenAISchema):
