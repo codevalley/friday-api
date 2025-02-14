@@ -154,16 +154,22 @@ class NoteEnrichmentSchema(OpenAISchema):
         """Create from OpenAI completion response."""
         try:
             # Parse the JSON response
-            response_data = json.loads(completion.choices[0].message.content)
+            response_data = json.loads(
+                completion.choices[0].message.content
+            )
             return cls(
                 title=response_data["title"],
                 formatted=response_data["formatted"],
-                metadata=response_data.get("metadata", {})
+                metadata=response_data.get("metadata", {}),
             )
         except json.JSONDecodeError as e:
-            raise RoboValidationError(f"Failed to parse OpenAI response as JSON: {str(e)}")
+            raise RoboValidationError(
+                f"Failed to parse OpenAI response as JSON: {str(e)}"
+            )
         except KeyError as e:
-            raise RoboValidationError(f"Missing required field in OpenAI response: {str(e)}")
+            raise RoboValidationError(
+                f"Missing required field in OpenAI response: {str(e)}"
+            )
 
 
 class TaskEnrichmentSchema(OpenAISchema):
@@ -178,7 +184,7 @@ class TaskEnrichmentSchema(OpenAISchema):
         ...,
         description="Formatted task content in markdown",
     )
-    suggested_priority: Optional[TaskPriority] = Field(
+    suggested_priority: Optional[str] = Field(
         None,
         description="Suggested priority based on content",
     )
@@ -205,23 +211,52 @@ class TaskEnrichmentSchema(OpenAISchema):
         }
     )
 
+    def validate_priority(self) -> None:
+        """Validate priority value."""
+        if self.suggested_priority:
+            try:
+                TaskPriority(
+                    self.suggested_priority.lower()
+                )
+            except ValueError as e:
+                raise ValueError(
+                    f"Invalid priority value: {self.suggested_priority}"
+                    f" ({str(e)})",
+                )
+
     @classmethod
     def from_completion(cls, completion):
         """Create from OpenAI completion response."""
-        try:
-            # Parse the JSON response
-            response_data = json.loads(completion.choices[0].message.content)
-            return cls(
-                title=response_data["title"],
-                formatted=response_data["formatted"],
-                suggested_priority=response_data.get("suggested_priority"),
-                suggested_due_date=response_data.get("suggested_due_date"),
-                metadata=response_data.get("metadata", {})
-            )
-        except json.JSONDecodeError as e:
-            raise RoboValidationError(f"Failed to parse OpenAI response as JSON: {str(e)}")
-        except KeyError as e:
-            raise RoboValidationError(f"Missing required field in OpenAI response: {str(e)}")
+        if not completion.choices:
+            raise ValueError("No choices in completion")
+
+        response_data = json.loads(
+            completion.choices[0].message.content
+        )
+
+        # Validate and normalize priority if present
+        priority = response_data.get("suggested_priority")
+        if priority:
+            priority = priority.upper()
+            try:
+                TaskPriority(priority.lower())
+            except ValueError as e:
+                raise ValueError(
+                    f"Invalid priority value: {priority}"
+                    f" ({str(e)})",
+                )
+
+        instance = cls(
+            title=response_data["title"],
+            formatted=response_data["formatted"],
+            suggested_priority=priority,
+            suggested_due_date=response_data.get(
+                "suggested_due_date"
+            ),
+            metadata=response_data.get("metadata", {}),
+        )
+        instance.validate_priority()
+        return instance
 
 
 class ActivitySchemaAnalysis(OpenAISchema):
@@ -692,20 +727,18 @@ class InstructorService(RoboService):
                 )
             )
 
-            # Return the result
+            # Return the result with properly structured metadata
+            metadata = {
+                "title": enrichment.title,
+                "suggested_priority": enrichment.suggested_priority,
+                "suggested_due_date": enrichment.suggested_due_date,
+            }
+            metadata.update(enrichment.metadata)
+
             return RoboProcessingResult(
                 content=enrichment.formatted,
-                metadata={
-                    "title": enrichment.title,
-                    "suggested_priority": enrichment.suggested_priority.value
-                    if enrichment.suggested_priority
-                    else None,
-                    "suggested_due_date": enrichment.suggested_due_date,
-                    **enrichment.metadata,
-                },
-                tokens_used=self._estimate_tokens(
-                    content
-                ),  # Estimate since instructor doesn't provide usage
+                metadata=metadata,
+                tokens_used=self._estimate_tokens(content),
                 model_name=self.config.model_name,
                 created_at=datetime.now(UTC),
             )

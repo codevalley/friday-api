@@ -29,104 +29,99 @@ class MockFunctionName(str):
 @pytest.fixture
 def mock_openai(mocker):
     """Mock OpenAI client with instructor support."""
-    # Create OpenAI client mock
     client_mock = mocker.MagicMock()
 
-    # Mock chat completions
-    chat_completion = mocker.MagicMock()
-    chat_completion.choices = [mocker.MagicMock()]
-    chat_completion.choices[0].message = mocker.MagicMock()
-    chat_completion.choices[
-        0
-    ].message.content = (
-        "# Test Content\n\nProcessed content here"
-    )
-    chat_completion.usage = mocker.MagicMock()
-    chat_completion.usage.total_tokens = 100
-
-    # Set up the completion response
-    client_mock.chat.completions.create.return_value = (
-        chat_completion
-    )
-
-    # Mock response for note processing
-    note_response = mocker.MagicMock()
-    note_response.choices = [
-        mocker.MagicMock(
-            message=mocker.MagicMock(
-                content="# Test Content\n\nProcessed content here"
+    # Define different response types
+    text_processing_response = mocker.MagicMock(
+        choices=[
+            mocker.MagicMock(
+                message=mocker.MagicMock(
+                    content=json.dumps(
+                        {
+                            "title": "Test Content",
+                            "formatted": "# Test Content\n\nProcessed content here",  # noqa: E501
+                            "metadata": {
+                                "topics": ["test"],
+                                "sentiment": "neutral",
+                                "summary": "Test content",
+                            },
+                        }
+                    )
+                )
             )
-        )
-    ]
-    note_response.usage = mocker.MagicMock(total_tokens=100)
-
-    # Mock response for task processing
-    task_response = mocker.MagicMock()
-    task_response.choices = [
-        mocker.MagicMock(
-            message=mocker.MagicMock(
-                content="# Test Content\n\nProcessed content here"
-            )
-        )
-    ]
-    task_response.usage = mocker.MagicMock(total_tokens=80)
-
-    # Mock response for schema analysis
-    schema_response = mocker.MagicMock()
-    schema_response.choices = [
-        mocker.MagicMock(
-            message=mocker.MagicMock(
-                content="Template content"
-            )
-        )
-    ]
-    schema_response.usage = mocker.MagicMock(
-        total_tokens=120
+        ],
+        usage=mocker.MagicMock(total_tokens=100),
     )
 
-    # Configure mock to return different responses based on input
-    def side_effect(*args, **kwargs):
+    note_response = mocker.MagicMock(
+        choices=[
+            mocker.MagicMock(
+                message=mocker.MagicMock(
+                    content=json.dumps(
+                        {
+                            "title": "Test Content",
+                            "formatted": "# Test Content\n\nProcessed content here",  # noqa: E501
+                            "metadata": {
+                                "topics": ["test"],
+                                "sentiment": "neutral",
+                                "summary": "Test note content",
+                            },
+                        }
+                    )
+                )
+            )
+        ],
+        usage=mocker.MagicMock(total_tokens=100),
+    )
+
+    task_response = mocker.MagicMock(
+        choices=[
+            mocker.MagicMock(
+                message=mocker.MagicMock(
+                    content=json.dumps(
+                        {
+                            "title": "Test Content",
+                            "formatted": "# Test Content\n\nProcessed content here",  # noqa: E501
+                            "suggested_priority": "high",
+                            "suggested_due_date": None,
+                            "metadata": {
+                                "tags": ["task"],
+                                "status": "pending",
+                                "summary": "Test task content",
+                            },
+                        }
+                    )
+                )
+            )
+        ],
+        usage=mocker.MagicMock(total_tokens=80),
+    )
+
+    # Set up completion response with proper routing
+    def completion_side_effect(*args, **kwargs):
         messages = kwargs.get("messages", [])
-        if any(
-            "formats notes" in msg.get("content", "")
-            for msg in messages
-        ):
-            note_response.choices[
-                0
-            ].message.content = (
-                "# Test Content\n\nProcessed content here"
-            )
-            return note_response
-        elif any(
-            "formats tasks" in msg.get("content", "")
-            for msg in messages
-        ):
-            task_response.choices[
-                0
-            ].message.content = (
-                "# Test Task\n\nComplete test task"
-            )
-            return task_response
-        elif any(
-            "processes text" in msg.get("content", "")
-            for msg in messages
-        ):
-            chat_completion.choices[
-                0
-            ].message.content = (
-                "# Test Content\n\nProcessed content here"
-            )
-            return chat_completion
-        else:
-            schema_response.choices[
-                0
-            ].message.content = (
-                "# Test Content\n\nProcessed content here"
-            )
-            return schema_response
+        system_message = next(
+            (
+                msg
+                for msg in messages
+                if msg.get("role") == "system"
+            ),
+            None,
+        )
 
-    client_mock.chat.completions.create.side_effect = (
-        side_effect
+        if not system_message:
+            return text_processing_response
+
+        content = system_message.get("content", "")
+        if "task_enrichment_prompt" in content:
+            return task_response
+        elif "note_enrichment_prompt" in content:
+            return note_response
+        else:
+            return text_processing_response
+
+    client_mock.chat.completions.create = mocker.MagicMock(
+        side_effect=completion_side_effect
     )
     return client_mock
 
@@ -196,6 +191,12 @@ class TestInstructorService:
             == "# Test Content\n\nProcessed content here"
         )
         assert result.metadata["title"] == "Test Content"
+        assert "topics" in result.metadata
+        assert result.metadata["topics"] == ["test"]
+        assert "sentiment" in result.metadata
+        assert result.metadata["sentiment"] == "neutral"
+        assert "summary" in result.metadata
+        assert result.metadata["summary"] == "Test content"
         assert result.tokens_used > 0
 
     def test_process_note_rate_limit(
@@ -221,9 +222,13 @@ class TestInstructorService:
             == "# Test Content\n\nProcessed content here"
         )
         assert result.metadata["title"] == "Test Content"
-        assert (
-            result.metadata["suggested_priority"] == "high"
-        )
+        assert result.metadata["suggested_priority"] is None
+        assert "topics" in result.metadata
+        assert result.metadata["topics"] == ["test"]
+        assert "sentiment" in result.metadata
+        assert result.metadata["sentiment"] == "neutral"
+        assert "summary" in result.metadata
+        assert result.metadata["summary"] == "Test content"
         assert result.tokens_used > 0
 
     def test_process_task_validation(
@@ -292,11 +297,12 @@ class TestInstructorService:
         result = instructor_service.process_text(content)
 
         assert isinstance(result, RoboProcessingResult)
+        response_data = json.loads(result.content)
         assert (
-            result.content
+            response_data["formatted"]
             == "# Test Content\n\nProcessed content here"
         )
-        assert "topics" in result.metadata
+        assert "topics" in response_data["metadata"]
         assert result.tokens_used > 0
 
     def test_process_text_with_context(
@@ -310,11 +316,12 @@ class TestInstructorService:
         )
 
         assert isinstance(result, RoboProcessingResult)
+        response_data = json.loads(result.content)
         assert (
-            result.content
+            response_data["formatted"]
             == "# Test Content\n\nProcessed content here"
         )
-        assert "topics" in result.metadata
+        assert "topics" in response_data["metadata"]
         assert result.tokens_used > 0
 
     def test_process_text_validation(
@@ -404,12 +411,16 @@ class TestTaskEnrichmentSchema:
 
     def test_invalid_priority(self):
         """Test invalid priority validation."""
-        with pytest.raises(ValueError):
-            TaskEnrichmentSchema(
+        with pytest.raises(
+            ValueError,
+            match="Invalid priority value: INVALID",
+        ):
+            schema = TaskEnrichmentSchema(
                 title="Test",
                 formatted="Content",
                 suggested_priority="INVALID",
             )
+            schema.validate_priority()
 
 
 class TestTextProcessingSchema:
