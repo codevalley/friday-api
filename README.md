@@ -23,6 +23,7 @@ A powerful life logging API built with FastAPI. Track your daily activities and 
 
 - Python 3.8+
 - MySQL 8.0+
+- Redis 6.2+
 - [Pipenv](https://pipenv.pypa.io/en/latest/)
 
 ### Installation
@@ -40,14 +41,34 @@ pipenv install
 
 3. Set up your environment variables in `.env`:
 ```env
+# App Configuration
 APP_ENV=development
 APP_NAME=friday-api
+
+# Database Configuration
 DATABASE_DIALECT=mysql
 DATABASE_HOSTNAME=localhost
 DATABASE_NAME=test_fridaystore
 DATABASE_PASSWORD=your_password
 DATABASE_PORT=3306
 DATABASE_USERNAME=your_username
+
+# Redis Configuration (required)
+REDIS_HOST=localhost
+REDIS_PORT=6379
+REDIS_DB=0
+REDIS_PASSWORD=your_secure_password  # Required for security
+REDIS_SSL=false
+REDIS_TIMEOUT=10
+QUEUE_JOB_TIMEOUT=600
+QUEUE_JOB_TTL=3600
+
+# Domain Configuration
+FRIDAY_DOMAIN=your.domain.com
+LETSENCRYPT_EMAIL=your@email.com
+
+# Storage Configuration
+STORAGE_PATH=/path/to/storage
 ```
 
 4. Initialize the database:
@@ -55,9 +76,22 @@ DATABASE_USERNAME=your_username
 # Run the SQL script in scripts/init_database.sql
 ```
 
-5. Start the server:
+5. Start Redis:
 ```bash
+# macOS
+brew services start redis
+
+# Ubuntu/Debian
+sudo systemctl start redis
+```
+
+6. Start the server and worker:
+```bash
+# Start the API server
 pipenv run uvicorn main:app --reload
+
+# In a separate terminal, start the worker
+pipenv run python -m infrastructure.queue.run_worker
 ```
 
 The API will be available at:

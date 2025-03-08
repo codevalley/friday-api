@@ -29,12 +29,14 @@ pip install rq redis
 REDIS_HOST=localhost
 REDIS_PORT=6379
 REDIS_DB=0
-REDIS_PASSWORD=  # Optional
+REDIS_PASSWORD=your_secure_password  # Required for security
 REDIS_SSL=false  # Optional
 REDIS_TIMEOUT=10  # Connection timeout
 QUEUE_JOB_TIMEOUT=600  # Maximum time a job can run (10 minutes)
 QUEUE_JOB_TTL=3600  # How long jobs can stay in queue (1 hour)
 ```
+
+> ⚠️ **Important**: Redis password is required for security. Make sure to set a strong password in production environments.
 
 ### Worker Setup
 

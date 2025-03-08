@@ -10,7 +10,7 @@
 6. Under **Authentication**, set an SSH key (recommended) or password.
 7. Optionally name/tag the Droplet, then **Create**.
 
-> **Tip**: Wait until the Droplet is fully provisioned. You’ll get a public IP address for it.
+> **Tip**: Wait until the Droplet is fully provisioned. You'll get a public IP address for it.
 
 ---
 
@@ -93,7 +93,7 @@ You should see something like `Docker Compose version v2.x`.
    git clone https://github.com/codevalley/friday-api.git
    cd friday-api
    ```
-   *(If it’s private, set up SSH keys or use personal access tokens.)*
+   *(If it's private, set up SSH keys or use personal access tokens.)*
 
 3. You should see your repo files: `deploy.sh`, `docker-compose.yml`, `Dockerfile`, `.env.sample`, etc.
 
@@ -108,9 +108,16 @@ You should see something like `Docker Compose version v2.x`.
 2. **Edit** `.env` to set:
    - Domain / email for your SSL config (e.g., `FRIDAY_DOMAIN=api.acme.me`, `LETSENCRYPT_EMAIL=admin@acme.com`).
    - DB credentials if using local MySQL. If using an external DB, set `EXTERNAL_DB=true` and update `DATABASE_HOSTNAME`, `DATABASE_PORT`, etc. accordingly.
-   - Customize any secrets (like `JWT_SECRET_KEY`), or let `deploy.sh` generate one if it’s empty.
+   - Redis password (required for security): Set `REDIS_PASSWORD` to a strong password.
+   - Customize any secrets (like `JWT_SECRET_KEY`), or let `deploy.sh` generate one if it's empty.
 
-3. Keep `.env` **private** (it shouldn’t be committed to the repo).
+3. Keep `.env` **private** (it shouldn't be committed to the repo).
+
+> **Important**: Redis security is critical. The `deploy.sh` script will automatically:
+> - Generate a secure Redis password if not set
+> - Configure Redis to use password authentication
+> - Ensure Redis is only accessible within the Docker network
+> - No manual Redis configuration is needed as it's handled by the deployment process
 
 ---
 
@@ -134,7 +141,7 @@ This will:
 6. **Build** Docker images and run `docker compose up -d`.
    - If `--external-db`, it uses `docker-compose.no-db.yml` instead.
 
-> If you don’t need local MySQL, you’d pass `--external-db` so the script picks the no-db compose file.
+> If you don't need local MySQL, you'd pass `--external-db` so the script picks the no-db compose file.
 
 ---
 
@@ -151,7 +158,7 @@ This will:
    ```
    Explanation:
    - `api.acme.me` = Domain you want to serve on.
-   - `admin@acme.com` = Email for Let’s Encrypt certificates.
+   - `admin@acme.com` = Email for Let's Encrypt certificates.
    - `--docker` = Installs Docker if needed.
    - `--fetch-code` = Stashes local changes and pulls the latest from main branch.
 
@@ -210,7 +217,7 @@ This will:
 
 ## **10. (Optional) Using No-DB or External DB**
 
-- If you don’t need a local MySQL container, you likely have a second compose file (e.g., `docker-compose.no-db.yml`).
+- If you don't need a local MySQL container, you likely have a second compose file (e.g., `docker-compose.no-db.yml`).
 - In `.env`, set `EXTERNAL_DB=true`, specify external DB settings.
 - Then run:
   ```bash
@@ -223,7 +230,7 @@ This will:
 ## **Additional Pointers**
 
 - **SSL Renewal**: The jwilder + letsencrypt container automatically renews certificates.
-- **Logs**: Your API logs go into the container’s stdout or into a mounted volume (e.g., `./logs:/app/logs`). Check them with `docker compose logs -f api`.
+- **Logs**: Your API logs go into the container's stdout or into a mounted volume (e.g., `./logs:/app/logs`). Check them with `docker compose logs -f api`.
 - **Persistence**:
   - Redis data stored in volume `redis_data`.
   - MySQL data in `mysql_data` if you use a local MySQL container.
@@ -280,6 +287,6 @@ This spins up 3 containers of the worker service, all listening to the same queu
 **In short**:
 - **Clone** → **Configure `.env`** → **Run** `sudo ./deploy.sh <domain> <email>` (with or without `--external-db`) → **Success**.
 
-You can now maintain your application by pulling changes and re-running the script. The jwilder proxy + let’s encrypt automatically refreshes certs. Volumes store persistent data. This is a straightforward, reproducible way to run your **Friday API** on a DO droplet!
+You can now maintain your application by pulling changes and re-running the script. The jwilder proxy + let's encrypt automatically refreshes certs. Volumes store persistent data. This is a straightforward, reproducible way to run your **Friday API** on a DO droplet!
 
 **Enjoy your newly deployed API!**
