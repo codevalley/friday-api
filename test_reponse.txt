@@ -1,0 +1,1848 @@
+
+[0;35m=== Raw API Response for /auth/register ===[0m
+{
+  "data": {
+    "id": "3d9ff031-3f82-42ea-88db-e5d55fc22ac9",
+    "username": "user1",
+    "key_id": "12c1a75f-010f-4ad3-bc93-00623953c001",
+    "user_secret": "12c1a75f-010f-4ad3-bc93-00623953c001.as5wiE5xBFBZp1cqaPCJmC3yihFDIrxMMMxQrV9Nof0",
+    "created_at": "2025-02-20T03:39:19",
+    "updated_at": "2025-02-20T03:39:19"
+  },
+  "message": "User registered successfully",
+  "error": null
+}
+[0;35m==============================[0m
+
+User1 API Key: 12c1a75f-010f-4ad3-bc93-00623953c001.as5wiE5xBFBZp1cqaPCJmC3yihFDIrxMMMxQrV9Nof0
+
+[0;34mGetting token for user1...[0m
+
+[0;35m=== Raw API Response for /auth/token ===[0m
+{
+  "data": {
+    "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIzZDlmZjAzMS0zZjgyLTQyZWEtODhkYi1lNWQ1NWZjMjJhYzkiLCJleHAiOjE3NDAwMjQ1NTl9.EnWnfmz54zETJoAd0-y-pHxYGh8tMsGSPvM7l1YYyBQ",
+    "token_type": "bearer"
+  },
+  "message": "Login successful",
+  "error": null
+}
+[0;35m==============================[0m
+
+Token: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIzZDlmZjAzMS0zZjgyLTQyZWEtODhkYi1lNWQ1NWZjMjJhYzkiLCJleHAiOjE3NDAwMjQ1NTl9.EnWnfmz54zETJoAd0-y-pHxYGh8tMsGSPvM7l1YYyBQ
+
+[0;34mChecking user1's profile...[0m
+
+[0;35m=== Raw API Response for /auth/me ===[0m
+{
+  "data": {
+    "id": "3d9ff031-3f82-42ea-88db-e5d55fc22ac9",
+    "username": "user1",
+    "created_at": "2025-02-20T03:39:19",
+    "updated_at": "2025-02-20T03:39:19"
+  },
+  "message": "Current user retrieved successfully",
+  "error": null
+}
+[0;35m==============================[0m
+
+
+[0;32mUser Profile Details:[0m
+ID: 3d9ff031-3f82-42ea-88db-e5d55fc22ac9
+Username: user1
+Created: 2025-02-20T03:39:19
+Last Updated: 2025-02-20T03:39:19
+
+[0;34m2. Creating activities for user1...[0m
+
+[0;35m=== Raw API Response for /activities (Reading) ===[0m
+{
+  "data": {
+    "id": 1,
+    "name": "Reading",
+    "description": "Track reading sessions",
+    "activity_schema": {
+      "type": "object",
+      "required": [
+        "book",
+        "pages"
+      ],
+      "properties": {
+        "book": {
+          "type": "string"
+        },
+        "pages": {
+          "type": "number"
+        }
+      }
+    },
+    "icon": "📚",
+    "color": "#4A90E2",
+    "user_id": "3d9ff031-3f82-42ea-88db-e5d55fc22ac9",
+    "moment_count": 0,
+    "created_at": "2025-02-20T03:39:19Z",
+    "updated_at": null,
+    "moments": null,
+    "processing_status": "pending",
+    "schema_render": null,
+    "processed_at": null
+  },
+  "message": "Activity created successfully",
+  "error": null
+}
+[0;35m==============================[0m
+
+Activity1 ID: 1
+
+[0;34mWaiting for activity 1 to be processed...[0m
+Raw response: {"data":{"id":1,"name":"Reading","description":"Track reading sessions","activity_schema":{"type":"object","required":["book","pages"],"properties":{"book":{"type":"string"},"pages":{"type":"number"}}},"icon":"📚","color":"#4A90E2","user_id":"3d9ff031-3f82-42ea-88db-e5d55fc22ac9","moment_count":0,"created_at":"2025-02-20T03:39:19Z","updated_at":null,"moments":null,"processing_status":"pending","schema_render":null,"processed_at":null},"message":null,"error":null}
+Extracted status: 'pending'
+Waiting for processing to start... (attempt 1/30)
+Raw response: {"data":{"id":1,"name":"Reading","description":"Track reading sessions","activity_schema":{"type":"object","required":["book","pages"],"properties":{"book":{"type":"string"},"pages":{"type":"number"}}},"icon":"📚","color":"#4A90E2","user_id":"3d9ff031-3f82-42ea-88db-e5d55fc22ac9","moment_count":0,"created_at":"2025-02-20T03:39:19Z","updated_at":null,"moments":null,"processing_status":"pending","schema_render":null,"processed_at":null},"message":null,"error":null}
+Extracted status: 'pending'
+Waiting for processing to start... (attempt 2/30)
+Raw response: {"data":{"id":1,"name":"Reading","description":"Track reading sessions","activity_schema":{"type":"object","required":["book","pages"],"properties":{"book":{"type":"string"},"pages":{"type":"number"}}},"icon":"📚","color":"#4A90E2","user_id":"3d9ff031-3f82-42ea-88db-e5d55fc22ac9","moment_count":0,"created_at":"2025-02-20T03:39:19Z","updated_at":"2025-02-20T03:39:21Z","moments":null,"processing_status":"completed","schema_render":{"title_template":"$action","content_template":"$content","suggested_layout":{"type":"card","sections":[]}},"processed_at":"2025-02-20T03:39:21Z"},"message":null,"error":null}
+Extracted status: 'completed'
+[0;32mActivity processing completed successfully[0m
+
+[0;35m=== Raw API Response for /activities (Exercise) ===[0m
+{
+  "data": {
+    "id": 2,
+    "name": "Exercise",
+    "description": "Track workouts",
+    "activity_schema": {
+      "type": "object",
+      "required": [
+        "type",
+        "duration"
+      ],
+      "properties": {
+        "type": {
+          "type": "string"
+        },
+        "duration": {
+          "type": "number"
+        }
+      }
+    },
+    "icon": "💪",
+    "color": "#FF5733",
+    "user_id": "3d9ff031-3f82-42ea-88db-e5d55fc22ac9",
+    "moment_count": 0,
+    "created_at": "2025-02-20T03:39:22Z",
+    "updated_at": null,
+    "moments": null,
+    "processing_status": "pending",
+    "schema_render": null,
+    "processed_at": null
+  },
+  "message": "Activity created successfully",
+  "error": null
+}
+[0;35m==============================[0m
+
+Activity2 ID: 2
+
+[0;34mWaiting for activity 2 to be processed...[0m
+Raw response: {"data":{"id":2,"name":"Exercise","description":"Track workouts","activity_schema":{"type":"object","required":["type","duration"],"properties":{"type":{"type":"string"},"duration":{"type":"number"}}},"icon":"💪","color":"#FF5733","user_id":"3d9ff031-3f82-42ea-88db-e5d55fc22ac9","moment_count":0,"created_at":"2025-02-20T03:39:22Z","updated_at":null,"moments":null,"processing_status":"pending","schema_render":null,"processed_at":null},"message":null,"error":null}
+Extracted status: 'pending'
+Waiting for processing to start... (attempt 1/30)
+Raw response: {"data":{"id":2,"name":"Exercise","description":"Track workouts","activity_schema":{"type":"object","required":["type","duration"],"properties":{"type":{"type":"string"},"duration":{"type":"number"}}},"icon":"💪","color":"#FF5733","user_id":"3d9ff031-3f82-42ea-88db-e5d55fc22ac9","moment_count":0,"created_at":"2025-02-20T03:39:22Z","updated_at":null,"moments":null,"processing_status":"pending","schema_render":null,"processed_at":null},"message":null,"error":null}
+Extracted status: 'pending'
+Waiting for processing to start... (attempt 2/30)
+Raw response: {"data":{"id":2,"name":"Exercise","description":"Track workouts","activity_schema":{"type":"object","required":["type","duration"],"properties":{"type":{"type":"string"},"duration":{"type":"number"}}},"icon":"💪","color":"#FF5733","user_id":"3d9ff031-3f82-42ea-88db-e5d55fc22ac9","moment_count":0,"created_at":"2025-02-20T03:39:22Z","updated_at":"2025-02-20T03:39:23Z","moments":null,"processing_status":"completed","schema_render":{"title_template":"$action","content_template":"$content","suggested_layout":{"type":"card","sections":[]}},"processed_at":"2025-02-20T03:39:23Z"},"message":null,"error":null}
+Extracted status: 'completed'
+[0;32mActivity processing completed successfully[0m
+
+[0;34m3. Creating moments for user1...[0m
+Creating reading moment 1 with activity ID: 1
+
+[0;35m=== Raw API Response for /moments (Reading 1) ===[0m
+{
+  "data": {
+    "activity_id": 1,
+    "data": {
+      "book": "Book 1",
+      "pages": 50
+    },
+    "timestamp": "2024-12-12T13:30:00",
+    "note_id": null,
+    "id": 1,
+    "activity": {
+      "id": 1,
+      "name": "Reading",
+      "description": "Track reading sessions",
+      "activity_schema": {
+        "type": "object",
+        "required": [
+          "book",
+          "pages"
+        ],
+        "properties": {
+          "book": {
+            "type": "string"
+          },
+          "pages": {
+            "type": "number"
+          }
+        }
+      },
+      "icon": "📚",
+      "color": "#4A90E2",
+      "user_id": "3d9ff031-3f82-42ea-88db-e5d55fc22ac9",
+      "moment_count": 1,
+      "created_at": "2025-02-20T03:39:19",
+      "updated_at": "2025-02-20T03:39:21",
+      "moments": [
+        {
+          "id": 1,
+          "activity_id": 1,
+          "data": {
+            "book": "Book 1",
+            "pages": 50
+          },
+          "timestamp": "2024-12-12T13:30:00",
+          "user_id": "3d9ff031-3f82-42ea-88db-e5d55fc22ac9",
+          "created_at": "2025-02-20T03:39:24",
+          "updated_at": null
+        }
+      ],
+      "processing_status": "completed",
+      "schema_render": {
+        "title_template": "$action",
+        "content_template": "$content",
+        "suggested_layout": {
+          "type": "card",
+          "sections": []
+        }
+      },
+      "processed_at": "2025-02-20T03:39:21"
+    }
+  },
+  "message": "Moment created successfully",
+  "error": null
+}
+[0;35m==============================[0m
+
+Creating reading moment 2 with activity ID: 1
+
+[0;35m=== Raw API Response for /moments (Reading 2) ===[0m
+{
+  "data": {
+    "activity_id": 1,
+    "data": {
+      "book": "Book 2",
+      "pages": 100
+    },
+    "timestamp": "2024-12-12T14:30:00",
+    "note_id": null,
+    "id": 2,
+    "activity": {
+      "id": 1,
+      "name": "Reading",
+      "description": "Track reading sessions",
+      "activity_schema": {
+        "type": "object",
+        "required": [
+          "book",
+          "pages"
+        ],
+        "properties": {
+          "book": {
+            "type": "string"
+          },
+          "pages": {
+            "type": "number"
+          }
+        }
+      },
+      "icon": "📚",
+      "color": "#4A90E2",
+      "user_id": "3d9ff031-3f82-42ea-88db-e5d55fc22ac9",
+      "moment_count": 2,
+      "created_at": "2025-02-20T03:39:19",
+      "updated_at": "2025-02-20T03:39:21",
+      "moments": [
+        {
+          "id": 1,
+          "activity_id": 1,
+          "data": {
+            "book": "Book 1",
+            "pages": 50
+          },
+          "timestamp": "2024-12-12T13:30:00",
+          "user_id": "3d9ff031-3f82-42ea-88db-e5d55fc22ac9",
+          "created_at": "2025-02-20T03:39:24",
+          "updated_at": null
+        },
+        {
+          "id": 2,
+          "activity_id": 1,
+          "data": {
+            "book": "Book 2",
+            "pages": 100
+          },
+          "timestamp": "2024-12-12T14:30:00",
+          "user_id": "3d9ff031-3f82-42ea-88db-e5d55fc22ac9",
+          "created_at": "2025-02-20T03:39:24",
+          "updated_at": null
+        }
+      ],
+      "processing_status": "completed",
+      "schema_render": {
+        "title_template": "$action",
+        "content_template": "$content",
+        "suggested_layout": {
+          "type": "card",
+          "sections": []
+        }
+      },
+      "processed_at": "2025-02-20T03:39:21"
+    }
+  },
+  "message": "Moment created successfully",
+  "error": null
+}
+[0;35m==============================[0m
+
+Creating exercise moment 1 with activity ID: 2
+
+[0;35m=== Raw API Response for /moments (Exercise 1) ===[0m
+{
+  "data": {
+    "activity_id": 2,
+    "data": {
+      "type": "Running",
+      "duration": 30
+    },
+    "timestamp": "2024-12-12T15:30:00",
+    "note_id": null,
+    "id": 3,
+    "activity": {
+      "id": 2,
+      "name": "Exercise",
+      "description": "Track workouts",
+      "activity_schema": {
+        "type": "object",
+        "required": [
+          "type",
+          "duration"
+        ],
+        "properties": {
+          "type": {
+            "type": "string"
+          },
+          "duration": {
+            "type": "number"
+          }
+        }
+      },
+      "icon": "💪",
+      "color": "#FF5733",
+      "user_id": "3d9ff031-3f82-42ea-88db-e5d55fc22ac9",
+      "moment_count": 1,
+      "created_at": "2025-02-20T03:39:22",
+      "updated_at": "2025-02-20T03:39:23",
+      "moments": [
+        {
+          "id": 3,
+          "activity_id": 2,
+          "data": {
+            "type": "Running",
+            "duration": 30
+          },
+          "timestamp": "2024-12-12T15:30:00",
+          "user_id": "3d9ff031-3f82-42ea-88db-e5d55fc22ac9",
+          "created_at": "2025-02-20T03:39:24",
+          "updated_at": null
+        }
+      ],
+      "processing_status": "completed",
+      "schema_render": {
+        "title_template": "$action",
+        "content_template": "$content",
+        "suggested_layout": {
+          "type": "card",
+          "sections": []
+        }
+      },
+      "processed_at": "2025-02-20T03:39:23"
+    }
+  },
+  "message": "Moment created successfully",
+  "error": null
+}
+[0;35m==============================[0m
+
+Creating exercise moment 2 with activity ID: 2
+
+[0;35m=== Raw API Response for /moments (Exercise 2) ===[0m
+{
+  "data": {
+    "activity_id": 2,
+    "data": {
+      "type": "Running",
+      "duration": 60
+    },
+    "timestamp": "2024-12-12T16:30:00",
+    "note_id": null,
+    "id": 4,
+    "activity": {
+      "id": 2,
+      "name": "Exercise",
+      "description": "Track workouts",
+      "activity_schema": {
+        "type": "object",
+        "required": [
+          "type",
+          "duration"
+        ],
+        "properties": {
+          "type": {
+            "type": "string"
+          },
+          "duration": {
+            "type": "number"
+          }
+        }
+      },
+      "icon": "💪",
+      "color": "#FF5733",
+      "user_id": "3d9ff031-3f82-42ea-88db-e5d55fc22ac9",
+      "moment_count": 2,
+      "created_at": "2025-02-20T03:39:22",
+      "updated_at": "2025-02-20T03:39:23",
+      "moments": [
+        {
+          "id": 3,
+          "activity_id": 2,
+          "data": {
+            "type": "Running",
+            "duration": 30
+          },
+          "timestamp": "2024-12-12T15:30:00",
+          "user_id": "3d9ff031-3f82-42ea-88db-e5d55fc22ac9",
+          "created_at": "2025-02-20T03:39:24",
+          "updated_at": null
+        },
+        {
+          "id": 4,
+          "activity_id": 2,
+          "data": {
+            "type": "Running",
+            "duration": 60
+          },
+          "timestamp": "2024-12-12T16:30:00",
+          "user_id": "3d9ff031-3f82-42ea-88db-e5d55fc22ac9",
+          "created_at": "2025-02-20T03:39:24",
+          "updated_at": null
+        }
+      ],
+      "processing_status": "completed",
+      "schema_render": {
+        "title_template": "$action",
+        "content_template": "$content",
+        "suggested_layout": {
+          "type": "card",
+          "sections": []
+        }
+      },
+      "processed_at": "2025-02-20T03:39:23"
+    }
+  },
+  "message": "Moment created successfully",
+  "error": null
+}
+[0;35m==============================[0m
+
+
+[0;34m4. Creating second user (user2)...[0m
+
+[0;35m=== Raw API Response for /auth/register ===[0m
+{
+  "data": {
+    "id": "26a67757-78fc-4cf9-87d5-5baf4e7cf0ea",
+    "username": "user2",
+    "key_id": "7a30c605-8a98-473c-aae7-7a8347ae88bd",
+    "user_secret": "7a30c605-8a98-473c-aae7-7a8347ae88bd.bsqxcGxOK5Sg_XrOa2rksghvB4aYC_fCSQCnteWlyL8",
+    "created_at": "2025-02-20T03:39:24",
+    "updated_at": "2025-02-20T03:39:24"
+  },
+  "message": "User registered successfully",
+  "error": null
+}
+[0;35m==============================[0m
+
+User2 API Key: 7a30c605-8a98-473c-aae7-7a8347ae88bd.bsqxcGxOK5Sg_XrOa2rksghvB4aYC_fCSQCnteWlyL8
+
+[0;34mGetting token for user2...[0m
+
+[0;35m=== Raw API Response for /auth/token ===[0m
+{
+  "data": {
+    "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIyNmE2Nzc1Ny03OGZjLTRjZjktODdkNS01YmFmNGU3Y2YwZWEiLCJleHAiOjE3NDAwMjQ1NjR9.plV9r0DFhS_5bL43s820iMygtNjWMVfZsjybYQRaz7Y",
+    "token_type": "bearer"
+  },
+  "message": "Login successful",
+  "error": null
+}
+[0;35m==============================[0m
+
+Token2: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIyNmE2Nzc1Ny03OGZjLTRjZjktODdkNS01YmFmNGU3Y2YwZWEiLCJleHAiOjE3NDAwMjQ1NjR9.plV9r0DFhS_5bL43s820iMygtNjWMVfZsjybYQRaz7Y
+
+[0;34mChecking user2's profile...[0m
+
+[0;35m=== Raw API Response for /auth/me ===[0m
+{
+  "data": {
+    "id": "26a67757-78fc-4cf9-87d5-5baf4e7cf0ea",
+    "username": "user2",
+    "created_at": "2025-02-20T03:39:24",
+    "updated_at": "2025-02-20T03:39:24"
+  },
+  "message": "Current user retrieved successfully",
+  "error": null
+}
+[0;35m==============================[0m
+
+
+[0;32mUser Profile Details:[0m
+ID: 26a67757-78fc-4cf9-87d5-5baf4e7cf0ea
+Username: user2
+Created: 2025-02-20T03:39:24
+Last Updated: 2025-02-20T03:39:24
+
+[0;34m5. Creating activity for user2...[0m
+
+[0;35m=== Raw API Response for /activities (Coding) ===[0m
+{
+  "data": {
+    "id": 3,
+    "name": "Coding",
+    "description": "Track coding sessions",
+    "activity_schema": {
+      "type": "object",
+      "required": [
+        "language",
+        "hours"
+      ],
+      "properties": {
+        "hours": {
+          "type": "number"
+        },
+        "language": {
+          "type": "string"
+        }
+      }
+    },
+    "icon": "💻",
+    "color": "#2ECC71",
+    "user_id": "26a67757-78fc-4cf9-87d5-5baf4e7cf0ea",
+    "moment_count": 0,
+    "created_at": "2025-02-20T03:39:24Z",
+    "updated_at": null,
+    "moments": null,
+    "processing_status": "pending",
+    "schema_render": null,
+    "processed_at": null
+  },
+  "message": "Activity created successfully",
+  "error": null
+}
+[0;35m==============================[0m
+
+Activity3 ID: 3
+
+[0;34m6. Creating moments for user2...[0m
+
+[0;35m=== Raw API Response for /moments (Coding 1) ===[0m
+{
+  "data": {
+    "activity_id": 3,
+    "data": {
+      "hours": 1,
+      "language": "Python"
+    },
+    "timestamp": "2024-12-12T17:30:00",
+    "note_id": null,
+    "id": 5,
+    "activity": {
+      "id": 3,
+      "name": "Coding",
+      "description": "Track coding sessions",
+      "activity_schema": {
+        "type": "object",
+        "required": [
+          "language",
+          "hours"
+        ],
+        "properties": {
+          "hours": {
+            "type": "number"
+          },
+          "language": {
+            "type": "string"
+          }
+        }
+      },
+      "icon": "💻",
+      "color": "#2ECC71",
+      "user_id": "26a67757-78fc-4cf9-87d5-5baf4e7cf0ea",
+      "moment_count": 1,
+      "created_at": "2025-02-20T03:39:24",
+      "updated_at": null,
+      "moments": [
+        {
+          "id": 5,
+          "activity_id": 3,
+          "data": {
+            "hours": 1,
+            "language": "Python"
+          },
+          "timestamp": "2024-12-12T17:30:00",
+          "user_id": "26a67757-78fc-4cf9-87d5-5baf4e7cf0ea",
+          "created_at": "2025-02-20T03:39:24",
+          "updated_at": null
+        }
+      ],
+      "processing_status": "pending",
+      "schema_render": null,
+      "processed_at": null
+    }
+  },
+  "message": "Moment created successfully",
+  "error": null
+}
+[0;35m==============================[0m
+
+
+[0;35m=== Raw API Response for /moments (Coding 2) ===[0m
+{
+  "data": {
+    "activity_id": 3,
+    "data": {
+      "hours": 2,
+      "language": "Python"
+    },
+    "timestamp": "2024-12-12T18:30:00",
+    "note_id": null,
+    "id": 6,
+    "activity": {
+      "id": 3,
+      "name": "Coding",
+      "description": "Track coding sessions",
+      "activity_schema": {
+        "type": "object",
+        "required": [
+          "language",
+          "hours"
+        ],
+        "properties": {
+          "hours": {
+            "type": "number"
+          },
+          "language": {
+            "type": "string"
+          }
+        }
+      },
+      "icon": "💻",
+      "color": "#2ECC71",
+      "user_id": "26a67757-78fc-4cf9-87d5-5baf4e7cf0ea",
+      "moment_count": 2,
+      "created_at": "2025-02-20T03:39:24",
+      "updated_at": null,
+      "moments": [
+        {
+          "id": 5,
+          "activity_id": 3,
+          "data": {
+            "hours": 1,
+            "language": "Python"
+          },
+          "timestamp": "2024-12-12T17:30:00",
+          "user_id": "26a67757-78fc-4cf9-87d5-5baf4e7cf0ea",
+          "created_at": "2025-02-20T03:39:24",
+          "updated_at": null
+        },
+        {
+          "id": 6,
+          "activity_id": 3,
+          "data": {
+            "hours": 2,
+            "language": "Python"
+          },
+          "timestamp": "2024-12-12T18:30:00",
+          "user_id": "26a67757-78fc-4cf9-87d5-5baf4e7cf0ea",
+          "created_at": "2025-02-20T03:39:24",
+          "updated_at": null
+        }
+      ],
+      "processing_status": "pending",
+      "schema_render": null,
+      "processed_at": null
+    }
+  },
+  "message": "Moment created successfully",
+  "error": null
+}
+[0;35m==============================[0m
+
+
+[0;35m=== Raw API Response for /moments (Coding 3) ===[0m
+{
+  "data": {
+    "activity_id": 3,
+    "data": {
+      "hours": 3,
+      "language": "Python"
+    },
+    "timestamp": "2024-12-12T19:30:00",
+    "note_id": null,
+    "id": 7,
+    "activity": {
+      "id": 3,
+      "name": "Coding",
+      "description": "Track coding sessions",
+      "activity_schema": {
+        "type": "object",
+        "required": [
+          "language",
+          "hours"
+        ],
+        "properties": {
+          "hours": {
+            "type": "number"
+          },
+          "language": {
+            "type": "string"
+          }
+        }
+      },
+      "icon": "💻",
+      "color": "#2ECC71",
+      "user_id": "26a67757-78fc-4cf9-87d5-5baf4e7cf0ea",
+      "moment_count": 3,
+      "created_at": "2025-02-20T03:39:24",
+      "updated_at": null,
+      "moments": [
+        {
+          "id": 5,
+          "activity_id": 3,
+          "data": {
+            "hours": 1,
+            "language": "Python"
+          },
+          "timestamp": "2024-12-12T17:30:00",
+          "user_id": "26a67757-78fc-4cf9-87d5-5baf4e7cf0ea",
+          "created_at": "2025-02-20T03:39:24",
+          "updated_at": null
+        },
+        {
+          "id": 6,
+          "activity_id": 3,
+          "data": {
+            "hours": 2,
+            "language": "Python"
+          },
+          "timestamp": "2024-12-12T18:30:00",
+          "user_id": "26a67757-78fc-4cf9-87d5-5baf4e7cf0ea",
+          "created_at": "2025-02-20T03:39:24",
+          "updated_at": null
+        },
+        {
+          "id": 7,
+          "activity_id": 3,
+          "data": {
+            "hours": 3,
+            "language": "Python"
+          },
+          "timestamp": "2024-12-12T19:30:00",
+          "user_id": "26a67757-78fc-4cf9-87d5-5baf4e7cf0ea",
+          "created_at": "2025-02-20T03:39:24",
+          "updated_at": null
+        }
+      ],
+      "processing_status": "pending",
+      "schema_render": null,
+      "processed_at": null
+    }
+  },
+  "message": "Moment created successfully",
+  "error": null
+}
+[0;35m==============================[0m
+
+
+[0;34m7. Listing activities for user2...[0m
+
+[0;35m=== Raw API Response for /activities (List) ===[0m
+{
+  "data": {
+    "items": [
+      {
+        "id": 3,
+        "name": "Coding",
+        "description": "Track coding sessions",
+        "activity_schema": {
+          "type": "object",
+          "required": [
+            "language",
+            "hours"
+          ],
+          "properties": {
+            "hours": {
+              "type": "number"
+            },
+            "language": {
+              "type": "string"
+            }
+          }
+        },
+        "icon": "💻",
+        "color": "#2ECC71",
+        "user_id": "26a67757-78fc-4cf9-87d5-5baf4e7cf0ea",
+        "moment_count": 3,
+        "created_at": "2025-02-20T03:39:24",
+        "updated_at": null,
+        "moments": [
+          {
+            "id": 5,
+            "activity_id": 3,
+            "data": {
+              "hours": 1,
+              "language": "Python"
+            },
+            "timestamp": "2024-12-12T17:30:00",
+            "user_id": "26a67757-78fc-4cf9-87d5-5baf4e7cf0ea",
+            "created_at": "2025-02-20T03:39:24",
+            "updated_at": null
+          },
+          {
+            "id": 6,
+            "activity_id": 3,
+            "data": {
+              "hours": 2,
+              "language": "Python"
+            },
+            "timestamp": "2024-12-12T18:30:00",
+            "user_id": "26a67757-78fc-4cf9-87d5-5baf4e7cf0ea",
+            "created_at": "2025-02-20T03:39:24",
+            "updated_at": null
+          },
+          {
+            "id": 7,
+            "activity_id": 3,
+            "data": {
+              "hours": 3,
+              "language": "Python"
+            },
+            "timestamp": "2024-12-12T19:30:00",
+            "user_id": "26a67757-78fc-4cf9-87d5-5baf4e7cf0ea",
+            "created_at": "2025-02-20T03:39:24",
+            "updated_at": null
+          }
+        ],
+        "processing_status": "pending",
+        "schema_render": null,
+        "processed_at": null
+      }
+    ],
+    "total": 1,
+    "page": 1,
+    "size": 100,
+    "pages": 1
+  },
+  "message": "Retrieved 1 activities",
+  "error": null
+}
+[0;35m==============================[0m
+
+
+[0;34m8. Listing moments for user2...[0m
+
+[0;35m=== Raw API Response for /moments (List) ===[0m
+{
+  "data": {
+    "items": [
+      {
+        "activity_id": 3,
+        "data": {
+          "hours": 3,
+          "language": "Python"
+        },
+        "timestamp": "2024-12-12T19:30:00",
+        "note_id": null,
+        "id": 7,
+        "activity": {
+          "id": 3,
+          "name": "Coding",
+          "description": "Track coding sessions",
+          "activity_schema": {
+            "type": "object",
+            "required": [
+              "language",
+              "hours"
+            ],
+            "properties": {
+              "hours": {
+                "type": "number"
+              },
+              "language": {
+                "type": "string"
+              }
+            }
+          },
+          "icon": "💻",
+          "color": "#2ECC71",
+          "user_id": "26a67757-78fc-4cf9-87d5-5baf4e7cf0ea",
+          "moment_count": 3,
+          "created_at": "2025-02-20T03:39:24",
+          "updated_at": null,
+          "moments": [
+            {
+              "id": 5,
+              "activity_id": 3,
+              "data": {
+                "hours": 1,
+                "language": "Python"
+              },
+              "timestamp": "2024-12-12T17:30:00",
+              "user_id": "26a67757-78fc-4cf9-87d5-5baf4e7cf0ea",
+              "created_at": "2025-02-20T03:39:24",
+              "updated_at": null
+            },
+            {
+              "id": 6,
+              "activity_id": 3,
+              "data": {
+                "hours": 2,
+                "language": "Python"
+              },
+              "timestamp": "2024-12-12T18:30:00",
+              "user_id": "26a67757-78fc-4cf9-87d5-5baf4e7cf0ea",
+              "created_at": "2025-02-20T03:39:24",
+              "updated_at": null
+            },
+            {
+              "id": 7,
+              "activity_id": 3,
+              "data": {
+                "hours": 3,
+                "language": "Python"
+              },
+              "timestamp": "2024-12-12T19:30:00",
+              "user_id": "26a67757-78fc-4cf9-87d5-5baf4e7cf0ea",
+              "created_at": "2025-02-20T03:39:24",
+              "updated_at": null
+            }
+          ],
+          "processing_status": "pending",
+          "schema_render": null,
+          "processed_at": null
+        }
+      },
+      {
+        "activity_id": 3,
+        "data": {
+          "hours": 2,
+          "language": "Python"
+        },
+        "timestamp": "2024-12-12T18:30:00",
+        "note_id": null,
+        "id": 6,
+        "activity": {
+          "id": 3,
+          "name": "Coding",
+          "description": "Track coding sessions",
+          "activity_schema": {
+            "type": "object",
+            "required": [
+              "language",
+              "hours"
+            ],
+            "properties": {
+              "hours": {
+                "type": "number"
+              },
+              "language": {
+                "type": "string"
+              }
+            }
+          },
+          "icon": "💻",
+          "color": "#2ECC71",
+          "user_id": "26a67757-78fc-4cf9-87d5-5baf4e7cf0ea",
+          "moment_count": 3,
+          "created_at": "2025-02-20T03:39:24",
+          "updated_at": null,
+          "moments": [
+            {
+              "id": 5,
+              "activity_id": 3,
+              "data": {
+                "hours": 1,
+                "language": "Python"
+              },
+              "timestamp": "2024-12-12T17:30:00",
+              "user_id": "26a67757-78fc-4cf9-87d5-5baf4e7cf0ea",
+              "created_at": "2025-02-20T03:39:24",
+              "updated_at": null
+            },
+            {
+              "id": 6,
+              "activity_id": 3,
+              "data": {
+                "hours": 2,
+                "language": "Python"
+              },
+              "timestamp": "2024-12-12T18:30:00",
+              "user_id": "26a67757-78fc-4cf9-87d5-5baf4e7cf0ea",
+              "created_at": "2025-02-20T03:39:24",
+              "updated_at": null
+            },
+            {
+              "id": 7,
+              "activity_id": 3,
+              "data": {
+                "hours": 3,
+                "language": "Python"
+              },
+              "timestamp": "2024-12-12T19:30:00",
+              "user_id": "26a67757-78fc-4cf9-87d5-5baf4e7cf0ea",
+              "created_at": "2025-02-20T03:39:24",
+              "updated_at": null
+            }
+          ],
+          "processing_status": "pending",
+          "schema_render": null,
+          "processed_at": null
+        }
+      },
+      {
+        "activity_id": 3,
+        "data": {
+          "hours": 1,
+          "language": "Python"
+        },
+        "timestamp": "2024-12-12T17:30:00",
+        "note_id": null,
+        "id": 5,
+        "activity": {
+          "id": 3,
+          "name": "Coding",
+          "description": "Track coding sessions",
+          "activity_schema": {
+            "type": "object",
+            "required": [
+              "language",
+              "hours"
+            ],
+            "properties": {
+              "hours": {
+                "type": "number"
+              },
+              "language": {
+                "type": "string"
+              }
+            }
+          },
+          "icon": "💻",
+          "color": "#2ECC71",
+          "user_id": "26a67757-78fc-4cf9-87d5-5baf4e7cf0ea",
+          "moment_count": 3,
+          "created_at": "2025-02-20T03:39:24",
+          "updated_at": null,
+          "moments": [
+            {
+              "id": 5,
+              "activity_id": 3,
+              "data": {
+                "hours": 1,
+                "language": "Python"
+              },
+              "timestamp": "2024-12-12T17:30:00",
+              "user_id": "26a67757-78fc-4cf9-87d5-5baf4e7cf0ea",
+              "created_at": "2025-02-20T03:39:24",
+              "updated_at": null
+            },
+            {
+              "id": 6,
+              "activity_id": 3,
+              "data": {
+                "hours": 2,
+                "language": "Python"
+              },
+              "timestamp": "2024-12-12T18:30:00",
+              "user_id": "26a67757-78fc-4cf9-87d5-5baf4e7cf0ea",
+              "created_at": "2025-02-20T03:39:24",
+              "updated_at": null
+            },
+            {
+              "id": 7,
+              "activity_id": 3,
+              "data": {
+                "hours": 3,
+                "language": "Python"
+              },
+              "timestamp": "2024-12-12T19:30:00",
+              "user_id": "26a67757-78fc-4cf9-87d5-5baf4e7cf0ea",
+              "created_at": "2025-02-20T03:39:24",
+              "updated_at": null
+            }
+          ],
+          "processing_status": "pending",
+          "schema_render": null,
+          "processed_at": null
+        }
+      }
+    ],
+    "total": 3,
+    "page": 1,
+    "size": 50,
+    "pages": 1
+  },
+  "message": "Retrieved 3 moments",
+  "error": null
+}
+[0;35m==============================[0m
+
+
+[0;34m9. Getting specific activity for user1...[0m
+
+[0;35m=== Raw API Response for /activities/1 (Get) ===[0m
+{
+  "data": {
+    "id": 1,
+    "name": "Reading",
+    "description": "Track reading sessions",
+    "activity_schema": {
+      "type": "object",
+      "required": [
+        "book",
+        "pages"
+      ],
+      "properties": {
+        "book": {
+          "type": "string"
+        },
+        "pages": {
+          "type": "number"
+        }
+      }
+    },
+    "icon": "📚",
+    "color": "#4A90E2",
+    "user_id": "3d9ff031-3f82-42ea-88db-e5d55fc22ac9",
+    "moment_count": 2,
+    "created_at": "2025-02-20T03:39:19Z",
+    "updated_at": "2025-02-20T03:39:21Z",
+    "moments": [
+      {
+        "id": 1,
+        "activity_id": 1,
+        "data": {
+          "book": "Book 1",
+          "pages": 50
+        },
+        "timestamp": "2024-12-12T13:30:00Z",
+        "user_id": "3d9ff031-3f82-42ea-88db-e5d55fc22ac9",
+        "created_at": "2025-02-20T03:39:24Z",
+        "updated_at": null
+      },
+      {
+        "id": 2,
+        "activity_id": 1,
+        "data": {
+          "book": "Book 2",
+          "pages": 100
+        },
+        "timestamp": "2024-12-12T14:30:00Z",
+        "user_id": "3d9ff031-3f82-42ea-88db-e5d55fc22ac9",
+        "created_at": "2025-02-20T03:39:24Z",
+        "updated_at": null
+      }
+    ],
+    "processing_status": "completed",
+    "schema_render": {
+      "title_template": "$action",
+      "content_template": "$content",
+      "suggested_layout": {
+        "type": "card",
+        "sections": []
+      }
+    },
+    "processed_at": "2025-02-20T03:39:21Z"
+  },
+  "message": null,
+  "error": null
+}
+[0;35m==============================[0m
+
+
+[0;34m10. Getting specific moment for user1...[0m
+
+[0;35m=== Raw API Response for /moments/1 (Get) ===[0m
+{
+  "data": {
+    "activity_id": 1,
+    "data": {
+      "book": "Book 1",
+      "pages": 50
+    },
+    "timestamp": "2024-12-12T13:30:00",
+    "note_id": null,
+    "id": 1,
+    "activity": {
+      "id": 1,
+      "name": "Reading",
+      "description": "Track reading sessions",
+      "activity_schema": {
+        "type": "object",
+        "required": [
+          "book",
+          "pages"
+        ],
+        "properties": {
+          "book": {
+            "type": "string"
+          },
+          "pages": {
+            "type": "number"
+          }
+        }
+      },
+      "icon": "📚",
+      "color": "#4A90E2",
+      "user_id": "3d9ff031-3f82-42ea-88db-e5d55fc22ac9",
+      "moment_count": 2,
+      "created_at": "2025-02-20T03:39:19",
+      "updated_at": "2025-02-20T03:39:21",
+      "moments": [
+        {
+          "id": 1,
+          "activity_id": 1,
+          "data": {
+            "book": "Book 1",
+            "pages": 50
+          },
+          "timestamp": "2024-12-12T13:30:00",
+          "user_id": "3d9ff031-3f82-42ea-88db-e5d55fc22ac9",
+          "created_at": "2025-02-20T03:39:24",
+          "updated_at": null
+        },
+        {
+          "id": 2,
+          "activity_id": 1,
+          "data": {
+            "book": "Book 2",
+            "pages": 100
+          },
+          "timestamp": "2024-12-12T14:30:00",
+          "user_id": "3d9ff031-3f82-42ea-88db-e5d55fc22ac9",
+          "created_at": "2025-02-20T03:39:24",
+          "updated_at": null
+        }
+      ],
+      "processing_status": "completed",
+      "schema_render": {
+        "title_template": "$action",
+        "content_template": "$content",
+        "suggested_layout": {
+          "type": "card",
+          "sections": []
+        }
+      },
+      "processed_at": "2025-02-20T03:39:21"
+    }
+  },
+  "message": null,
+  "error": null
+}
+[0;35m==============================[0m
+
+
+[0;34m11. Creating notes for user1...[0m
+
+[0;35m=== Raw API Response for /notes (Text Only) ===[0m
+{
+  "data": {
+    "id": 1,
+    "content": "My first note - text only",
+    "user_id": "3d9ff031-3f82-42ea-88db-e5d55fc22ac9",
+    "attachments": [],
+    "processing_status": "pending",
+    "enrichment_data": null,
+    "processed_at": null,
+    "created_at": "2025-02-20T03:39:24",
+    "updated_at": null
+  },
+  "message": "Note created successfully",
+  "error": null
+}
+[0;35m==============================[0m
+
+
+[0;35m=== Raw API Response for /notes (With Photo) ===[0m
+{
+  "data": {
+    "id": 2,
+    "content": "My second note - with photo",
+    "user_id": "3d9ff031-3f82-42ea-88db-e5d55fc22ac9",
+    "attachments": [],
+    "processing_status": "pending",
+    "enrichment_data": null,
+    "processed_at": null,
+    "created_at": "2025-02-20T03:39:24",
+    "updated_at": null
+  },
+  "message": "Note created successfully",
+  "error": null
+}
+[0;35m==============================[0m
+
+
+[0;34m12. Creating notes for user2...[0m
+
+[0;35m=== Raw API Response for /notes (With Voice) ===[0m
+{
+  "data": {
+    "id": 3,
+    "content": "Voice note from user2",
+    "user_id": "26a67757-78fc-4cf9-87d5-5baf4e7cf0ea",
+    "attachments": [],
+    "processing_status": "pending",
+    "enrichment_data": null,
+    "processed_at": null,
+    "created_at": "2025-02-20T03:39:25",
+    "updated_at": null
+  },
+  "message": "Note created successfully",
+  "error": null
+}
+[0;35m==============================[0m
+
+
+[0;34m13. Listing notes for user1...[0m
+
+[0;35m=== Raw API Response for /notes (List) ===[0m
+{
+  "data": {
+    "items": [
+      {
+        "id": 1,
+        "content": "My first note - text only",
+        "user_id": "3d9ff031-3f82-42ea-88db-e5d55fc22ac9",
+        "attachments": [],
+        "processing_status": "pending",
+        "enrichment_data": null,
+        "processed_at": null,
+        "created_at": "2025-02-20T03:39:24",
+        "updated_at": null
+      },
+      {
+        "id": 2,
+        "content": "My second note - with photo",
+        "user_id": "3d9ff031-3f82-42ea-88db-e5d55fc22ac9",
+        "attachments": [],
+        "processing_status": "pending",
+        "enrichment_data": null,
+        "processed_at": null,
+        "created_at": "2025-02-20T03:39:24",
+        "updated_at": null
+      }
+    ],
+    "total": 2,
+    "page": 1,
+    "size": 50,
+    "pages": 1
+  },
+  "message": "Retrieved 2 notes",
+  "error": null
+}
+[0;35m==============================[0m
+
+
+[0;34m14. Updating note for user1...[0m
+
+[0;35m=== Raw API Response for /notes/1 (Update) ===[0m
+{
+  "data": {
+    "id": 1,
+    "content": "Updated first note content",
+    "user_id": "3d9ff031-3f82-42ea-88db-e5d55fc22ac9",
+    "attachments": [],
+    "processing_status": "pending",
+    "enrichment_data": null,
+    "processed_at": null,
+    "created_at": "2025-02-20T03:39:24",
+    "updated_at": "2025-02-20T03:39:25"
+  },
+  "message": "Note updated successfully",
+  "error": null
+}
+[0;35m==============================[0m
+
+
+[0;34m15. Testing note access control...[0m
+
+[0;35m=== Raw API Response for /notes/3 (Unauthorized) ===[0m
+{
+  "detail": "Note not found"
+}
+[0;35m==============================[0m
+
+[0;32m✓ Access control working correctly[0m
+
+[0;34m16. Deleting note for user1...[0m
+
+[0;35m=== Raw API Response for /notes/2 (Delete) ===[0m
+{
+  "message": "Note deleted successfully"
+}
+[0;35m==============================[0m
+
+
+[0;35m=== Raw API Response for /notes/2 (Verify Delete) ===[0m
+{
+  "detail": "Note not found"
+}
+[0;35m==============================[0m
+
+[0;32m✓ Note deletion verified[0m
+
+[0;34m17. Creating tasks for user1...[0m
+
+[0;35m=== Raw API Response for /tasks (Simple) ===[0m
+{
+  "data": {
+    "content": "Simple task that needs to be done",
+    "status": "todo",
+    "priority": "medium",
+    "due_date": "2025-02-27T03:39:24",
+    "tags": [
+      "test",
+      "simple"
+    ],
+    "parent_id": null,
+    "note_id": null,
+    "topic_id": null,
+    "id": 1,
+    "user_id": "3d9ff031-3f82-42ea-88db-e5d55fc22ac9",
+    "processing_status": "pending",
+    "enrichment_data": null,
+    "processed_at": null,
+    "created_at": "2025-02-20T03:39:25",
+    "updated_at": "2025-02-20T03:39:25",
+    "topic": null
+  },
+  "message": "Task created successfully and queued for processing",
+  "error": null
+}
+[0;35m==============================[0m
+
+
+[0;35m=== Raw API Response for /tasks (Complex) ===[0m
+{
+  "data": {
+    "content": "Complex task that requires multiple steps and careful planning. This task involves:\n1. Research phase\n2. Implementation\n3. Testing\n4. Documentation",
+    "status": "in_progress",
+    "priority": "high",
+    "due_date": "2025-03-07T03:39:24",
+    "tags": [
+      "test",
+      "complex"
+    ],
+    "parent_id": 1,
+    "note_id": null,
+    "topic_id": null,
+    "id": 2,
+    "user_id": "3d9ff031-3f82-42ea-88db-e5d55fc22ac9",
+    "processing_status": "pending",
+    "enrichment_data": null,
+    "processed_at": null,
+    "created_at": "2025-02-20T03:39:25",
+    "updated_at": "2025-02-20T03:39:25",
+    "topic": null
+  },
+  "message": "Task created successfully and queued for processing",
+  "error": null
+}
+[0;35m==============================[0m
+
+
+[0;34mCreating topics for user1...[0m
+Topic1 Response: {"data":{"name":"Work","icon":"💼","id":1,"user_id":"3d9ff031-3f82-42ea-88db-e5d55fc22ac9","created_at":"2025-02-20T03:39:25","updated_at":null},"message":"Topic created successfully","error":null}
+Topic2 Response: {"data":{"name":"Personal","icon":"🏠","id":2,"user_id":"3d9ff031-3f82-42ea-88db-e5d55fc22ac9","created_at":"2025-02-20T03:39:25","updated_at":null},"message":"Topic created successfully","error":null}
+
+[0;34mUpdating tasks with topics...[0m
+Update Task1 Response: {"data":{"content":"Simple task that needs to be done","status":"todo","priority":"medium","due_date":"2025-02-27T03:39:24","tags":["test","simple"],"parent_id":null,"note_id":null,"topic_id":1,"id":1,"user_id":"3d9ff031-3f82-42ea-88db-e5d55fc22ac9","processing_status":"pending","enrichment_data":null,"processed_at":null,"created_at":"2025-02-20T03:39:25","updated_at":"2025-02-20T03:39:25","topic":{"name":"Work","icon":"💼","id":1,"user_id":"3d9ff031-3f82-42ea-88db-e5d55fc22ac9","created_at":"2025-02-20T03:39:25","updated_at":null}},"message":"Task updated successfully","error":null}
+Update Task2 Response: {"data":{"content":"Complex task that requires multiple steps and careful planning. This task involves:\n1. Research phase\n2. Implementation\n3. Testing\n4. Documentation","status":"in_progress","priority":"high","due_date":"2025-03-07T03:39:24","tags":["test","complex"],"parent_id":1,"note_id":null,"topic_id":2,"id":2,"user_id":"3d9ff031-3f82-42ea-88db-e5d55fc22ac9","processing_status":"pending","enrichment_data":null,"processed_at":null,"created_at":"2025-02-20T03:39:25","updated_at":"2025-02-20T03:39:25","topic":{"name":"Personal","icon":"🏠","id":2,"user_id":"3d9ff031-3f82-42ea-88db-e5d55fc22ac9","created_at":"2025-02-20T03:39:25","updated_at":null}},"message":"Task updated successfully","error":null}
+
+[0;34mListing tasks by topic...[0m
+Work Tasks Response: {"data":{"items":[{"content":"Simple task that needs to be done","status":"todo","priority":"medium","due_date":"2025-02-27T03:39:24","tags":["test","simple"],"parent_id":null,"note_id":null,"topic_id":1,"id":1,"user_id":"3d9ff031-3f82-42ea-88db-e5d55fc22ac9","processing_status":"pending","enrichment_data":null,"processed_at":null,"created_at":"2025-02-20T03:39:25","updated_at":"2025-02-20T03:39:25","topic":{"name":"Work","icon":"💼","id":1,"user_id":"3d9ff031-3f82-42ea-88db-e5d55fc22ac9","created_at":"2025-02-20T03:39:25","updated_at":null}}],"total":1,"page":1,"size":50,"pages":1},"message":"Retrieved 1 tasks","error":null}
+Personal Tasks Response: {"data":{"items":[{"content":"Complex task that requires multiple steps and careful planning. This task involves:\n1. Research phase\n2. Implementation\n3. Testing\n4. Documentation","status":"in_progress","priority":"high","due_date":"2025-03-07T03:39:24","tags":["test","complex"],"parent_id":1,"note_id":null,"topic_id":2,"id":2,"user_id":"3d9ff031-3f82-42ea-88db-e5d55fc22ac9","processing_status":"pending","enrichment_data":null,"processed_at":null,"created_at":"2025-02-20T03:39:25","updated_at":"2025-02-20T03:39:25","topic":{"name":"Personal","icon":"🏠","id":2,"user_id":"3d9ff031-3f82-42ea-88db-e5d55fc22ac9","created_at":"2025-02-20T03:39:25","updated_at":null}}],"total":1,"page":1,"size":50,"pages":1},"message":"Retrieved 1 tasks","error":null}
+
+[0;34m18. Creating tasks for user2...[0m
+
+[0;35m=== Raw API Response for /tasks (User2) ===[0m
+{
+  "data": {
+    "content": "User2 task that needs to be completed by next week",
+    "status": "todo",
+    "priority": "low",
+    "due_date": "2025-02-27T03:39:24",
+    "tags": [
+      "user2"
+    ],
+    "parent_id": null,
+    "note_id": null,
+    "topic_id": null,
+    "id": 3,
+    "user_id": "26a67757-78fc-4cf9-87d5-5baf4e7cf0ea",
+    "processing_status": "pending",
+    "enrichment_data": null,
+    "processed_at": null,
+    "created_at": "2025-02-20T03:39:25",
+    "updated_at": "2025-02-20T03:39:25",
+    "topic": null
+  },
+  "message": "Task created successfully and queued for processing",
+  "error": null
+}
+[0;35m==============================[0m
+
+
+[0;34m19. Listing tasks for user1...[0m
+
+[0;35m=== Raw API Response for /tasks (List) ===[0m
+{
+  "data": {
+    "items": [
+      {
+        "content": "Complex task that requires multiple steps and careful planning. This task involves:\n1. Research phase\n2. Implementation\n3. Testing\n4. Documentation",
+        "status": "in_progress",
+        "priority": "high",
+        "due_date": "2025-03-07T03:39:24",
+        "tags": [
+          "test",
+          "complex"
+        ],
+        "parent_id": 1,
+        "note_id": null,
+        "topic_id": 2,
+        "id": 2,
+        "user_id": "3d9ff031-3f82-42ea-88db-e5d55fc22ac9",
+        "processing_status": "pending",
+        "enrichment_data": null,
+        "processed_at": null,
+        "created_at": "2025-02-20T03:39:25",
+        "updated_at": "2025-02-20T03:39:25",
+        "topic": {
+          "name": "Personal",
+          "icon": "🏠",
+          "id": 2,
+          "user_id": "3d9ff031-3f82-42ea-88db-e5d55fc22ac9",
+          "created_at": "2025-02-20T03:39:25",
+          "updated_at": null
+        }
+      },
+      {
+        "content": "Simple task that needs to be done",
+        "status": "todo",
+        "priority": "medium",
+        "due_date": "2025-02-27T03:39:24",
+        "tags": [
+          "test",
+          "simple"
+        ],
+        "parent_id": null,
+        "note_id": null,
+        "topic_id": 1,
+        "id": 1,
+        "user_id": "3d9ff031-3f82-42ea-88db-e5d55fc22ac9",
+        "processing_status": "pending",
+        "enrichment_data": null,
+        "processed_at": null,
+        "created_at": "2025-02-20T03:39:25",
+        "updated_at": "2025-02-20T03:39:25",
+        "topic": {
+          "name": "Work",
+          "icon": "💼",
+          "id": 1,
+          "user_id": "3d9ff031-3f82-42ea-88db-e5d55fc22ac9",
+          "created_at": "2025-02-20T03:39:25",
+          "updated_at": null
+        }
+      }
+    ],
+    "total": 2,
+    "page": 1,
+    "size": 50,
+    "pages": 1
+  },
+  "message": "Retrieved 2 tasks",
+  "error": null
+}
+[0;35m==============================[0m
+
+
+[0;34m20. Updating task for user1...[0m
+
+[0;35m=== Raw API Response for /tasks/1 (Update) ===[0m
+{
+  "data": {
+    "content": "Updated first task content",
+    "status": "in_progress",
+    "priority": "high",
+    "due_date": "2025-02-27T03:39:24",
+    "tags": [
+      "test",
+      "simple"
+    ],
+    "parent_id": null,
+    "note_id": null,
+    "topic_id": 1,
+    "id": 1,
+    "user_id": "3d9ff031-3f82-42ea-88db-e5d55fc22ac9",
+    "processing_status": "pending",
+    "enrichment_data": null,
+    "processed_at": null,
+    "created_at": "2025-02-20T03:39:25",
+    "updated_at": "2025-02-20T03:39:25",
+    "topic": {
+      "name": "Work",
+      "icon": "💼",
+      "id": 1,
+      "user_id": "3d9ff031-3f82-42ea-88db-e5d55fc22ac9",
+      "created_at": "2025-02-20T03:39:25",
+      "updated_at": null
+    }
+  },
+  "message": "Task updated successfully",
+  "error": null
+}
+[0;35m==============================[0m
+
+
+[0;34m21. Testing task access control...[0m
+
+[0;35m=== Raw API Response for /tasks/3 (Unauthorized) ===[0m
+{
+  "detail": "Task not found"
+}
+[0;35m==============================[0m
+
+[0;32m✓ Task access control working correctly[0m
+
+[0;34m22. Deleting task for user1...[0m
+
+[0;35m=== Raw API Response for /tasks/2 (Delete) ===[0m
+{
+  "message": "Task deleted successfully"
+}
+[0;35m==============================[0m
+
+
+[0;35m=== Raw API Response for /tasks/2 (Verify Delete) ===[0m
+{
+  "detail": "Task not found"
+}
+[0;35m==============================[0m
+
+[0;32m✓ Task deletion verified[0m
+
+[0;34m23. Testing document operations...[0m
+
+[0;34mCreating private document for user1...[0m
+
+[0;35m=== Raw API Response for /docs/upload (Private) ===[0m
+{
+  "data": {
+    "name": "test_flow.sh",
+    "mime_type": "text/x-shellscript",
+    "metadata": {
+      "type": "test",
+      "category": "scripts"
+    },
+    "unique_name": null,
+    "is_public": false,
+    "id": 1,
+    "user_id": "3d9ff031-3f82-42ea-88db-e5d55fc22ac9",
+    "storage_url": "/Users/nyn/develop/friday-api/storage/3d9ff031-3f82-42ea-88db-e5d55fc22ac9/1",
+    "size_bytes": 29596,
+    "status": "active",
+    "created_at": "2025-02-20T03:39:25",
+    "updated_at": "2025-02-20T03:39:25"
+  },
+  "message": null,
+  "error": null
+}
+[0;35m==============================[0m
+
+
+[0;34mCreating public document for user1...[0m
+
+[0;35m=== Raw API Response for /docs/upload (Public) ===[0m
+{
+  "data": {
+    "name": "public_test_flow.sh",
+    "mime_type": "text/x-shellscript",
+    "metadata": {
+      "type": "test",
+      "category": "scripts",
+      "visibility": "public"
+    },
+    "unique_name": "test_flow_123",
+    "is_public": true,
+    "id": 2,
+    "user_id": "3d9ff031-3f82-42ea-88db-e5d55fc22ac9",
+    "storage_url": "/Users/nyn/develop/friday-api/storage/3d9ff031-3f82-42ea-88db-e5d55fc22ac9/2",
+    "size_bytes": 29596,
+    "status": "active",
+    "created_at": "2025-02-20T03:39:25",
+    "updated_at": "2025-02-20T03:39:25"
+  },
+  "message": null,
+  "error": null
+}
+[0;35m==============================[0m
+
+
+[0;34mListing documents for user1...[0m
+
+[0;35m=== Raw API Response for /docs (List) ===[0m
+{
+  "data": {
+    "items": [
+      {
+        "name": "test_flow.sh",
+        "mime_type": "text/x-shellscript",
+        "metadata": {
+          "type": "test",
+          "category": "scripts"
+        },
+        "unique_name": null,
+        "is_public": false,
+        "id": 1,
+        "user_id": "3d9ff031-3f82-42ea-88db-e5d55fc22ac9",
+        "storage_url": "/Users/nyn/develop/friday-api/storage/3d9ff031-3f82-42ea-88db-e5d55fc22ac9/1",
+        "size_bytes": 29596,
+        "status": "active",
+        "created_at": "2025-02-20T03:39:25",
+        "updated_at": "2025-02-20T03:39:25"
+      },
+      {
+        "name": "public_test_flow.sh",
+        "mime_type": "text/x-shellscript",
+        "metadata": {
+          "type": "test",
+          "category": "scripts",
+          "visibility": "public"
+        },
+        "unique_name": "test_flow_123",
+        "is_public": true,
+        "id": 2,
+        "user_id": "3d9ff031-3f82-42ea-88db-e5d55fc22ac9",
+        "storage_url": "/Users/nyn/develop/friday-api/storage/3d9ff031-3f82-42ea-88db-e5d55fc22ac9/2",
+        "size_bytes": 29596,
+        "status": "active",
+        "created_at": "2025-02-20T03:39:25",
+        "updated_at": "2025-02-20T03:39:25"
+      }
+    ],
+    "total": 2,
+    "page": 1,
+    "size": 10,
+    "pages": 1
+  },
+  "message": "Retrieved 2 documents",
+  "error": null
+}
+[0;35m==============================[0m
+
+
+[0;34mGetting private document content...[0m
+
+[0;35m=== Raw API Response for /docs/1/content (Private) ===[0m
+[0;35m==============================[0m
+
+
+[0;34mGetting public document content...[0m
+
+[0;35m=== Raw API Response for /docs/2/content (Public) ===[0m
+[0;35m==============================[0m
+
+
+[0;34mTesting private document access with user2...[0m
+
+[0;35m=== Raw API Response for /docs/1/content (Unauthorized) ===[0m
+{
+  "detail": "Not authorized to access this document"
+}
+[0;35m==============================[0m
+
+
+[0;34mUpdating document metadata...[0m
+
+[0;35m=== Raw API Response for /docs/1 (Update) ===[0m
+{
+  "data": {
+    "name": "updated_test_flow.sh",
+    "mime_type": "text/x-shellscript",
+    "metadata": {
+      "type": "test",
+      "version": "1.1",
+      "category": "scripts",
+      "last_updated": "2025-02-20T03:39:25Z"
+    },
+    "unique_name": null,
+    "is_public": false,
+    "id": 1,
+    "user_id": "3d9ff031-3f82-42ea-88db-e5d55fc22ac9",
+    "storage_url": "/Users/nyn/develop/friday-api/storage/3d9ff031-3f82-42ea-88db-e5d55fc22ac9/1",
+    "size_bytes": 29596,
+    "status": "active",
+    "created_at": "2025-02-20T03:39:25",
+    "updated_at": "2025-02-20T03:39:25"
+  },
+  "message": "Document updated successfully",
+  "error": null
+}
+[0;35m==============================[0m
+
+
+[0;34mTesting document access control...[0m
+
+[0;35m=== Raw API Response for /docs/1/content (Unauthorized) ===[0m
+{
+  "detail": "Not authorized to access this document"
+}
+[0;35m==============================[0m
+
+
+[0;34mDeleting private document...[0m
+
+[0;35m=== Raw API Response for /docs/1 (Delete) ===[0m
+{
+  "data": null,
+  "message": "Document deleted successfully",
+  "error": null
+}
+[0;35m==============================[0m
+
+
+[0;35m=== Raw API Response for /docs/1 (Verify Delete) ===[0m
+{
+  "detail": "Document not found"
+}
+[0;35m==============================[0m
+
+
+[0;34mCleaning up storage directory...[0m
+[0;32m✓ Storage directory cleaned[0m
+
+[0;32mTest flow completed![0m
+
+[0;34mTest logs have been saved to test_flow.log[0m

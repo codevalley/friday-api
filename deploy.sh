@@ -119,6 +119,43 @@ if [ "$INSTALL_DOCKER" = true ]; then
   else
     info "Docker is already installed."
   fi
+
+  # Setup basic security
+  log "Setting up basic security measures..."
+  
+  # Install UFW if not present
+  if ! command -v ufw &>/dev/null; then
+    info "Installing UFW..."
+    apt-get install -y ufw
+  fi
+
+  # Configure UFW
+  info "Configuring firewall rules..."
+  # First, ensure SSH is allowed to prevent lockout
+  ufw allow ssh
+  # Allow HTTP and HTTPS
+  ufw allow http
+  ufw allow https
+  
+  # Enable UFW if not already enabled
+  if ! ufw status | grep -q "Status: active"; then
+    info "Enabling UFW..."
+    echo "y" | ufw enable
+  fi
+  
+  # Modify Docker to respect UFW rules
+  if [ ! -f "/etc/docker/daemon.json" ]; then
+    mkdir -p /etc/docker
+    echo '{
+      "iptables": false
+    }' > /etc/docker/daemon.json
+    systemctl restart docker
+    info "Configured Docker to respect UFW rules"
+  fi
+
+  # Show current UFW status
+  info "Current firewall status:"
+  ufw status
 fi
 
 if [ "$FETCH_CODE" = true ]; then
@@ -153,6 +190,24 @@ else
     NEW_SECRET=$(openssl rand -hex 32)
     sed -i "s|^JWT_SECRET_KEY=.*|JWT_SECRET_KEY=${NEW_SECRET}|" .env
     log "Replaced empty JWT_SECRET_KEY in .env"
+  fi
+fi
+
+# Check and set Redis password
+REDIS_PASSWORD_LINE=$(grep -E '^REDIS_PASSWORD=' .env || true)
+if [ -z "$REDIS_PASSWORD_LINE" ]; then
+  # Generate a secure Redis password if not present
+  NEW_REDIS_PASSWORD=$(openssl rand -base64 32)
+  echo "REDIS_PASSWORD=${NEW_REDIS_PASSWORD}" >> .env
+  log "Created REDIS_PASSWORD in .env"
+else
+  # It exists, check if it's empty
+  CURRENT_VALUE=$(echo "$REDIS_PASSWORD_LINE" | cut -d '=' -f2-)
+  if [ -z "$CURRENT_VALUE" ]; then
+    # It's blank
+    NEW_REDIS_PASSWORD=$(openssl rand -base64 32)
+    sed -i "s|^REDIS_PASSWORD=.*|REDIS_PASSWORD=${NEW_REDIS_PASSWORD}|" .env
+    log "Replaced empty REDIS_PASSWORD in .env"
   fi
 fi
 

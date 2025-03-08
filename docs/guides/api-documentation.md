@@ -82,18 +82,19 @@ Below is a comprehensive API guide extracted from the **Friday API** codebase an
 }
 ```
 
-**Response** (usually wrapped in `GenericResponse`):
+**Response**:
 ```json
 {
   "data": {
-    "id": "string (UUID)",
-    "username": "string",
-    "key_id": "string (UUID)",
-    "user_secret": "string (the secret part of the API key)",
-    "created_at": "ISO datetime",
-    "updated_at": "ISO datetime or null"
+    "id": "3d9ff031-3f82-42ea-88db-e5d55fc22ac9",
+    "username": "user1",
+    "key_id": "12c1a75f-010f-4ad3-bc93-00623953c001",
+    "user_secret": "12c1a75f-010f-4ad3-bc93-00623953c001.as5wiE5xBFBZp1cqaPCJmC3yihFDIrxMMMxQrV9Nof0",
+    "created_at": "2025-02-20T03:39:19",
+    "updated_at": "2025-02-20T03:39:19"
   },
-  "message": "User registered successfully"
+  "message": "User registered successfully",
+  "error": null
 }
 ```
 - `user_secret` is used in the next step to obtain a bearer token.
@@ -116,10 +117,11 @@ Below is a comprehensive API guide extracted from the **Friday API** codebase an
 ```json
 {
   "data": {
-    "access_token": "string (JWT token)",
+    "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
     "token_type": "bearer"
   },
-  "message": "Login successful"
+  "message": "Login successful",
+  "error": null
 }
 ```
 - **Bearer Token** needs to be sent in the `Authorization` header for all subsequent requests:
@@ -144,12 +146,13 @@ Authorization: Bearer <access_token>
 ```json
 {
   "data": {
-    "id": "string (UUID)",
-    "username": "string",
-    "created_at": "ISO datetime",
-    "updated_at": "ISO datetime or null"
+    "id": "3d9ff031-3f82-42ea-88db-e5d55fc22ac9",
+    "username": "user1",
+    "created_at": "2025-02-20T03:39:19",
+    "updated_at": "2025-02-20T03:39:19"
   },
-  "message": "Current user retrieved successfully"
+  "message": "Current user retrieved successfully",
+  "error": null
 }
 ```
 - If the user/token is invalid, returns a `401 Unauthorized`.
@@ -546,7 +549,7 @@ Content-Type: application/json
 ```json
 {
   "data": {
-    "id": 123,  // Activity's numeric ID
+    "id": 1,
     "name": "Reading",
     "description": "Track reading sessions",
     "activity_schema": { ... },
@@ -556,9 +559,13 @@ Content-Type: application/json
     "moment_count": 0,
     "created_at": "ISO datetime",
     "updated_at": null,
-    "moments": null
+    "moments": null,
+    "processing_status": "pending",
+    "schema_render": null,
+    "processed_at": null
   },
-  "message": "Activity created successfully"
+  "message": "Activity created successfully",
+  "error": null
 }
 ```
 
@@ -702,15 +709,44 @@ Content-Type: application/json
 ```json
 {
   "data": {
-    "id": 1,
-    "activity_id": 123,
+    "activity_id": 1,
     "data": { "book": "Book 1","pages":50 },
     "timestamp": "2024-12-12T12:30:00Z",
-    "user_id": "UUID",
-    "created_at": "ISO datetime",
-    "updated_at": null
+    "note_id": null,
+    "id": 1,
+    "activity": {
+      "id": 1,
+      "name": "Reading",
+      "description": "Track reading sessions",
+      "activity_schema": {
+        "type": "object",
+        "required": ["book", "pages"],
+        "properties": {
+          "book": { "type": "string" },
+          "pages": { "type": "number" }
+        }
+      },
+      "icon": "📚",
+      "color": "#4A90E2",
+      "user_id": "3d9ff031-3f82-42ea-88db-e5d55fc22ac9",
+      "moment_count": 1,
+      "created_at": "2025-02-20T03:39:19",
+      "updated_at": "2025-02-20T03:39:21",
+      "moments": [...],
+      "processing_status": "completed",
+      "schema_render": {
+        "title_template": "$action",
+        "content_template": "$content",
+        "suggested_layout": {
+          "type": "card",
+          "sections": []
+        }
+      },
+      "processed_at": "2025-02-20T03:39:21"
+    }
   },
-  "message": "Moment created successfully"
+  "message": "Moment created successfully",
+  "error": null
 }
 ```
 
@@ -869,7 +905,7 @@ They return updated Moment data upon success.
 ```json
 {
   "data": {
-    "id": 10,
+    "id": 1,
     "content": "My second note - with photo",
     "user_id": "UUID",
     "attachments": [
@@ -878,13 +914,14 @@ They return updated Moment data upon success.
         "url": "https://example.com/photo.jpg"
       }
     ],
-    "processing_status": "NOT_PROCESSED" | "PENDING" | ...
+    "processing_status": "pending",
     "enrichment_data": null,
     "processed_at": null,
     "created_at": "ISO datetime",
     "updated_at": null
   },
-  "message": "Note created successfully"
+  "message": "Note created successfully",
+  "error": null
 }
 ```
 
@@ -906,7 +943,7 @@ They return updated Moment data upon success.
         "content": "...",
         "user_id": "UUID",
         "attachments": [],
-        "processing_status": "NOT_PROCESSED",
+        "processing_status": "pending",
         "enrichment_data": null,
         "processed_at": null,
         "created_at": "2025-01-01T10:00:00Z",
@@ -937,7 +974,7 @@ They return updated Moment data upon success.
     "content": "...",
     "user_id": "UUID",
     "attachments": [...],
-    "processing_status": "NOT_PROCESSED" | "...",
+    "processing_status": "pending",
     "enrichment_data": null,
     "processed_at": null,
     "created_at": "ISO datetime",
@@ -962,7 +999,7 @@ They return updated Moment data upon success.
       "url": "https://example.com/updated.pdf"
     }
   ],
-  "processing_status": "COMPLETED"
+  "processing_status": "completed"
 }
 ```
 
@@ -979,11 +1016,11 @@ They return updated Moment data upon success.
         "url": "https://example.com/updated.pdf"
       }
     ],
-    "processing_status": "COMPLETED",
-    "enrichment_data": ...,
-    "processed_at": "ISO datetime or null",
+    "processing_status": "completed",
+    "enrichment_data": null,
+    "processed_at": null,
     "created_at": "ISO datetime",
-    "updated_at": "ISO datetime"
+    "updated_at": null
   },
   "message": "Note updated successfully"
 }
@@ -1038,7 +1075,7 @@ They return updated Moment data upon success.
 ```json
 {
   "data": {
-    "id": 10,
+    "id": 1,
     "content": "Research and implement new caching strategy...",
     "user_id": "UUID",
     "status": "todo",
@@ -1047,7 +1084,7 @@ They return updated Moment data upon success.
     "tags": ["tech", "performance"],
     "parent_id": null,
     "topic_id": null,
-    "processing_status": "NOT_PROCESSED" | "PENDING" | "COMPLETED" | "FAILED",
+    "processing_status": "pending",
     "enrichment_data": {
       "title": "Implement API Caching Strategy",
       "metadata": {
@@ -1059,7 +1096,8 @@ They return updated Moment data upon success.
     "created_at": "ISO datetime",
     "updated_at": null
   },
-  "message": "Task created successfully"
+  "message": "Task created successfully and queued for processing",
+  "error": null
 }
 ```
 
@@ -1082,7 +1120,7 @@ They return updated Moment data upon success.
         "tags": ["tech", "performance"],
         "parent_id": null,
         "topic_id": null,
-        "processing_status": "COMPLETED",
+        "processing_status": "completed",
         "enrichment_data": {
           "title": "...",
           "metadata": {
@@ -1122,7 +1160,7 @@ They return updated Moment data upon success.
     "tags": ["tech", "performance"],
     "parent_id": null,
     "topic_id": null,
-    "processing_status": "COMPLETED",
+    "processing_status": "completed",
     "enrichment_data": {
       "title": "...",
       "metadata": {
@@ -1166,7 +1204,7 @@ They return updated Moment data upon success.
     "tags": ["updated", "tags"],
     "parent_id": null,
     "topic_id": 123,
-    "processing_status": "PENDING",
+    "processing_status": "pending",
     "enrichment_data": null,
     "processed_at": null,
     "created_at": "ISO datetime",
